@@ -19,3 +19,8 @@ spike/spike_startup_error.txt
 Thumbs.db
 .DS_Store
 desktop.ini
+
+# Sample media (not versioned)
+*.MOV
+*.mov
+*.mp4

@@ -902,6 +902,8 @@ def test_moments_and_metrics(db):
         Metric(sw, "hip_sway_in", "impact", 2.5, "in", "shoulder_ratio_0.24")])
     got = {(m.name, m.context): m.value for m in repo.get_metrics(db, sw)}
     assert got[("hip_sway_in", "impact")] == 2.5
+    assert repo.clear_metrics(db, sw) == 2  # idempotent recompute support
+    assert repo.get_metrics(db, sw) == []
 
 
 def test_swing_history_orders_by_time(db):
@@ -963,6 +965,12 @@ def get_metrics(conn, swing_id):
     return [Metric(id=r["id"], swing_id=r["swing_id"], name=r["name"],
                    context=r["context"], value=r["value"], unit=r["unit"],
                    method=r["method"], created_at=r["created_at"]) for r in rows]
+
+
+def clear_metrics(conn, swing_id):
+    cur = conn.execute("DELETE FROM metric WHERE swing_id=?", (swing_id,))
+    conn.commit()
+    return cur.rowcount
 
 
 def swing_history(conn, player_id, metric_name, context="overall"):

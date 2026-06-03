@@ -180,6 +180,7 @@ Signatures (illustrative; return persisted dataclasses or ids):
 - `get_pose_frames(swing_id, view) -> list[PoseFrame]`
 - `get_moments(swing_id) -> list[Moment]`
 - `get_metrics(swing_id) -> list[Metric]`
+- `clear_metrics(swing_id) -> int`  # delete a swing's metrics (idempotent recompute by Metrics brain)
 - `save_media(media: Media) -> Media` · `get_media(swing_id) -> list[Media]`
 - `swing_history(player_id, metric_name, context="overall") -> list[(swing_id,
   created_at, value)]`  # powers trend tracking

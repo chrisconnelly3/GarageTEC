@@ -54,3 +54,20 @@ class SyncService:
         swings = self._swing_candidates(session_id, player_id)
         shots = self._shot_candidates(session_id, player_id)
         return propose(swings, shots, time_window_s=self.time_window_s)
+
+    def auto_reconcile(self, *, session_id, player_id) -> dict:
+        """Apply links for proposals at/above threshold; return both lists.
+
+        Returns {"linked": [MatchProposal...], "proposals": [MatchProposal...]}.
+        Conservative: anything below threshold is left for the UI, never forced.
+        """
+        proposals = self.propose_matches(session_id=session_id,
+                                         player_id=player_id)
+        linked, rest = [], []
+        for p in proposals:
+            if p.confidence >= self.threshold:
+                repo.link_shot_to_swing(self.conn, p.shot_id, p.swing_id)
+                linked.append(p)
+            else:
+                rest.append(p)
+        return {"linked": linked, "proposals": rest}

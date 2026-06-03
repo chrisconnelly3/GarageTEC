@@ -69,3 +69,42 @@ def end_idle_sessions(conn, idle_minutes):
             end_session(conn, r["id"])
             closed += 1
     return closed
+
+
+def _swing_from_row(r):
+    return Swing(id=r["id"], session_id=r["session_id"], player_id=r["player_id"],
+                 created_at=r["created_at"], source_video_path=r["source_video_path"],
+                 view_layout=r["view_layout"], fps=r["fps"], width=r["width"],
+                 height=r["height"], club=r["club"], notes=r["notes"],
+                 shot_id=r["shot_id"])
+
+
+def add_swing(conn, session_id, player_id, source_video_path, *, view_layout=None,
+              fps=None, width=None, height=None, club=None, notes=None):
+    ts = dbmod.now_iso()
+    cur = conn.execute(
+        "INSERT INTO swing(session_id, player_id, created_at, source_video_path, "
+        "view_layout, fps, width, height, club, notes) VALUES (?,?,?,?,?,?,?,?,?,?)",
+        (session_id, player_id, ts, source_video_path, view_layout, fps, width,
+         height, club, notes))
+    conn.commit()
+    return _swing_from_row(conn.execute(
+        "SELECT * FROM swing WHERE id=?", (cur.lastrowid,)).fetchone())
+
+
+def get_swing(conn, swing_id):
+    row = conn.execute("SELECT * FROM swing WHERE id=?", (swing_id,)).fetchone()
+    return _swing_from_row(row) if row else None
+
+
+def list_swings(conn, session_id=None, limit=None):
+    sql = "SELECT * FROM swing"
+    args = []
+    if session_id is not None:
+        sql += " WHERE session_id=?"
+        args.append(session_id)
+    sql += " ORDER BY id"
+    if limit is not None:
+        sql += " LIMIT ?"
+        args.append(limit)
+    return [_swing_from_row(r) for r in conn.execute(sql, args).fetchall()]

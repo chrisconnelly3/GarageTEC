@@ -132,3 +132,32 @@ def link_shot_to_swing(conn, shot_id, swing_id):
     conn.execute("UPDATE shot SET swing_id=? WHERE id=?", (swing_id, shot_id))
     conn.execute("UPDATE swing SET shot_id=? WHERE id=?", (shot_id, swing_id))
     conn.commit()
+
+
+def _landmarks_to_json(landmarks):
+    return json.dumps([[lm.name, lm.x, lm.y, lm.z, lm.visibility]
+                       for lm in landmarks])
+
+
+def _landmarks_from_json(text):
+    return [Landmark(n, x, y, z, v) for (n, x, y, z, v) in json.loads(text)]
+
+
+def save_pose_frames(conn, swing_id, view, frames):
+    rows = [(swing_id, view, f.frame_index, f.time_s,
+             _landmarks_to_json(f.landmarks), f.source) for f in frames]
+    conn.executemany(
+        "INSERT OR REPLACE INTO pose_frame(swing_id, view, frame_index, time_s, "
+        "landmarks_json, source) VALUES (?,?,?,?,?,?)", rows)
+    conn.commit()
+    return len(rows)
+
+
+def get_pose_frames(conn, swing_id, view):
+    rows = conn.execute(
+        "SELECT * FROM pose_frame WHERE swing_id=? AND view=? "
+        "ORDER BY frame_index", (swing_id, view)).fetchall()
+    return [PoseFrame(id=r["id"], swing_id=r["swing_id"], view=r["view"],
+                      frame_index=r["frame_index"], time_s=r["time_s"],
+                      landmarks=_landmarks_from_json(r["landmarks_json"]),
+                      source=r["source"]) for r in rows]

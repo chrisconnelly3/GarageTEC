@@ -74,6 +74,8 @@ Dataclasses (fields abbreviated; all get an `id` once persisted):
   (e.g. "shoulder_ratio_0.24").
 - `Media(swing_id, kind, path, meta_json)` — `kind` in
   {"source_video","annotated_video","keyframe"}.
+- `Coaching(swing_id|None, session_id|None, kind, content_json, model,
+  created_at)` — AI feedback; `kind` in {"swing","session"}.
 
 ## 6. Schema (`store/schema.sql`)
 
@@ -143,6 +145,14 @@ CREATE TABLE IF NOT EXISTS media (
   kind TEXT NOT NULL, path TEXT NOT NULL, meta_json TEXT
 );
 
+CREATE TABLE IF NOT EXISTS coaching (
+  id INTEGER PRIMARY KEY,
+  swing_id INTEGER REFERENCES swing(id),
+  session_id INTEGER REFERENCES session(id),
+  kind TEXT NOT NULL, content_json TEXT NOT NULL,
+  model TEXT, created_at TEXT NOT NULL
+);
+
 CREATE INDEX IF NOT EXISTS ix_swing_session ON swing(session_id);
 CREATE INDEX IF NOT EXISTS ix_swing_player ON swing(player_id);
 CREATE INDEX IF NOT EXISTS ix_pose_swing ON pose_frame(swing_id, view);
@@ -185,6 +195,7 @@ Signatures (illustrative; return persisted dataclasses or ids):
 - `get_metrics(swing_id) -> list[Metric]`
 - `clear_metrics(swing_id) -> int`  # delete a swing's metrics (idempotent recompute by Metrics brain)
 - `save_media(media: Media) -> Media` · `get_media(swing_id) -> list[Media]`
+- `save_coaching(c: Coaching) -> Coaching` · `get_coaching(swing_id=None, session_id=None) -> list[Coaching]`
 - `swing_history(player_id, metric_name, context="overall") -> list[(swing_id,
   created_at, value)]`  # powers trend tracking
 

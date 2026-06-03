@@ -28,6 +28,14 @@ def list_players(conn):
             for r in rows]
 
 
+def get_player(conn, player_id):
+    row = conn.execute("SELECT * FROM player WHERE id=?", (player_id,)).fetchone()
+    if row is None:
+        return None
+    return Player(id=row["id"], name=row["name"], height_in=row["height_in"],
+                  handedness=row["handedness"], created_at=row["created_at"])
+
+
 def create_session(conn, player_id, location=None, notes=None):
     ts = dbmod.now_iso()
     cur = conn.execute(

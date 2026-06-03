@@ -63,6 +63,28 @@ def get_open_session(conn, player_id):
                    location=row["location"], notes=row["notes"])
 
 
+def _session_from_row(r):
+    return Session(id=r["id"], player_id=r["player_id"],
+                   started_at=r["started_at"], ended_at=r["ended_at"],
+                   location=r["location"], notes=r["notes"])
+
+
+def get_session(conn, session_id):
+    row = conn.execute("SELECT * FROM session WHERE id=?",
+                       (session_id,)).fetchone()
+    return _session_from_row(row) if row else None
+
+
+def list_sessions(conn, player_id=None):
+    sql = "SELECT * FROM session"
+    args = []
+    if player_id is not None:
+        sql += " WHERE player_id=?"
+        args.append(player_id)
+    sql += " ORDER BY id DESC"
+    return [_session_from_row(r) for r in conn.execute(sql, args).fetchall()]
+
+
 def end_idle_sessions(conn, idle_minutes):
     """Close open sessions whose most-recent shot (or start) is older than
     idle_minutes. Returns count closed."""

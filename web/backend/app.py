@@ -2,7 +2,7 @@
 from fastapi import FastAPI
 
 from web.backend import (
-    api_players, api_sessions, api_swings, api_history, api_sync,
+    api_players, api_sessions, api_swings, api_history, api_sync, events,
 )
 
 
@@ -18,4 +18,5 @@ def create_app() -> FastAPI:
     app.include_router(api_swings.router)
     app.include_router(api_history.router)
     app.include_router(api_sync.router)
+    app.include_router(events.router)
     return app

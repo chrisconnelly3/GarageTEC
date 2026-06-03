@@ -108,3 +108,27 @@ def list_swings(conn, session_id=None, limit=None):
         sql += " LIMIT ?"
         args.append(limit)
     return [_swing_from_row(r) for r in conn.execute(sql, args).fetchall()]
+
+
+_SHOT_COLS = [
+    "swing_id", "player_id", "session_id", "captured_at", "device_id",
+    "shot_number", "ball_speed", "total_spin", "spin_axis", "hla", "vla",
+    "carry", "club_speed", "attack_angle", "club_path", "face_to_target",
+    "raw_json",
+]
+
+
+def save_shot(conn, shot: Shot):
+    vals = [getattr(shot, c) for c in _SHOT_COLS]
+    placeholders = ",".join("?" * len(_SHOT_COLS))
+    cur = conn.execute(
+        f"INSERT INTO shot({','.join(_SHOT_COLS)}) VALUES ({placeholders})", vals)
+    conn.commit()
+    shot.id = cur.lastrowid
+    return shot
+
+
+def link_shot_to_swing(conn, shot_id, swing_id):
+    conn.execute("UPDATE shot SET swing_id=? WHERE id=?", (swing_id, shot_id))
+    conn.execute("UPDATE swing SET shot_id=? WHERE id=?", (shot_id, swing_id))
+    conn.commit()

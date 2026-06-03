@@ -4,6 +4,10 @@ spike/build/
 spike/dist/
 *.spec
 
+# PyInstaller outputs (catcher exe — rebuildable from source)
+/build/
+/dist/
+
 # Python
 __pycache__/
 *.pyc

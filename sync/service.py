@@ -23,18 +23,55 @@ class SyncService:
     def _swing_candidates(self, session_id, player_id):
         swings = repo.list_unmatched_swings(self.conn, session_id=session_id,
                                             player_id=player_id)
-        out = []
-        for order, sw in enumerate(swings):
-            out.append(SwingCandidate(swing_id=sw.id, order=order,
-                                      impact_time=self._impact_time(sw.id)))
-        return out
+        return swings  # raw rows; alignment happens in propose_matches
 
     def _shot_candidates(self, session_id, player_id):
-        shots = repo.list_unmatched_shots(self.conn, session_id=session_id,
-                                          player_id=player_id)
-        return [ShotCandidate(shot_id=sh.id, order=order,
-                              captured_at=sh.captured_at)
-                for order, sh in enumerate(shots)]
+        return repo.list_unmatched_shots(self.conn, session_id=session_id,
+                                         player_id=player_id)
+
+    def _aligned_inputs(self, swings, shots):
+        """Build matcher inputs. If every swing has an impact moment AND there is
+        at least one shot, align both onto a shared zero-based seconds clock:
+          - shot seconds  = captured_at(POSIX) - min(captured_at)
+          - swing seconds  = impact_time - min(impact_time), shifted to the same
+            zero as the shots so close pairs have small deltas.
+        Otherwise pass impact_time=None (order-only)."""
+        impacts = [self._impact_time(sw.id) for sw in swings]
+        shot_secs = [self._to_posix(sh.captured_at) for sh in shots]
+        can_align = (swings and shots
+                     and all(t is not None for t in impacts)
+                     and all(s is not None for s in shot_secs))
+
+        if can_align:
+            base_shot = min(shot_secs)
+            base_impact = min(impacts)
+            swing_cands = [
+                SwingCandidate(swing_id=sw.id, order=i,
+                               impact_time=(impacts[i] - base_impact))
+                for i, sw in enumerate(swings)
+            ]
+            shot_cands = [
+                ShotCandidate(shot_id=sh.id, order=i,
+                              captured_at=(shot_secs[i] - base_shot))
+                for i, sh in enumerate(shots)
+            ]
+        else:
+            swing_cands = [SwingCandidate(swing_id=sw.id, order=i, impact_time=None)
+                           for i, sw in enumerate(swings)]
+            shot_cands = [ShotCandidate(shot_id=sh.id, order=i,
+                                        captured_at=sh.captured_at)
+                          for i, sh in enumerate(shots)]
+        return swing_cands, shot_cands
+
+    @staticmethod
+    def _to_posix(captured_at):
+        from datetime import datetime
+        if captured_at is None:
+            return None
+        try:
+            return datetime.fromisoformat(captured_at).timestamp()
+        except (TypeError, ValueError):
+            return None
 
     def _impact_time(self, swing_id):
         """Swing impact wall-clock proxy: the impact moment's time_s, or None.
@@ -51,9 +88,12 @@ class SyncService:
     # ---- proposals ---------------------------------------------------------
 
     def propose_matches(self, *, session_id, player_id) -> list[MatchProposal]:
-        swings = self._swing_candidates(session_id, player_id)
-        shots = self._shot_candidates(session_id, player_id)
-        return propose(swings, shots, time_window_s=self.time_window_s)
+        swings = repo.list_unmatched_swings(self.conn, session_id=session_id,
+                                            player_id=player_id)
+        shots = repo.list_unmatched_shots(self.conn, session_id=session_id,
+                                          player_id=player_id)
+        swing_cands, shot_cands = self._aligned_inputs(swings, shots)
+        return propose(swing_cands, shot_cands, time_window_s=self.time_window_s)
 
     def auto_reconcile(self, *, session_id, player_id) -> dict:
         """Apply links for proposals at/above threshold; return both lists.

@@ -51,3 +51,26 @@ def test_auto_reconcile_links_confident_and_returns_rest(ctx):
     assert result2["proposals"] == []
     linked_shot_ids = {repo.get_swing(db, sw.id).shot_id for sw in sws}
     assert linked_shot_ids == {sh.id for sh in shs}
+
+
+def _swing_with_impact(db, pid, sid, impact_s):
+    sw = repo.add_swing(db, pid and sid and sid, pid, "v.MOV") if False else \
+        repo.add_swing(db, sid, pid, "v.MOV")
+    repo.save_moments(db, sw.id, [Moment(sw.id, "impact", "face_on", 100, impact_s)])
+    return sw
+
+
+def test_aligned_times_make_order_pairs_auto_linkable(ctx):
+    db, pid, sid = ctx
+    # impact times (relative s) increase with order; shot captured_at increases
+    # with order too -> consistent -> service grants a time bonus.
+    sw1 = _swing_with_impact(db, pid, sid, 2.0)
+    sw2 = _swing_with_impact(db, pid, sid, 9.0)
+    sh1 = _shot(db, pid, sid, "2026-06-03T00:00:02+00:00")
+    sh2 = _shot(db, pid, sid, "2026-06-03T00:00:09+00:00")
+
+    svc = SyncService(db)  # default threshold 0.75
+    result = svc.auto_reconcile(session_id=sid, player_id=pid)
+    assert len(result["linked"]) == 2  # time bonus pushed both over 0.75
+    assert repo.get_swing(db, sw1.id).shot_id == sh1.id
+    assert repo.get_swing(db, sw2.id).shot_id == sh2.id

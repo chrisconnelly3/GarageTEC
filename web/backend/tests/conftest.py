@@ -1,4 +1,5 @@
 import json
+import sqlite3
 
 import pytest
 from fastapi.testclient import TestClient
@@ -12,7 +13,11 @@ from web.backend import deps
 
 @pytest.fixture
 def conn():
-    c = dbmod.connect(":memory:")
+    # TestClient runs sync endpoints in a worker thread, so the shared
+    # in-memory connection must allow cross-thread use.
+    c = sqlite3.connect(":memory:", check_same_thread=False)
+    c.row_factory = sqlite3.Row
+    c.execute("PRAGMA foreign_keys=ON;")
     dbmod.init_db(conn=c)
     yield c
     c.close()

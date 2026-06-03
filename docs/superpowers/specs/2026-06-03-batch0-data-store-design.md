@@ -175,6 +175,9 @@ Signatures (illustrative; return persisted dataclasses or ids):
 - `save_metrics(swing_id, metrics: list[Metric]) -> int`
 - `save_shot(shot: Shot) -> Shot`
 - `link_shot_to_swing(shot_id, swing_id) -> None`
+- `unlink_shot(swing_id) -> None`  # clear both sides of the link (Sync manual fix)
+- `list_unmatched_swings(session_id=None, player_id=None) -> list[Swing]`  # shot_id IS NULL
+- `list_unmatched_shots(session_id=None, player_id=None) -> list[Shot]`  # swing_id IS NULL
 - `get_swing(swing_id) -> Swing | None`
 - `list_swings(session_id=None, limit=None) -> list[Swing]`
 - `get_pose_frames(swing_id, view) -> list[PoseFrame]`

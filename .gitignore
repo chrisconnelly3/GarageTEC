@@ -4,23 +4,39 @@ spike/build/
 spike/dist/
 *.spec
 
+# PyInstaller outputs (catcher exe — rebuildable from source)
+/build/
+/dist/
+
 # Python
 __pycache__/
 *.pyc
 .venv/
 venv/
+.venv311/
 .env
 
 # Spike capture output (raw shot data / device IDs / can be large)
 spike/spike_log_*.jsonl
 spike/spike_startup_error.txt
 
-# OS cruft
-Thumbs.db
-.DS_Store
-desktop.ini
+# Catcher/vision runtime output (per-run, not source)
+data/pending_shots.jsonl
+data/*.db
+data/*.db-wal
+data/*.db-shm
+swings/
+
+# Pose model files (downloaded, not source)
+*.task
+*.tflite
 
 # Sample media (not versioned)
 *.MOV
 *.mov
 *.mp4
+
+# OS cruft
+Thumbs.db
+.DS_Store
+desktop.ini

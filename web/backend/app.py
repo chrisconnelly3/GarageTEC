@@ -1,7 +1,9 @@
 """GarageTEC Screen backend: REST + SSE + media + static frontend."""
 from fastapi import FastAPI
 
-from web.backend import api_players, api_sessions, api_swings, api_history
+from web.backend import (
+    api_players, api_sessions, api_swings, api_history, api_sync,
+)
 
 
 def create_app() -> FastAPI:
@@ -15,4 +17,5 @@ def create_app() -> FastAPI:
     app.include_router(api_sessions.router)
     app.include_router(api_swings.router)
     app.include_router(api_history.router)
+    app.include_router(api_sync.router)
     return app

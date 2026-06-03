@@ -1,0 +1,28 @@
+{
+  "_meta": {
+    "status": "PLACEHOLDER, not curated",
+    "note": "Curating accurate, well-sourced ideal ranges is a HUMAN research task. Do not treat these numbers as authoritative. Entries with confidence 'none' have no reputable public range and the coach falls back to the player's own history for them. Replace ranges and add real citations from reputable golf-biomechanics sources before relying on this dataset.",
+    "units_doc": "range is [low, high] inclusive in the stated units; empty range means no ideal."
+  },
+  "hip_sway_in": {
+    "range": [],
+    "units": "in",
+    "source": null,
+    "confidence": "none",
+    "comment": "Lateral pelvic sway toward target at impact; no reputable single public range. Use player history."
+  },
+  "shoulder_tilt_deg": {
+    "range": [],
+    "units": "deg",
+    "source": null,
+    "confidence": "none",
+    "comment": "Secondary spine tilt away from target at impact varies by club/player. Use player history."
+  },
+  "club_path_deg": {
+    "range": [-2.0, 2.0],
+    "units": "deg",
+    "source": "Directional convention only: a near-zero club path produces a straighter start line; this is a rule-of-thumb band, NOT a validated population norm. Replace with a cited source.",
+    "confidence": "low",
+    "comment": "Sign convention: positive = in-to-out. Band is illustrative; verify before use."
+  }
+}

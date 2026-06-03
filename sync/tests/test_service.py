@@ -74,3 +74,41 @@ def test_aligned_times_make_order_pairs_auto_linkable(ctx):
     assert len(result["linked"]) == 2  # time bonus pushed both over 0.75
     assert repo.get_swing(db, sw1.id).shot_id == sh1.id
     assert repo.get_swing(db, sw2.id).shot_id == sh2.id
+
+
+def test_multi_user_no_cross_player_link(db):
+    # Two players in the SAME session window, overlapping in time.
+    p1 = repo.get_or_create_player(db, "Chris", 72.0, "R").id
+    p2 = repo.get_or_create_player(db, "Brother", 70.0, "R").id
+    s1 = repo.create_session(db, p1).id
+    s2 = repo.create_session(db, p2).id
+
+    sw1 = repo.add_swing(db, s1, p1, "chris.MOV")
+    sw2 = repo.add_swing(db, s2, p2, "brother.MOV")
+    # brother's shot is captured first in wall-clock, but belongs to p2/s2
+    sh_brother = repo.save_shot(db, Shot(captured_at="2026-06-03T00:00:01+00:00",
+                                         player_id=p2, session_id=s2))
+    sh_chris = repo.save_shot(db, Shot(captured_at="2026-06-03T00:00:02+00:00",
+                                       player_id=p1, session_id=s1))
+
+    svc = SyncService(db, threshold=0.5)  # loose so order pairs would link
+    svc.auto_reconcile(session_id=s1, player_id=p1)
+    svc.auto_reconcile(session_id=s2, player_id=p2)
+
+    # Chris's swing must link ONLY to Chris's shot, never the brother's.
+    assert repo.get_swing(db, sw1.id).shot_id == sh_chris.id
+    assert repo.get_swing(db, sw2.id).shot_id == sh_brother.id
+
+
+def test_cross_session_same_player_not_matched(db):
+    pid = repo.get_or_create_player(db, "Chris", 72.0, "R").id
+    s_old = repo.create_session(db, pid).id
+    s_new = repo.create_session(db, pid).id
+    old_swing = repo.add_swing(db, s_old, pid, "old.MOV")
+    new_shot = repo.save_shot(db, Shot(captured_at="2026-06-03T00:00:01+00:00",
+                                       player_id=pid, session_id=s_new))
+    svc = SyncService(db, threshold=0.5)
+    svc.auto_reconcile(session_id=s_new, player_id=pid)
+    # the old session's swing is out of scope -> stays unmatched
+    assert repo.get_swing(db, old_swing.id).shot_id is None
+    assert repo.list_unmatched_shots(db, session_id=s_new) != []

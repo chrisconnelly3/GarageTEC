@@ -250,6 +250,11 @@ def _shot_from_row(r):
                 face_to_target=r["face_to_target"], raw_json=r["raw_json"])
 
 
+def get_shot(conn, shot_id):
+    row = conn.execute("SELECT * FROM shot WHERE id=?", (shot_id,)).fetchone()
+    return _shot_from_row(row) if row else None
+
+
 def _filtered(sql, session_id, player_id):
     clauses, args = [], []
     if session_id is not None:

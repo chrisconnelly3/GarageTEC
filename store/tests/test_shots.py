@@ -26,3 +26,14 @@ def test_link_shot_and_swing_both_directions(db):
     assert repo.get_swing(db, sw.id).shot_id == shot.id
     row = db.execute("SELECT swing_id FROM shot WHERE id=?", (shot.id,)).fetchone()
     assert row["swing_id"] == sw.id
+
+
+def test_get_shot_by_id(db):
+    pid, sid = _ctx(db)
+    saved = repo.save_shot(db, Shot(captured_at="2026-06-03T00:00:00+00:00",
+                                    player_id=pid, session_id=sid,
+                                    ball_speed=148.2, club_speed=98.0))
+    got = repo.get_shot(db, saved.id)
+    assert got is not None and got.id == saved.id
+    assert got.ball_speed == 148.2 and got.club_speed == 98.0
+    assert repo.get_shot(db, 999999) is None

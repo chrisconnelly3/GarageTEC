@@ -82,3 +82,21 @@ def test_coach_session_persists_session_coaching(db, seeded):
     assert result.kind == "session"
     rows = repo.get_coaching(db, session_id=seeded["session_id"])
     assert len(rows) == 1
+
+
+def test_cli_run_swing_with_injected_backend(db, seeded, capsys):
+    from coach import run
+    ctx = context_mod.build_swing_context(db, seeded["swing_id"])
+    backend = FakeBackend(canned=_valid_for(ctx))
+
+    code = run._run(["--swing", str(seeded["swing_id"])], conn=db, backend=backend)
+    assert code == 0
+    out = capsys.readouterr().out
+    assert "headline" in out.lower() or "Hips" in out
+    assert len(repo.get_coaching(db, swing_id=seeded["swing_id"])) == 1
+
+
+def test_cli_requires_a_target(db):
+    from coach import run
+    with pytest.raises(SystemExit):
+        run._run([], conn=db, backend=FakeBackend(canned={}))

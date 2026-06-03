@@ -153,6 +153,14 @@ CREATE TABLE IF NOT EXISTS media (
   kind TEXT NOT NULL, path TEXT NOT NULL, meta_json TEXT
 );
 
+CREATE TABLE IF NOT EXISTS coaching (
+  id INTEGER PRIMARY KEY,
+  swing_id INTEGER REFERENCES swing(id),
+  session_id INTEGER REFERENCES session(id),
+  kind TEXT NOT NULL, content_json TEXT NOT NULL,
+  model TEXT, created_at TEXT NOT NULL
+);
+
 CREATE INDEX IF NOT EXISTS ix_swing_session ON swing(session_id);
 CREATE INDEX IF NOT EXISTS ix_swing_player ON swing(player_id);
 CREATE INDEX IF NOT EXISTS ix_pose_swing ON pose_frame(swing_id, view);
@@ -389,12 +397,24 @@ class Media:
     path: str
     meta_json: Optional[str] = None
     id: Optional[int] = None
+
+
+@dataclass
+class Coaching:
+    swing_id: Optional[int]
+    session_id: Optional[int]
+    kind: str  # "swing" or "session"
+    content_json: str
+    model: Optional[str] = None
+    created_at: Optional[str] = None
+    id: Optional[int] = None
 ```
 
 Append to `store/__init__.py`:
 ```python
 from store.models import (  # noqa: F401
     Player, Session, Swing, Shot, Landmark, PoseFrame, Moment, Metric, Media,
+    Coaching,
 )
 ```
 
@@ -1008,6 +1028,145 @@ Expected: PASS (all test files green).
 ```bash
 git add store/repo.py store/tests/test_metrics.py
 git commit -m "feat(store): moments, metrics, history, media repo"
+```
+
+---
+
+## Task 11: repo — sync helpers (unlink, unmatched) + coaching
+
+**Files:**
+- Modify: `store/repo.py`
+- Test: `store/tests/test_sync_support.py`
+
+- [ ] **Step 1: Write the failing test**
+
+`store/tests/test_sync_support.py`:
+```python
+import json
+from store import repo
+from store.models import Shot, Coaching
+
+
+def _ctx(db):
+    pid = repo.get_or_create_player(db, "Chris", 72.0, "R").id
+    sid = repo.create_session(db, pid).id
+    return pid, sid
+
+
+def test_unmatched_and_unlink(db):
+    pid, sid = _ctx(db)
+    sw = repo.add_swing(db, sid, pid, "v.MOV")
+    shot = repo.save_shot(db, Shot(captured_at="t", player_id=pid, session_id=sid))
+    assert [s.id for s in repo.list_unmatched_swings(db, session_id=sid)] == [sw.id]
+    assert [s.id for s in repo.list_unmatched_shots(db, player_id=pid)] == [shot.id]
+    repo.link_shot_to_swing(db, shot.id, sw.id)
+    assert repo.list_unmatched_swings(db, session_id=sid) == []
+    assert repo.list_unmatched_shots(db, session_id=sid) == []
+    repo.unlink_shot(db, sw.id)
+    assert [s.id for s in repo.list_unmatched_swings(db, session_id=sid)] == [sw.id]
+    assert [s.id for s in repo.list_unmatched_shots(db, session_id=sid)] == [shot.id]
+
+
+def test_coaching(db):
+    pid, sid = _ctx(db)
+    sw = repo.add_swing(db, sid, pid, "v.MOV")
+    repo.save_coaching(db, Coaching(swing_id=sw.id, session_id=None, kind="swing",
+                                    content_json=json.dumps({"headline": "good"}),
+                                    model="claude"))
+    repo.save_coaching(db, Coaching(swing_id=None, session_id=sid, kind="session",
+                                    content_json=json.dumps({"headline": "nice session"})))
+    swing_c = repo.get_coaching(db, swing_id=sw.id)
+    assert len(swing_c) == 1 and swing_c[0].kind == "swing"
+    sess_c = repo.get_coaching(db, session_id=sid)
+    assert len(sess_c) == 1 and sess_c[0].kind == "session"
+```
+
+- [ ] **Step 2: Run to verify it fails**
+
+Run: `python -m pytest store/tests/test_sync_support.py -v`
+Expected: FAIL (`list_unmatched_swings` not defined).
+
+- [ ] **Step 3: Implement** (append to `repo.py`; also add `Coaching` to the
+  `from store.models import (...)` line at the top of `repo.py`)
+
+```python
+def _shot_from_row(r):
+    return Shot(id=r["id"], swing_id=r["swing_id"], player_id=r["player_id"],
+                session_id=r["session_id"], captured_at=r["captured_at"],
+                device_id=r["device_id"], shot_number=r["shot_number"],
+                ball_speed=r["ball_speed"], total_spin=r["total_spin"],
+                spin_axis=r["spin_axis"], hla=r["hla"], vla=r["vla"],
+                carry=r["carry"], club_speed=r["club_speed"],
+                attack_angle=r["attack_angle"], club_path=r["club_path"],
+                face_to_target=r["face_to_target"], raw_json=r["raw_json"])
+
+
+def _filtered(sql, session_id, player_id):
+    clauses, args = [], []
+    if session_id is not None:
+        clauses.append("session_id=?"); args.append(session_id)
+    if player_id is not None:
+        clauses.append("player_id=?"); args.append(player_id)
+    if clauses:
+        sql += " AND " + " AND ".join(clauses)
+    return sql, args
+
+
+def list_unmatched_swings(conn, session_id=None, player_id=None):
+    sql, args = _filtered("SELECT * FROM swing WHERE shot_id IS NULL",
+                          session_id, player_id)
+    return [_swing_from_row(r) for r in conn.execute(sql + " ORDER BY id", args)]
+
+
+def list_unmatched_shots(conn, session_id=None, player_id=None):
+    sql, args = _filtered("SELECT * FROM shot WHERE swing_id IS NULL",
+                          session_id, player_id)
+    return [_shot_from_row(r) for r in conn.execute(sql + " ORDER BY id", args)]
+
+
+def unlink_shot(conn, swing_id):
+    row = conn.execute("SELECT shot_id FROM swing WHERE id=?", (swing_id,)).fetchone()
+    conn.execute("UPDATE swing SET shot_id=NULL WHERE id=?", (swing_id,))
+    if row and row["shot_id"] is not None:
+        conn.execute("UPDATE shot SET swing_id=NULL WHERE id=?", (row["shot_id"],))
+    conn.commit()
+
+
+def save_coaching(conn, c):
+    ts = c.created_at or dbmod.now_iso()
+    cur = conn.execute(
+        "INSERT INTO coaching(swing_id, session_id, kind, content_json, model, "
+        "created_at) VALUES (?,?,?,?,?,?)",
+        (c.swing_id, c.session_id, c.kind, c.content_json, c.model, ts))
+    conn.commit()
+    c.id, c.created_at = cur.lastrowid, ts
+    return c
+
+
+def get_coaching(conn, swing_id=None, session_id=None):
+    if swing_id is not None:
+        rows = conn.execute("SELECT * FROM coaching WHERE swing_id=? ORDER BY id",
+                            (swing_id,)).fetchall()
+    elif session_id is not None:
+        rows = conn.execute("SELECT * FROM coaching WHERE session_id=? ORDER BY id",
+                            (session_id,)).fetchall()
+    else:
+        rows = conn.execute("SELECT * FROM coaching ORDER BY id").fetchall()
+    return [Coaching(id=r["id"], swing_id=r["swing_id"], session_id=r["session_id"],
+                     kind=r["kind"], content_json=r["content_json"],
+                     model=r["model"], created_at=r["created_at"]) for r in rows]
+```
+
+- [ ] **Step 4: Run the full suite**
+
+Run: `python -m pytest store/ -v`
+Expected: PASS (all).
+
+- [ ] **Step 5: Commit**
+
+```bash
+git add store/repo.py store/tests/test_sync_support.py
+git commit -m "feat(store): unmatched queries, unlink, and coaching repo"
 ```
 
 ---

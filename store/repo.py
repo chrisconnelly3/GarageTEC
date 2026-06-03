@@ -3,6 +3,7 @@ from datetime import datetime, timedelta, timezone
 from store import db as dbmod
 from store.models import (
     Player, Session, Swing, Shot, Landmark, PoseFrame, Moment, Metric, Media,
+    Coaching,
 )
 
 
@@ -228,3 +229,70 @@ def get_media(conn, swing_id):
                         (swing_id,)).fetchall()
     return [Media(id=r["id"], swing_id=r["swing_id"], kind=r["kind"],
                   path=r["path"], meta_json=r["meta_json"]) for r in rows]
+
+
+def _shot_from_row(r):
+    return Shot(id=r["id"], swing_id=r["swing_id"], player_id=r["player_id"],
+                session_id=r["session_id"], captured_at=r["captured_at"],
+                device_id=r["device_id"], shot_number=r["shot_number"],
+                ball_speed=r["ball_speed"], total_spin=r["total_spin"],
+                spin_axis=r["spin_axis"], hla=r["hla"], vla=r["vla"],
+                carry=r["carry"], club_speed=r["club_speed"],
+                attack_angle=r["attack_angle"], club_path=r["club_path"],
+                face_to_target=r["face_to_target"], raw_json=r["raw_json"])
+
+
+def _filtered(sql, session_id, player_id):
+    clauses, args = [], []
+    if session_id is not None:
+        clauses.append("session_id=?"); args.append(session_id)
+    if player_id is not None:
+        clauses.append("player_id=?"); args.append(player_id)
+    if clauses:
+        sql += " AND " + " AND ".join(clauses)
+    return sql, args
+
+
+def list_unmatched_swings(conn, session_id=None, player_id=None):
+    sql, args = _filtered("SELECT * FROM swing WHERE shot_id IS NULL",
+                          session_id, player_id)
+    return [_swing_from_row(r) for r in conn.execute(sql + " ORDER BY id", args)]
+
+
+def list_unmatched_shots(conn, session_id=None, player_id=None):
+    sql, args = _filtered("SELECT * FROM shot WHERE swing_id IS NULL",
+                          session_id, player_id)
+    return [_shot_from_row(r) for r in conn.execute(sql + " ORDER BY id", args)]
+
+
+def unlink_shot(conn, swing_id):
+    row = conn.execute("SELECT shot_id FROM swing WHERE id=?", (swing_id,)).fetchone()
+    conn.execute("UPDATE swing SET shot_id=NULL WHERE id=?", (swing_id,))
+    if row and row["shot_id"] is not None:
+        conn.execute("UPDATE shot SET swing_id=NULL WHERE id=?", (row["shot_id"],))
+    conn.commit()
+
+
+def save_coaching(conn, c):
+    ts = c.created_at or dbmod.now_iso()
+    cur = conn.execute(
+        "INSERT INTO coaching(swing_id, session_id, kind, content_json, model, "
+        "created_at) VALUES (?,?,?,?,?,?)",
+        (c.swing_id, c.session_id, c.kind, c.content_json, c.model, ts))
+    conn.commit()
+    c.id, c.created_at = cur.lastrowid, ts
+    return c
+
+
+def get_coaching(conn, swing_id=None, session_id=None):
+    if swing_id is not None:
+        rows = conn.execute("SELECT * FROM coaching WHERE swing_id=? ORDER BY id",
+                            (swing_id,)).fetchall()
+    elif session_id is not None:
+        rows = conn.execute("SELECT * FROM coaching WHERE session_id=? ORDER BY id",
+                            (session_id,)).fetchall()
+    else:
+        rows = conn.execute("SELECT * FROM coaching ORDER BY id").fetchall()
+    return [Coaching(id=r["id"], swing_id=r["swing_id"], session_id=r["session_id"],
+                     kind=r["kind"], content_json=r["content_json"],
+                     model=r["model"], created_at=r["created_at"]) for r in rows]

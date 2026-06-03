@@ -19,3 +19,9 @@ spike/spike_startup_error.txt
 Thumbs.db
 .DS_Store
 desktop.ini
+
+# Catcher runtime buffer + local DB (per-run, not source)
+data/pending_shots.jsonl
+data/*.db
+data/*.db-wal
+data/*.db-shm

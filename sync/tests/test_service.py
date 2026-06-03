@@ -163,3 +163,35 @@ def test_on_new_swing_links_waiting_shot(ctx):
     linked = svc.on_new_swing(swing_id=sw.id)
     assert linked is not None and linked.swing_id == sw.id
     assert repo.get_swing(db, sw.id).shot_id == sh.id
+
+
+def test_reconcile_session_covers_all_players_in_session(db):
+    # One session id can only belong to one player in our model, but reconcile
+    # should resolve the player(s) present and reconcile each scope.
+    pid = repo.get_or_create_player(db, "Chris", 72.0, "R").id
+    sid = repo.create_session(db, pid).id
+    sw = repo.add_swing(db, sid, pid, "v.MOV")
+    sh = repo.save_shot(db, Shot(captured_at="2026-06-03T00:00:01+00:00",
+                                 player_id=pid, session_id=sid))
+    svc = SyncService(db, threshold=0.5)
+    result = svc.reconcile_session(session_id=sid)
+    assert len(result["linked"]) == 1
+    assert repo.get_swing(db, sw.id).shot_id == sh.id
+
+
+def test_reconcile_all_walks_every_session(db):
+    p1 = repo.get_or_create_player(db, "Chris", 72.0, "R").id
+    p2 = repo.get_or_create_player(db, "Brother", 70.0, "R").id
+    s1 = repo.create_session(db, p1).id
+    s2 = repo.create_session(db, p2).id
+    sw1 = repo.add_swing(db, s1, p1, "a.MOV")
+    sw2 = repo.add_swing(db, s2, p2, "b.MOV")
+    sh1 = repo.save_shot(db, Shot(captured_at="2026-06-03T00:00:01+00:00",
+                                  player_id=p1, session_id=s1))
+    sh2 = repo.save_shot(db, Shot(captured_at="2026-06-03T00:00:02+00:00",
+                                  player_id=p2, session_id=s2))
+    svc = SyncService(db, threshold=0.5)
+    total = svc.reconcile_all()
+    assert total["linked_count"] == 2
+    assert repo.get_swing(db, sw1.id).shot_id == sh1.id
+    assert repo.get_swing(db, sw2.id).shot_id == sh2.id

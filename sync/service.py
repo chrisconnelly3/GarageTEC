@@ -140,3 +140,28 @@ class SyncService:
         result = self.auto_reconcile(session_id=sw.session_id,
                                      player_id=sw.player_id)
         return next((p for p in result["linked"] if p.swing_id == swing_id), None)
+
+    def _scopes_for_session(self, session_id):
+        """Distinct (player_id, session_id) pairs that have unmatched swings or
+        shots in this session. Robust even though one session maps to one
+        player in the current schema."""
+        swings = repo.list_unmatched_swings(self.conn, session_id=session_id)
+        shots = repo.list_unmatched_shots(self.conn, session_id=session_id)
+        players = {sw.player_id for sw in swings} | {sh.player_id for sh in shots}
+        return [(p, session_id) for p in players if p is not None]
+
+    def reconcile_session(self, *, session_id) -> dict:
+        linked, proposals = [], []
+        for player_id, sid in self._scopes_for_session(session_id):
+            res = self.auto_reconcile(session_id=sid, player_id=player_id)
+            linked.extend(res["linked"])
+            proposals.extend(res["proposals"])
+        return {"linked": linked, "proposals": proposals}
+
+    def reconcile_all(self) -> dict:
+        rows = self.conn.execute("SELECT id FROM session").fetchall()
+        linked_count = 0
+        for r in rows:
+            res = self.reconcile_session(session_id=r["id"])
+            linked_count += len(res["linked"])
+        return {"linked_count": linked_count}

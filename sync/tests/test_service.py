@@ -131,3 +131,35 @@ def test_apply_match_and_unlink(ctx):
     assert repo.get_swing(db, sw.id).shot_id is None
     assert [s.id for s in repo.list_unmatched_swings(db, session_id=sid)] == [sw.id]
     assert [s.id for s in repo.list_unmatched_shots(db, session_id=sid)] == [sh.id]
+
+
+def test_on_new_shot_links_waiting_swing(ctx):
+    db, pid, sid = ctx
+    # A swing is recorded and waiting; then its shot arrives live.
+    sw = _swing(db, pid, sid)
+    sh = _shot(db, pid, sid, "2026-06-03T00:00:01+00:00")
+
+    svc = SyncService(db, threshold=0.5)  # order-only base 0.6 >= 0.5 -> links
+    linked = svc.on_new_shot(shot_id=sh.id)
+    assert linked is not None
+    assert linked.swing_id == sw.id and linked.shot_id == sh.id
+    assert repo.get_swing(db, sw.id).shot_id == sh.id
+
+
+def test_on_new_shot_no_waiting_swing_returns_none(ctx):
+    db, pid, sid = ctx
+    sh = _shot(db, pid, sid, "2026-06-03T00:00:01+00:00")
+    svc = SyncService(db, threshold=0.5)
+    assert svc.on_new_shot(shot_id=sh.id) is None
+    # shot stays unmatched, not force-linked
+    assert [s.id for s in repo.list_unmatched_shots(db, session_id=sid)] == [sh.id]
+
+
+def test_on_new_swing_links_waiting_shot(ctx):
+    db, pid, sid = ctx
+    sh = _shot(db, pid, sid, "2026-06-03T00:00:01+00:00")
+    sw = _swing(db, pid, sid)
+    svc = SyncService(db, threshold=0.5)
+    linked = svc.on_new_swing(swing_id=sw.id)
+    assert linked is not None and linked.swing_id == sw.id
+    assert repo.get_swing(db, sw.id).shot_id == sh.id

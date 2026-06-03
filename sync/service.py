@@ -119,3 +119,24 @@ class SyncService:
     def unlink(self, *, swing_id):
         """Manually clear a swing's link (UI correction)."""
         repo.unlink_shot(self.conn, swing_id)
+
+    def on_new_shot(self, *, shot_id):
+        """A shot just arrived. Reconcile its (player, session) and, if this
+        shot got auto-linked, return that proposal; else None."""
+        shot = repo.list_unmatched_shots(self.conn)  # fetch to find scope
+        target = next((s for s in shot if s.id == shot_id), None)
+        if target is None:
+            return None
+        result = self.auto_reconcile(session_id=target.session_id,
+                                     player_id=target.player_id)
+        return next((p for p in result["linked"] if p.shot_id == shot_id), None)
+
+    def on_new_swing(self, *, swing_id):
+        """A swing just arrived. Reconcile its (player, session) and, if this
+        swing got auto-linked, return that proposal; else None."""
+        sw = repo.get_swing(self.conn, swing_id)
+        if sw is None or sw.shot_id is not None:
+            return None
+        result = self.auto_reconcile(session_id=sw.session_id,
+                                     player_id=sw.player_id)
+        return next((p for p in result["linked"] if p.swing_id == swing_id), None)

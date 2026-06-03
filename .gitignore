@@ -1,0 +1,21 @@
+# Build artifacts (rebuildable from source)
+spike/R50_Spike_Listener.exe
+spike/build/
+spike/dist/
+*.spec
+
+# Python
+__pycache__/
+*.pyc
+.venv/
+venv/
+.env
+
+# Spike capture output (raw shot data / device IDs / can be large)
+spike/spike_log_*.jsonl
+spike/spike_startup_error.txt
+
+# OS cruft
+Thumbs.db
+.DS_Store
+desktop.ini

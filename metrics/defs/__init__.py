@@ -2,3 +2,4 @@
 from metrics.defs import tilt  # noqa: F401
 from metrics.defs import sway  # noqa: F401
 from metrics.defs import spine  # noqa: F401
+from metrics.defs import extension  # noqa: F401

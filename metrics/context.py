@@ -54,8 +54,11 @@ def _smooth(frames: List[PoseFrame], window: int) -> Dict[int, List[Landmark]]:
     out: Dict[int, List[Landmark]] = {}
     for idx in order:
         i = pos[idx]
+        # Only average frames whose frame_index is within `half` of the center
+        # (true temporal neighbours), not merely adjacent in array position.
         neighbours = [by_index[order[j]]
-                      for j in range(max(0, i - half), min(len(order), i + half + 1))]
+                      for j in range(max(0, i - half), min(len(order), i + half + 1))
+                      if abs(order[j] - idx) <= half]
         center = by_index[idx]
         smoothed: List[Landmark] = []
         for lm in center.landmarks:

@@ -4,3 +4,4 @@ from metrics.defs import sway  # noqa: F401
 from metrics.defs import spine  # noqa: F401
 from metrics.defs import extension  # noqa: F401
 from metrics.defs import hand_depth  # noqa: F401
+from metrics.defs import rotation  # noqa: F401

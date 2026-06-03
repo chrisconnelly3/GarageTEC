@@ -111,3 +111,11 @@ class SyncService:
             else:
                 rest.append(p)
         return {"linked": linked, "proposals": rest}
+
+    def apply_match(self, *, swing_id, shot_id):
+        """Manually link a swing to a shot (UI correction)."""
+        repo.link_shot_to_swing(self.conn, shot_id, swing_id)
+
+    def unlink(self, *, swing_id):
+        """Manually clear a swing's link (UI correction)."""
+        repo.unlink_shot(self.conn, swing_id)

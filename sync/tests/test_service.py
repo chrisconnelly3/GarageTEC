@@ -112,3 +112,22 @@ def test_cross_session_same_player_not_matched(db):
     # the old session's swing is out of scope -> stays unmatched
     assert repo.get_swing(db, old_swing.id).shot_id is None
     assert repo.list_unmatched_shots(db, session_id=s_new) != []
+
+
+def test_apply_match_and_unlink(ctx):
+    db, pid, sid = ctx
+    sw = _swing(db, pid, sid)
+    sh = _shot(db, pid, sid, "2026-06-03T00:00:01+00:00")
+    svc = SyncService(db)
+
+    svc.apply_match(swing_id=sw.id, shot_id=sh.id)
+    assert repo.get_swing(db, sw.id).shot_id == sh.id
+    row = db.execute("SELECT swing_id FROM shot WHERE id=?", (sh.id,)).fetchone()
+    assert row["swing_id"] == sw.id
+    # now matched -> not in unmatched lists
+    assert repo.list_unmatched_swings(db, session_id=sid) == []
+
+    svc.unlink(swing_id=sw.id)
+    assert repo.get_swing(db, sw.id).shot_id is None
+    assert [s.id for s in repo.list_unmatched_swings(db, session_id=sid)] == [sw.id]
+    assert [s.id for s in repo.list_unmatched_shots(db, session_id=sid)] == [sh.id]

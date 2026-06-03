@@ -55,11 +55,13 @@ Dataclasses (fields abbreviated; all get an `id` once persisted):
 
 - `Player(name, height_in, handedness)` — handedness in {"R","L"}.
 - `Session(player_id, started_at, ended_at, location, notes)`
-- `Swing(session_id, created_at, source_video_path, view_layout, fps, width,
-  height, club, notes, shot_id|None)` — `view_layout` e.g. "side_by_side_LR".
-- `Shot(swing_id|None, captured_at, device_id, shot_number, ball_speed,
-  total_spin, spin_axis, hla, vla, carry, club_speed, attack_angle, club_path,
-  face_to_target, raw_json)` — known fields as columns + `raw_json` for the rest.
+- `Swing(session_id, player_id, created_at, source_video_path, view_layout, fps,
+  width, height, club, notes, shot_id|None)` — `view_layout` e.g. "side_by_side_LR".
+- `Shot(swing_id|None, player_id, session_id, captured_at, device_id,
+  shot_number, ball_speed, total_spin, spin_axis, hla, vla, carry, club_speed,
+  attack_angle, club_path, face_to_target, raw_json)` — known fields as columns +
+  `raw_json` for the rest. `player_id`/`session_id` set at capture (R50-first);
+  `swing_id` filled later by Sync.
 - `Landmark(name, x, y, z, visibility)` — x,y in pixels of the cropped view;
   z = MediaPipe relative depth; visibility 0..1.
 - `PoseFrame(swing_id, view, frame_index, time_s, landmarks: list[Landmark],
@@ -94,6 +96,7 @@ CREATE TABLE IF NOT EXISTS session (
 CREATE TABLE IF NOT EXISTS swing (
   id INTEGER PRIMARY KEY,
   session_id INTEGER REFERENCES session(id),
+  player_id INTEGER REFERENCES player(id),
   created_at TEXT NOT NULL,
   source_video_path TEXT,
   view_layout TEXT, fps REAL, width INTEGER, height INTEGER,
@@ -104,6 +107,8 @@ CREATE TABLE IF NOT EXISTS swing (
 CREATE TABLE IF NOT EXISTS shot (
   id INTEGER PRIMARY KEY,
   swing_id INTEGER REFERENCES swing(id),
+  player_id INTEGER REFERENCES player(id),
+  session_id INTEGER REFERENCES session(id),
   captured_at TEXT, device_id TEXT, shot_number INTEGER,
   ball_speed REAL, total_spin REAL, spin_axis REAL, hla REAL, vla REAL,
   carry REAL, club_speed REAL, attack_angle REAL, club_path REAL,
@@ -139,9 +144,12 @@ CREATE TABLE IF NOT EXISTS media (
 );
 
 CREATE INDEX IF NOT EXISTS ix_swing_session ON swing(session_id);
+CREATE INDEX IF NOT EXISTS ix_swing_player ON swing(player_id);
 CREATE INDEX IF NOT EXISTS ix_pose_swing ON pose_frame(swing_id, view);
 CREATE INDEX IF NOT EXISTS ix_metric_swing ON metric(swing_id, name);
 CREATE INDEX IF NOT EXISTS ix_shot_swing ON shot(swing_id);
+CREATE INDEX IF NOT EXISTS ix_shot_session ON shot(session_id);
+CREATE INDEX IF NOT EXISTS ix_session_player ON session(player_id, ended_at);
 ```
 
 Note: `swing.shot_id` and `shot.swing_id` intentionally both exist — a swing
@@ -155,10 +163,13 @@ Signatures (illustrative; return persisted dataclasses or ids):
 
 - `init_db(path=None) -> Connection`
 - `get_or_create_player(name, height_in, handedness) -> Player`
+- `list_players() -> list[Player]`
 - `create_session(player_id, location=None, notes=None) -> Session`
 - `end_session(session_id) -> None`
-- `add_swing(session_id, source_video_path, *, view_layout, fps, width, height,
-  club=None, notes=None) -> Swing`
+- `get_open_session(player_id) -> Session | None`  # session with ended_at IS NULL
+- `end_idle_sessions(idle_minutes) -> int`  # close sessions whose latest shot is older than idle_minutes (powers per-player auto sessions)
+- `add_swing(session_id, player_id, source_video_path, *, view_layout, fps, width,
+  height, club=None, notes=None) -> Swing`
 - `save_pose_frames(swing_id, view, frames: list[PoseFrame]) -> int`
 - `save_moments(swing_id, moments: list[Moment]) -> int`
 - `save_metrics(swing_id, metrics: list[Metric]) -> int`
@@ -169,6 +180,7 @@ Signatures (illustrative; return persisted dataclasses or ids):
 - `get_pose_frames(swing_id, view) -> list[PoseFrame]`
 - `get_moments(swing_id) -> list[Moment]`
 - `get_metrics(swing_id) -> list[Metric]`
+- `save_media(media: Media) -> Media` · `get_media(swing_id) -> list[Media]`
 - `swing_history(player_id, metric_name, context="overall") -> list[(swing_id,
   created_at, value)]`  # powers trend tracking
 
@@ -205,9 +217,28 @@ migration framework now — a simple version integer + if-ladder is enough.
 
 ## 11. Consumed By
 
-- **R50 ingest** → `save_shot`, `create_session`.
+- **R50 ingest** → `get_or_create_player`, `list_players`, `get_open_session`,
+  `create_session`, `end_idle_sessions`, `save_shot` (tagged with active
+  player + session).
 - **Camera+pose+chop** → `add_swing`, `save_pose_frames`, `save_moments`, media.
 - **Metrics brain** → `get_pose_frames`/`get_moments` → `save_metrics`.
 - **Sync** → `link_shot_to_swing`.
 - **AI coach** → `get_metrics`, `get_swing`, shot data.
 - **Screen/UI** → `list_swings`, `get_*`, `swing_history`.
+
+## 12. Multi-User / Profiles
+
+GarageTEC is shared (e.g. brother + you at the same sim). The data store supports
+this directly:
+
+- **player** is a roster (each has their own `height_in` → correct inch metrics).
+- Every **shot** and **swing** carries `player_id` + `session_id`, set to whoever
+  is the *active* player at capture time. So attribution never depends on the
+  swing↔shot match.
+- **Per-player sessions:** at most one open session (`ended_at IS NULL`) per
+  player. `get_open_session(player_id)` resumes it; `end_idle_sessions(15)`
+  closes sessions idle beyond the timeout. This lets shots interleave between
+  players within the idle window and still land in the right person's session
+  (the "brother hits, you hit, brother hits again" case).
+- The R50-ingest catcher app owns the active-player switch UX; the store just
+  provides the player/session primitives above.

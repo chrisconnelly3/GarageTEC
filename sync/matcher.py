@@ -58,7 +58,42 @@ def propose(swings: List[SwingCandidate], shots: List[ShotCandidate],
 def _score(swing: SwingCandidate, shot: ShotCandidate,
            time_window_s: float):
     """Confidence in [0,1]. Base from order pairing; bonus when impact_time and
-    captured_at are both present and close."""
-    base = 0.6  # order pairing alone is a robust-but-not-certain signal
-    reason = "order"
-    return base, reason
+    captured_at are both present and within the window (smaller delta -> larger
+    bonus). Falls back to order-only when either time is missing/unparseable."""
+    base = 0.6
+    delta = _time_delta_s(swing.impact_time, shot.captured_at)
+    if delta is None:
+        return base, "order"
+    if delta > time_window_s:
+        # times disagree -> trust order but flag the disagreement
+        return base, f"order; time_delta={delta:.2f}s>window"
+    # within window: linearly scale a bonus up to +0.4 as delta -> 0
+    bonus = 0.4 * (1.0 - (delta / time_window_s))
+    confidence = min(1.0, base + bonus)
+    return confidence, f"order+time; delta={delta:.2f}s"
+
+
+def _time_delta_s(impact_time, captured_at):
+    """Absolute seconds between an aligned impact_time (float epoch-or-relative
+    seconds) and a shot captured_at (ISO-8601 string or float seconds). Returns
+    None if either is missing or unparseable."""
+    if impact_time is None or captured_at is None:
+        return None
+    shot_s = _to_seconds(captured_at)
+    if shot_s is None:
+        return None
+    try:
+        return abs(float(impact_time) - shot_s)
+    except (TypeError, ValueError):
+        return None
+
+
+def _to_seconds(value):
+    """Coerce a captured_at to seconds. Accepts a float/int (already seconds) or
+    an ISO-8601 timestamp (converted to POSIX seconds)."""
+    if isinstance(value, (int, float)):
+        return float(value)
+    try:
+        return datetime.fromisoformat(value).timestamp()
+    except (TypeError, ValueError):
+        return None

@@ -161,3 +161,70 @@ def get_pose_frames(conn, swing_id, view):
                       frame_index=r["frame_index"], time_s=r["time_s"],
                       landmarks=_landmarks_from_json(r["landmarks_json"]),
                       source=r["source"]) for r in rows]
+
+
+def save_moments(conn, swing_id, moments):
+    conn.executemany(
+        "INSERT INTO moment(swing_id, kind, view, frame_index, time_s) "
+        "VALUES (?,?,?,?,?)",
+        [(swing_id, m.kind, m.view, m.frame_index, m.time_s) for m in moments])
+    conn.commit()
+    return len(moments)
+
+
+def get_moments(conn, swing_id):
+    rows = conn.execute("SELECT * FROM moment WHERE swing_id=? ORDER BY frame_index",
+                        (swing_id,)).fetchall()
+    return [Moment(id=r["id"], swing_id=r["swing_id"], kind=r["kind"],
+                   view=r["view"], frame_index=r["frame_index"], time_s=r["time_s"])
+            for r in rows]
+
+
+def save_metrics(conn, swing_id, metrics):
+    ts = dbmod.now_iso()
+    conn.executemany(
+        "INSERT INTO metric(swing_id, name, context, value, unit, method, "
+        "created_at) VALUES (?,?,?,?,?,?,?)",
+        [(swing_id, m.name, m.context, m.value, m.unit, m.method, ts)
+         for m in metrics])
+    conn.commit()
+    return len(metrics)
+
+
+def get_metrics(conn, swing_id):
+    rows = conn.execute("SELECT * FROM metric WHERE swing_id=? ORDER BY id",
+                        (swing_id,)).fetchall()
+    return [Metric(id=r["id"], swing_id=r["swing_id"], name=r["name"],
+                   context=r["context"], value=r["value"], unit=r["unit"],
+                   method=r["method"], created_at=r["created_at"]) for r in rows]
+
+
+def clear_metrics(conn, swing_id):
+    cur = conn.execute("DELETE FROM metric WHERE swing_id=?", (swing_id,))
+    conn.commit()
+    return cur.rowcount
+
+
+def swing_history(conn, player_id, metric_name, context="overall"):
+    rows = conn.execute(
+        "SELECT sw.id, sw.created_at, m.value "
+        "FROM metric m JOIN swing sw ON sw.id = m.swing_id "
+        "WHERE sw.player_id=? AND m.name=? AND m.context=? "
+        "ORDER BY sw.created_at", (player_id, metric_name, context)).fetchall()
+    return [(r["id"], r["created_at"], r["value"]) for r in rows]
+
+
+def save_media(conn, media: Media):
+    cur = conn.execute(
+        "INSERT INTO media(swing_id, kind, path, meta_json) VALUES (?,?,?,?)",
+        (media.swing_id, media.kind, media.path, media.meta_json))
+    conn.commit()
+    media.id = cur.lastrowid
+    return media
+
+
+def get_media(conn, swing_id):
+    rows = conn.execute("SELECT * FROM media WHERE swing_id=? ORDER BY id",
+                        (swing_id,)).fetchall()
+    return [Media(id=r["id"], swing_id=r["swing_id"], kind=r["kind"],
+                  path=r["path"], meta_json=r["meta_json"]) for r in rows]

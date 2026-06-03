@@ -1,0 +1,6 @@
+opencv-python>=4.8
+# Pinned below 0.10.30: the latest Windows wheels (0.10.30+, incl. 0.10.35)
+# ship a Tasks-only build that DROPPED the legacy `mp.solutions.pose` Solutions
+# API this pipeline depends on. 0.10.14 still includes it and has a py3.12 wheel.
+mediapipe>=0.10,<0.10.15
+numpy>=1.26,<2.0

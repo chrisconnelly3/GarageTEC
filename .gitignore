@@ -15,6 +15,14 @@ venv/
 spike/spike_log_*.jsonl
 spike/spike_startup_error.txt
 
+# Vision: test video, model files, pose output clips (large / rebuildable)
+*.MOV
+*.mov
+swings/
+*.task
+*.tflite
+.venv311/
+
 # OS cruft
 Thumbs.db
 .DS_Store

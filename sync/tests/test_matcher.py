@@ -24,3 +24,23 @@ def test_no_candidates_returns_empty():
     assert propose([], []) == []
     assert propose(_swings((10, 0, None)), []) == []
     assert propose([], _shots((20, 0, None))) == []
+
+
+def test_extra_swing_stays_unmatched():
+    # 3 swings, 2 shots -> a practice swing is left over
+    swings = _swings((10, 0, None), (11, 1, None), (12, 2, None))
+    shots = _shots((20, 0, None), (21, 1, None))
+    props = propose(swings, shots)
+    assert {(p.swing_id, p.shot_id) for p in props} == {(10, 20), (11, 21)}
+    matched_swings = {p.swing_id for p in props}
+    assert 12 not in matched_swings  # surplus swing unmatched
+
+
+def test_extra_shot_stays_unmatched():
+    # 2 swings, 3 shots -> a shot with no swing is left over
+    swings = _swings((10, 0, None), (11, 1, None))
+    shots = _shots((20, 0, None), (21, 1, None), (22, 2, None))
+    props = propose(swings, shots)
+    assert {(p.swing_id, p.shot_id) for p in props} == {(10, 20), (11, 21)}
+    matched_shots = {p.shot_id for p in props}
+    assert 22 not in matched_shots  # surplus shot unmatched

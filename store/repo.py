@@ -128,6 +128,23 @@ def get_swing(conn, swing_id):
     return _swing_from_row(row) if row else None
 
 
+def latest_ready_swing(conn, player_id, session_id=None):
+    """Newest swing for a player that has >=1 metric AND >=1 coaching row.
+    Optionally scoped to a session. Returns a Swing or None."""
+    sql = (
+        "SELECT sw.* FROM swing sw "
+        "WHERE sw.player_id=? "
+        "  AND EXISTS (SELECT 1 FROM metric m WHERE m.swing_id=sw.id) "
+        "  AND EXISTS (SELECT 1 FROM coaching c WHERE c.swing_id=sw.id) ")
+    args = [player_id]
+    if session_id is not None:
+        sql += "AND sw.session_id=? "
+        args.append(session_id)
+    sql += "ORDER BY sw.id DESC LIMIT 1"
+    row = conn.execute(sql, args).fetchone()
+    return _swing_from_row(row) if row else None
+
+
 def list_swings(conn, session_id=None, limit=None):
     sql = "SELECT * FROM swing"
     args = []

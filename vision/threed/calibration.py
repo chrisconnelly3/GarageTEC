@@ -76,3 +76,53 @@ class AssumedGeometryCalibration(Calibration):
                 "up": np.array([0.0, 1.0, 0.0]),
                 "target_line": np.array([1.0, 0.0, 0.0]),
                 "depth": np.array([0.0, 0.0, 1.0])}
+
+
+import json as _json
+
+
+class CheckerboardCalibration(Calibration):
+    """Loads a stereo calibration (from the in-app calibration or the CLI).
+    HIGH confidence."""
+    confidence = "high"
+
+    def __init__(self, calib: dict):
+        self._c = calib
+        self.K_fo = np.array(calib["K_face_on"], float)
+        self.K_dl = np.array(calib["K_down_line"], float)
+        self.R_fo = np.array(calib["R_face_on"], float)
+        self.t_fo = np.array(calib["t_face_on"], float)
+        self.R_dl = np.array(calib["R_down_line"], float)
+        self.t_dl = np.array(calib["t_down_line"], float)
+
+    @classmethod
+    def from_dict(cls, calib: dict):
+        return cls(calib)
+
+    @classmethod
+    def from_file(cls, path: str):
+        with open(path, "r", encoding="utf-8") as f:
+            return cls(_json.load(f))
+
+    def projection_matrices(self):
+        return (_projection(self.K_fo, self.R_fo, self.t_fo),
+                _projection(self.K_dl, self.R_dl, self.t_dl))
+
+    def world_frame(self):
+        return {"origin": np.array([0.0, 0.0, 0.0]),
+                "up": np.array(self._c["up"], float),
+                "target_line": np.array(self._c["target_line"], float),
+                "depth": np.array(self._c["depth"], float)}
+
+
+def active_calibration(conn, image_width=None, image_height=None, height_in=70.0):
+    """Return CheckerboardCalibration for the active stored calibration, or an
+    AssumedGeometryCalibration fallback (needs image dims for the fallback)."""
+    from store import repo
+    row = repo.get_active_calibration(conn)
+    if row is not None:
+        import json
+        return CheckerboardCalibration.from_dict(json.loads(row.calib_json))
+    if image_width and image_height:
+        return AssumedGeometryCalibration(image_width, image_height, height_in)
+    return None

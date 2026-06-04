@@ -49,3 +49,63 @@ def test_convert_none_is_identity():
 def test_convert_vertical_from_horizontal():
     # CaddieSet spine 70.53 deg vs horizontal -> 19.47 deg vs vertical (ours)
     assert abs(b.convert(70.53, "vertical_from_horizontal") - 19.47) < 1e-9
+
+
+import os
+
+FIX = os.path.join(os.path.dirname(__file__), "fixtures", "tiny_caddieset.csv")
+
+MAPPED = {"shoulder_tilt_deg", "spine_angle_deg"}
+NONE_METRICS = {
+    "hip_tilt_deg", "shoulder_turn_deg", "hip_turn_deg",
+    "hip_sway_in", "head_sway_in", "early_extension_in", "hand_depth_in",
+}
+
+
+def test_mapping_covers_all_nine_metrics_exactly():
+    metrics = {m for (m, _ctx) in b.MAPPING} | b.NONE_REASONS.keys()
+    assert metrics == MAPPED | NONE_METRICS
+    assert len(MAPPED | NONE_METRICS) == 9
+
+
+def test_build_entries_mapped_metrics_have_bands():
+    entries = b.build_entries(FIX)
+    st = entries["shoulder_tilt_deg"]
+    assert st["confidence"] == "medium"
+    assert st["units"] == "deg"
+    assert "CaddieSet" in st["source"] and "NOT a validated ideal" in st["source"]
+    low, high = st["range"]
+    assert low < high
+    # top-level range is the union across contexts; low comes from the address
+    # block (10..20 -> p10 ~10.9), high from the top block (20..30 -> p90 ~29.1).
+    assert abs(low - 10.9) < 0.6
+    assert abs(high - 29.1) < 0.6
+    # the address context band itself is the 10..20 block: p10/p90 ~10.9/19.1
+    addr_low, addr_high = st["contexts"]["address"]["range"]
+    assert abs(addr_low - 10.9) < 0.6
+    assert abs(addr_high - 19.1) < 0.6
+    # per-context bands recorded under "contexts"
+    assert set(st["contexts"]) == {"address", "top", "impact"}
+
+
+def test_build_entries_spine_conversion_applied_and_ascending():
+    entries = b.build_entries(FIX)
+    sp = entries["spine_angle_deg"]
+    assert sp["confidence"] == "medium"
+    # 0-SPINE-ANGLE 70..80 vs horizontal -> 90-x = 10..20 vs vertical
+    low, high = sp["contexts"]["address"]["range"]
+    assert low < high                      # ascending after the 90-x flip
+    assert abs(low - 10.9) < 0.6
+    assert abs(high - 19.1) < 0.6
+    # top has NO spine feature in CaddieSet -> not in contexts
+    assert "top" not in sp["contexts"]
+    assert "impact" in sp["contexts"] and "address" in sp["contexts"]
+
+
+def test_build_entries_none_metrics_are_history_only():
+    entries = b.build_entries(FIX)
+    for m in NONE_METRICS:
+        e = entries[m]
+        assert e["confidence"] == "none"
+        assert e["range"] == []
+        assert e["reason"]            # documented why

@@ -4,74 +4,103 @@ import { AIInsightCard } from '../components/AIInsightCard'
 import { BallClubStrip } from '../components/BallClubStrip'
 import { cn } from '../lib/utils'
 import { CheckCircle2, AlertCircle } from 'lucide-react'
-export function ReviewScreen() {
+import { useApi } from '../lib/useApi'
+import { getSwing } from '../lib/api'
+import { labelFor, coachingToInsights, METRIC_IDEAL } from '../lib/format'
+import type { SwingDetail, Metric } from '../lib/types'
+
+const PHASES = [
+  'Address', 'Takeaway', 'Lead-arm', 'Top',
+  'Transition', 'Shaft par.', 'Impact', 'Follow-thru',
+]
+
+function fmtMetric(m: Metric | undefined): string {
+  if (!m || m.value == null) return '--'
+  const v = Number(m.value.toFixed(1))
+  if (m.unit === 'deg') return `${v}°`
+  if (m.unit === 'in') return `${v}"`
+  return `${v}${m.unit ?? ''}`
+}
+
+function statusFor(name: string, impactVal: number | null | undefined): string {
+  const ideal = METRIC_IDEAL[name]
+  if (!ideal || impactVal == null) return 'neutral'
+  return impactVal >= ideal[0] && impactVal <= ideal[1] ? 'good' : 'bad'
+}
+
+interface ReviewScreenProps {
+  swingId: number | null
+}
+
+export function ReviewScreen({ swingId }: ReviewScreenProps) {
   const [activePhase, setActivePhase] = useState('Impact')
-  const phases = [
-    'Address',
-    'Takeaway',
-    'Lead-arm',
-    'Top',
-    'Transition',
-    'Shaft par.',
-    'Impact',
-    'Follow-thru',
-  ]
-  const fullMetrics = [
-    {
-      name: 'Shoulder Tilt',
-      address: '8°',
-      top: '32°',
-      impact: '38°',
-      status: 'good',
-    },
-    {
-      name: 'Hip Sway',
-      address: '0"',
-      top: '0.5"',
-      impact: '2.5"',
-      status: 'bad',
-    },
-    {
-      name: 'Spine Angle',
-      address: '45°',
-      top: '43°',
-      impact: '42°',
-      status: 'neutral',
-    },
-    {
-      name: 'Hand Depth',
-      address: '4"',
-      top: '14"',
-      impact: '6"',
-      status: 'good',
-    },
-  ]
-  const reviewInsights = [
-    {
-      id: '1',
-      type: 'mechanic' as const,
-      text: 'Hips slid 2.5 in toward target at impact',
-      metric: 'Hip Sway',
-      drill: 'Chair Drill',
-      severity: 'bad' as const,
-    },
-    {
-      id: '2',
-      type: 'timing' as const,
-      text: 'Transition started slightly before top of backswing',
-      metric: 'Kinematic Seq',
-      drill: 'Pause at Top',
-      severity: 'neutral' as const,
-    },
-    {
-      id: '3',
-      type: 'power' as const,
-      text: 'Excellent shoulder turn generated +3mph club speed',
-      metric: 'Shoulder Turn',
-      drill: 'Maintain',
-      severity: 'good' as const,
-    },
-  ]
+  const { data, loading, error } = useApi<SwingDetail | null>(
+    () => (swingId ? getSwing(swingId) : Promise.resolve(null)),
+    [swingId],
+  )
+
+  if (!swingId || (!data && !loading && !error)) {
+    return (
+      <div className="h-full flex items-center justify-center p-6">
+        <div className="text-center border-2 border-dashed border-[#242C27] rounded-[24px] bg-[#0A0D0B]/50 px-12 py-16">
+          <h2 className="text-xl font-semibold text-[#E7EEE9] mb-2">
+            Select a swing to review
+          </h2>
+          <p className="text-[#8B978F]">
+            Take a swing or pick one from a session to see the breakdown.
+          </p>
+        </div>
+      </div>
+    )
+  }
+
+  if (loading) {
+    return (
+      <div className="h-full flex items-center justify-center text-[#8B978F]">
+        Loading…
+      </div>
+    )
+  }
+  if (error || !data) {
+    return (
+      <div className="h-full flex items-center justify-center p-6">
+        <div className="rounded-[18px] border border-garage-red/40 bg-garage-red/10 px-6 py-4 text-sm text-garage-red">
+          Failed to load swing: {error ?? 'not found'}
+        </div>
+      </div>
+    )
+  }
+
+  // Group metrics by name → one row per name with address/top/impact columns.
+  const byName = new Map<string, Metric[]>()
+  for (const m of data.metrics) {
+    const arr = byName.get(m.name) ?? []
+    arr.push(m)
+    byName.set(m.name, arr)
+  }
+  const rows = Array.from(byName.entries()).map(([name, ms]) => {
+    const impact = ms.find((x) => x.context === 'impact')
+    return {
+      name: labelFor(name),
+      address: fmtMetric(ms.find((x) => x.context === 'address')),
+      top: fmtMetric(ms.find((x) => x.context === 'top')),
+      impact: fmtMetric(impact),
+      status: statusFor(name, impact?.value),
+    }
+  })
+
+  const presentPhases = new Set(
+    data.moments.map((m) => {
+      if (m.kind === 'address') return 'Address'
+      if (m.kind === 'top') return 'Top'
+      if (m.kind === 'impact') return 'Impact'
+      return m.kind
+    }),
+  )
+
+  const coachContent = data.coaching[0]?.content ?? null
+  const insights = coachingToInsights(coachContent)
+
   return (
     <div className="h-full flex flex-col p-6 space-y-6 overflow-y-auto">
       {/* HERO: Video Scrubber & Timeline */}
@@ -84,8 +113,9 @@ export function ReviewScreen() {
         <div className="relative pt-4 pb-2 px-4">
           <div className="absolute top-6 left-8 right-8 h-0.5 bg-[#242C27]" />
           <div className="flex justify-between relative">
-            {phases.map((phase) => {
+            {PHASES.map((phase) => {
               const isActive = activePhase === phase
+              const exists = presentPhases.has(phase)
               return (
                 <button
                   key={phase}
@@ -97,7 +127,9 @@ export function ReviewScreen() {
                       'w-4 h-4 rounded-full border-2 z-10 transition-all',
                       isActive
                         ? 'bg-garage-green border-garage-green shadow-glow-primary-sm scale-125'
-                        : 'bg-[#121714] border-[#4A554E] group-hover:border-[#8B978F]',
+                        : exists
+                          ? 'bg-[#121714] border-garage-green/60 group-hover:border-garage-green'
+                          : 'bg-[#121714] border-[#4A554E] group-hover:border-[#8B978F]',
                     )}
                   />
                   <span
@@ -146,7 +178,7 @@ export function ReviewScreen() {
                 </tr>
               </thead>
               <tbody className="divide-y divide-[#242C27]/50">
-                {fullMetrics.map((m) => (
+                {rows.map((m) => (
                   <tr
                     key={m.name}
                     className="hover:bg-[#1A211D]/50 transition-colors"
@@ -191,8 +223,8 @@ export function ReviewScreen() {
         {/* AI Feedback Panel */}
         <div className="flex flex-col space-y-6">
           <AIInsightCard
-            headline="Detailed Swing Analysis"
-            insights={reviewInsights}
+            headline={coachContent?.headline ?? 'Detailed Swing Analysis'}
+            insights={insights}
           />
         </div>
       </div>
@@ -202,7 +234,7 @@ export function ReviewScreen() {
         <h4 className="text-[11px] uppercase tracking-wider text-[#8B978F] font-semibold mb-3 ml-2">
           Matched R50 Data
         </h4>
-        <BallClubStrip />
+        <BallClubStrip shot={data.shot} />
       </div>
     </div>
   )

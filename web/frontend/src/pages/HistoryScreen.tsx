@@ -1,0 +1,297 @@
+import { useState } from 'react'
+import {
+  LineChart,
+  Line,
+  XAxis,
+  YAxis,
+  Tooltip,
+  ResponsiveContainer,
+} from 'recharts'
+import {
+  ChevronDown,
+  Star,
+  ArrowUpRight,
+  ArrowDownRight,
+  Minus,
+} from 'lucide-react'
+import { cn } from '../lib/utils'
+import { motion } from 'framer-motion'
+const chartData = [
+  {
+    date: 'Oct 1',
+    value: 45,
+  },
+  {
+    date: 'Oct 5',
+    value: 43,
+  },
+  {
+    date: 'Oct 12',
+    value: 44,
+  },
+  {
+    date: 'Oct 18',
+    value: 41,
+  },
+  {
+    date: 'Oct 22',
+    value: 39,
+  },
+  {
+    date: 'Oct 28',
+    value: 38,
+  }, // Target is ~38
+]
+const trendMetrics = [
+  {
+    name: 'Shoulder Tilt',
+    value: '38°',
+    delta: 2,
+    deltaGood: 'up',
+    isPB: true,
+    sparkline: [35, 36, 38, 37, 38],
+  },
+  {
+    name: 'Hip Sway',
+    value: '2.1"',
+    delta: -0.4,
+    deltaGood: 'down',
+    isPB: false,
+    sparkline: [3.5, 3.0, 2.8, 2.5, 2.1],
+  },
+  {
+    name: 'Spine Angle',
+    value: '42°',
+    delta: 0,
+    deltaGood: 'neutral',
+    isPB: false,
+    sparkline: [42, 41, 42, 42, 42],
+  },
+  {
+    name: 'Club Speed',
+    value: '112',
+    delta: 3,
+    deltaGood: 'up',
+    isPB: true,
+    sparkline: [105, 108, 107, 109, 112],
+  },
+]
+export function HistoryScreen() {
+  const [timeframe, setTimeframe] = useState('Month')
+  return (
+    <div className="h-full flex flex-col p-6 space-y-6 overflow-y-auto">
+      {/* Header & Filters */}
+      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+        <div className="flex items-center space-x-3">
+          <h1 className="text-2xl font-semibold text-[#E7EEE9]">History</h1>
+          <div className="h-6 w-px bg-[#242C27] mx-2" />
+          <div className="flex space-x-2">
+            {['Player: Alex M.', 'Club: Driver', 'Metric: Shoulder Tilt'].map(
+              (filter) => (
+                <button
+                  key={filter}
+                  className="flex items-center space-x-1 bg-[#121714] border border-[#242C27] rounded-full px-4 py-2 text-sm text-[#E7EEE9] hover:bg-[#1A211D] transition-colors min-h-[44px]"
+                >
+                  <span>{filter}</span>
+                  <ChevronDown className="w-4 h-4 text-[#8B978F]" />
+                </button>
+              ),
+            )}
+          </div>
+        </div>
+
+        <div className="flex bg-[#121714] border border-[#242C27] rounded-full p-1">
+          {['Session', 'Week', 'Month', 'Year'].map((tf) => (
+            <button
+              key={tf}
+              onClick={() => setTimeframe(tf)}
+              className={cn(
+                'px-5 py-2 rounded-full text-sm font-medium transition-all min-h-[44px]',
+                timeframe === tf
+                  ? 'bg-[#242C27] text-[#E7EEE9]'
+                  : 'text-[#8B978F] hover:text-[#E7EEE9]',
+              )}
+            >
+              {tf}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      {/* HERO Chart */}
+      <div className="flex-1 bg-[#121714] border border-[#242C27] rounded-[24px] p-6 flex flex-col min-h-[300px]">
+        <h3 className="text-[#8B978F] text-sm font-medium mb-6 uppercase tracking-wider">
+          Shoulder Tilt (Degrees)
+        </h3>
+        <div className="flex-1 w-full">
+          <ResponsiveContainer width="100%" height="100%">
+            <LineChart
+              data={chartData}
+              margin={{
+                top: 20,
+                right: 20,
+                bottom: 0,
+                left: -20,
+              }}
+            >
+              <XAxis
+                dataKey="date"
+                stroke="#4A554E"
+                tick={{
+                  fill: '#8B978F',
+                  fontSize: 12,
+                }}
+                tickLine={false}
+                axisLine={false}
+                dy={10}
+              />
+              <YAxis
+                stroke="#4A554E"
+                tick={{
+                  fill: '#8B978F',
+                  fontSize: 12,
+                }}
+                tickLine={false}
+                axisLine={false}
+              />
+              <Tooltip
+                contentStyle={{
+                  backgroundColor: '#1A211D',
+                  borderColor: '#242C27',
+                  borderRadius: '12px',
+                  color: '#E7EEE9',
+                }}
+                itemStyle={{
+                  color: '#84CE39',
+                  fontWeight: 'bold',
+                }}
+                cursor={{
+                  stroke: '#242C27',
+                  strokeWidth: 2,
+                  strokeDasharray: '4 4',
+                }}
+              />
+              <Line
+                type="monotone"
+                dataKey="value"
+                stroke="#84CE39"
+                strokeWidth={4}
+                dot={{
+                  fill: '#0A0D0B',
+                  stroke: '#84CE39',
+                  strokeWidth: 2,
+                  r: 6,
+                }}
+                activeDot={{
+                  r: 8,
+                  fill: '#84CE39',
+                  stroke: '#0A0D0B',
+                  strokeWidth: 3,
+                }}
+                style={{
+                  filter: 'drop-shadow(0px 0px 12px rgba(132,206,57,0.4))',
+                }}
+              />
+            </LineChart>
+          </ResponsiveContainer>
+        </div>
+      </div>
+
+      {/* Trend Cards */}
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+        {trendMetrics.map((metric, i) => {
+          const isGood =
+            metric.deltaGood === 'up'
+              ? metric.delta > 0
+              : metric.deltaGood === 'down'
+                ? metric.delta < 0
+                : true
+          const isNeutral = metric.delta === 0
+          return (
+            <motion.div
+              key={metric.name}
+              initial={{
+                opacity: 0,
+                y: 10,
+              }}
+              animate={{
+                opacity: 1,
+                y: 0,
+              }}
+              transition={{
+                delay: i * 0.1,
+              }}
+              className="bg-[#121714] border border-[#242C27] rounded-[18px] p-5 relative overflow-hidden"
+            >
+              <div className="flex justify-between items-start mb-3">
+                <span className="text-[11px] uppercase tracking-wider text-[#8B978F] font-semibold">
+                  {metric.name}
+                </span>
+                {metric.isPB && (
+                  <div
+                    className="bg-garage-amber/10 text-garage-amber p-1 rounded-full"
+                    title="Personal Best"
+                  >
+                    <Star className="w-3.5 h-3.5 fill-current" />
+                  </div>
+                )}
+              </div>
+
+              <div className="flex items-end justify-between">
+                <div className="flex flex-col">
+                  <span className="text-2xl font-bold font-mono text-[#E7EEE9] mb-1">
+                    {metric.value}
+                  </span>
+                  {!isNeutral ? (
+                    <div
+                      className={cn(
+                        'flex items-center text-xs font-medium',
+                        isGood ? 'text-garage-green' : 'text-garage-red',
+                      )}
+                    >
+                      {metric.delta > 0 ? (
+                        <ArrowUpRight className="w-3 h-3 mr-0.5" />
+                      ) : (
+                        <ArrowDownRight className="w-3 h-3 mr-0.5" />
+                      )}
+                      {Math.abs(metric.delta)} vs base
+                    </div>
+                  ) : (
+                    <div className="flex items-center text-xs font-medium text-[#8B978F]">
+                      <Minus className="w-3 h-3 mr-0.5" />
+                      No change
+                    </div>
+                  )}
+                </div>
+
+                {/* Mini Sparkline Placeholder */}
+                <div className="w-16 h-8 flex items-end space-x-0.5 opacity-60">
+                  {metric.sparkline.map((val, idx) => {
+                    const max = Math.max(...metric.sparkline)
+                    const min = Math.min(...metric.sparkline)
+                    const height = Math.max(
+                      10,
+                      ((val - min) / (max - min)) * 100,
+                    )
+                    return (
+                      <div
+                        key={idx}
+                        className={cn(
+                          'flex-1 rounded-t-sm',
+                          isGood ? 'bg-garage-green' : 'bg-[#8B978F]',
+                        )}
+                        style={{
+                          height: `${height}%`,
+                        }}
+                      />
+                    )
+                  })}
+                </div>
+              </div>
+            </motion.div>
+          )
+        })}
+      </div>
+    </div>
+  )
+}

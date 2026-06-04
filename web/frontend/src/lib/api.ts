@@ -2,6 +2,7 @@ import type {
   Player, Session, SwingDetail, SessionDetail, History, SyncProposals,
   CaptureStatus, ActivePlayerIn, Settings, PlayerWithCounts, SwingSummary,
   CalibrationStartIn, CalibrationStatus, CalibrationResult, ActiveCalibration,
+  CalibrationHistoryItem,
 } from "./types";
 
 async function getJSON<T>(url: string): Promise<T> {
@@ -81,3 +82,7 @@ export const getCalibrationStatus = () =>
   getJSON<CalibrationStatus>("/api/calibration/status");
 export const getActiveCalibration = () =>
   getJSON<ActiveCalibration | null>("/api/calibration/active");
+export const getCalibrationHistory = () =>
+  getJSON<CalibrationHistoryItem[]>("/api/calibration/history");
+export const activateCalibration = (id: number) =>
+  postJSON<{ ok: boolean }>("/api/calibration/activate/" + id, {});

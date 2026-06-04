@@ -43,3 +43,7 @@ export interface ActiveCalibration {
   id: number; created_at: string; n_poses: number;
   reprojection_error: number; cols: number; rows: number; device_index: number;
 }
+export interface CalibrationHistoryItem {
+  id: number; created_at: string; n_poses: number;
+  reprojection_error: number; is_active: number;
+}

@@ -1,11 +1,11 @@
 // web/frontend/src/components/CalibrationCard.tsx
-import { useEffect, useState } from "react";
+import { useEffect, useState, useCallback } from "react";
 import {
   startCalibration, stopCalibration, runCalibration,
-  getActiveCalibration,
+  getActiveCalibration, getCalibrationHistory, activateCalibration,
 } from "../lib/api";
 import { useCalibrationSse } from "../lib/useCalibrationSse";
-import type { CalibrationResult, ActiveCalibration } from "../lib/types";
+import type { CalibrationResult, ActiveCalibration, CalibrationHistoryItem } from "../lib/types";
 
 export function CalibrationCard() {
   const [device, setDevice] = useState("0");
@@ -17,12 +17,24 @@ export function CalibrationCard() {
   const [coverage, setCoverage] = useState<[number, number][]>([]);
   const [result, setResult] = useState<CalibrationResult | null>(null);
   const [active, setActive] = useState<ActiveCalibration | null>(null);
+  const [history, setHistory] = useState<CalibrationHistoryItem[]>([]);
 
-  useEffect(() => { getActiveCalibration().then(setActive).catch(() => {}); }, []);
+  const refreshActive = useCallback(() => {
+    getActiveCalibration().then(setActive).catch(() => {});
+  }, []);
+
+  const refreshHistory = useCallback(() => {
+    getCalibrationHistory().then(setHistory).catch(() => {});
+  }, []);
+
+  useEffect(() => {
+    refreshActive();
+    refreshHistory();
+  }, [refreshActive, refreshHistory]);
 
   useCalibrationSse(capturing, {
     calibration_status: (d) => { setGoodPoses(d.good_poses); setCoverage(d.coverage); },
-    calibration_done: () => { getActiveCalibration().then(setActive).catch(() => {}); },
+    calibration_done: () => { refreshActive(); refreshHistory(); },
   });
 
   const onStart = () => {
@@ -35,6 +47,12 @@ export function CalibrationCard() {
   };
   const onStop = () => { stopCalibration().finally(() => setCapturing(false)); };
   const onRun = () => { runCalibration().then(setResult).catch(() => {}); };
+
+  const onActivate = (id: number) => {
+    activateCalibration(id)
+      .then(() => { refreshActive(); refreshHistory(); })
+      .catch(() => {});
+  };
 
   const covered = new Set(coverage.map(([c, r]) => `${c},${r}`));
   const grid = [];
@@ -102,6 +120,42 @@ export function CalibrationCard() {
           Active: #{active.id} · {active.n_poses} poses · {active.reprojection_error.toFixed(2)}px · {active.created_at}
         </div>
       )}
+
+      {/* History list */}
+      <div className="space-y-2">
+        <h3 className="text-sm font-medium text-[#8B978F]">History</h3>
+        {history.length === 0 ? (
+          <p className="text-xs text-[#8B978F] opacity-60">No calibrations yet.</p>
+        ) : (
+          <ul className="space-y-1">
+            {history.map((item) => (
+              <li key={item.id}
+                  className="flex items-center justify-between rounded-lg bg-[#0A0D0B] px-3 py-2 text-xs">
+                <span className="text-[#E7EEE9]">
+                  #{item.id}
+                  <span className="mx-1 text-[#8B978F]">·</span>
+                  {item.created_at.slice(0, 16).replace("T", " ")}
+                  <span className="mx-1 text-[#8B978F]">·</span>
+                  {item.n_poses} poses
+                  <span className="mx-1 text-[#8B978F]">·</span>
+                  {item.reprojection_error.toFixed(2)}px
+                </span>
+                <span className="flex items-center gap-2">
+                  {item.is_active ? (
+                    <span className="rounded px-2 py-0.5 bg-[#84CE39] text-[#0A0D0B] font-medium">active</span>
+                  ) : (
+                    <button
+                      onClick={() => onActivate(item.id)}
+                      className="rounded px-2 py-0.5 bg-[#2A332C] text-[#E7EEE9] hover:bg-[#3A4A3C]">
+                      Activate
+                    </button>
+                  )}
+                </span>
+              </li>
+            ))}
+          </ul>
+        )}
+      </div>
     </div>
   );
 }

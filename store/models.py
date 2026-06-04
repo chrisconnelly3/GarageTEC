@@ -69,6 +69,15 @@ class Landmark:
 
 
 @dataclass
+class Landmark3D:
+    name: str
+    x: float          # metric meters, world frame
+    y: float
+    z: float
+    confidence: float
+
+
+@dataclass
 class PoseFrame:
     swing_id: int
     view: str

@@ -44,6 +44,14 @@ CREATE TABLE IF NOT EXISTS pose_frame (
   UNIQUE(swing_id, view, frame_index)
 );
 
+CREATE TABLE IF NOT EXISTS pose_3d_frame (
+  id INTEGER PRIMARY KEY,
+  swing_id INTEGER NOT NULL REFERENCES swing(id),
+  frame_index INTEGER NOT NULL,
+  landmarks_json TEXT NOT NULL,
+  UNIQUE(swing_id, frame_index)
+);
+
 CREATE TABLE IF NOT EXISTS moment (
   id INTEGER PRIMARY KEY,
   swing_id INTEGER NOT NULL REFERENCES swing(id),

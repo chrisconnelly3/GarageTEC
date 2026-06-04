@@ -2,7 +2,7 @@ import json
 from datetime import datetime, timedelta, timezone
 from store import db as dbmod
 from store.models import (
-    Player, Session, Swing, Shot, Landmark, PoseFrame, Moment, Metric, Media,
+    Player, Session, Swing, Shot, Landmark, Landmark3D, PoseFrame, Moment, Metric, Media,
     Coaching,
 )
 
@@ -264,6 +264,41 @@ def _landmarks_to_json(landmarks):
 
 def _landmarks_from_json(text):
     return [Landmark(n, x, y, z, v) for (n, x, y, z, v) in json.loads(text)]
+
+
+def _landmarks3d_to_json(landmarks):
+    return json.dumps([[lm.name, lm.x, lm.y, lm.z, lm.confidence]
+                       for lm in landmarks])
+
+
+def _landmarks3d_from_json(text):
+    return [Landmark3D(n, x, y, z, c) for (n, x, y, z, c) in json.loads(text)]
+
+
+def save_pose_3d_frames(conn, swing_id, frames_by_index):
+    """frames_by_index: {frame_index: [Landmark3D]}."""
+    rows = [(swing_id, idx, _landmarks3d_to_json(lms))
+            for idx, lms in frames_by_index.items()]
+    conn.executemany(
+        "INSERT OR REPLACE INTO pose_3d_frame(swing_id, frame_index, "
+        "landmarks_json) VALUES (?,?,?)", rows)
+    conn.commit()
+    return len(rows)
+
+
+def get_pose_3d_frames(conn, swing_id):
+    """Return {frame_index: [Landmark3D]} for the swing (empty dict if none)."""
+    rows = conn.execute(
+        "SELECT frame_index, landmarks_json FROM pose_3d_frame "
+        "WHERE swing_id=? ORDER BY frame_index", (swing_id,)).fetchall()
+    return {r["frame_index"]: _landmarks3d_from_json(r["landmarks_json"])
+            for r in rows}
+
+
+def clear_pose_3d_frames(conn, swing_id):
+    cur = conn.execute("DELETE FROM pose_3d_frame WHERE swing_id=?", (swing_id,))
+    conn.commit()
+    return cur.rowcount
 
 
 def save_pose_frames(conn, swing_id, view, frames):

@@ -1,43 +1,61 @@
 import { Calendar, Video, ChevronRight, Activity } from 'lucide-react'
 import { cn } from '../lib/utils'
-import { Avatar, AvatarFallback, AvatarImage } from '../components/Avatar'
-const sessions = [
-  {
-    id: 1,
-    date: 'Today, 2:30 PM',
-    player: 'Alex M.',
-    avatar: 'https://i.pravatar.cc/150?u=alex',
-    clubs: 'Driver, 7i',
-    swings: 42,
-    summary:
-      'Focused on reducing hip sway. Consistent improvement in last 10 swings.',
-    stats: ['Avg Hip Sway 2.1in', 'Best swing: #38'],
-    isLive: true,
-  },
-  {
-    id: 2,
-    date: 'Oct 28, 4:15 PM',
-    player: 'Alex M.',
-    avatar: 'https://i.pravatar.cc/150?u=alex',
-    clubs: 'Driver',
-    swings: 15,
-    summary: 'Quick speed training session. Club speed up +3mph.',
-    stats: ['Max Speed 114mph', 'Avg Carry 285y'],
-    isLive: false,
-  },
-  {
-    id: 3,
-    date: 'Oct 25, 1:00 PM',
-    player: 'Sarah T.',
-    avatar: 'https://i.pravatar.cc/150?u=sarah',
-    clubs: 'PW, 8i, 6i',
-    swings: 65,
-    summary: 'Iron gapping and face control. Face angle improved to +/- 1.5°.',
-    stats: ['Face to Path 1.2°', 'Consistent Contact'],
-    isLive: false,
-  },
-]
-export function SessionsScreen() {
+import { Avatar, AvatarFallback } from '../components/Avatar'
+import { useApi } from '../lib/useApi'
+import { getSessions, getPlayers, getSession } from '../lib/api'
+
+interface SessionVM {
+  id: number
+  date: string
+  player: string
+  clubs: string
+  swings: number
+  summary: string
+  stats: string[]
+  isLive: boolean
+}
+
+const formatDateTime = (iso: string) => {
+  const d = new Date(iso)
+  if (Number.isNaN(d.getTime())) return iso
+  return d.toLocaleString(undefined, {
+    month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit',
+  })
+}
+
+interface SessionsScreenProps {
+  activeSessionId: number | null
+}
+
+export function SessionsScreen({ activeSessionId }: SessionsScreenProps) {
+  const { data, loading, error } = useApi<SessionVM[]>(async () => {
+    const [sessions, players] = await Promise.all([getSessions(), getPlayers()])
+    const nameById = new Map(players.map((p) => [p.id, p.name]))
+    // Lazily fetch details for the first ~10 sessions for swing count/summary.
+    const top = sessions.slice(0, 10)
+    const details = await Promise.all(
+      top.map((s) => getSession(s.id).catch(() => null)),
+    )
+    return top.map((s, i) => {
+      const d = details[i]
+      const clubs = d
+        ? Array.from(
+            new Set(d.swings.map((sw) => sw.club).filter(Boolean) as string[]),
+          ).join(', ')
+        : ''
+      return {
+        id: s.id,
+        date: formatDateTime(s.started_at),
+        player: nameById.get(s.player_id) ?? `Player ${s.player_id}`,
+        clubs: clubs || '—',
+        swings: d?.swings.length ?? 0,
+        summary: d?.coaching[0]?.content?.headline ?? 'No summary yet.',
+        stats: [],
+        isLive: s.ended_at === null || s.id === activeSessionId,
+      }
+    })
+  }, [activeSessionId])
+
   return (
     <div className="h-full flex flex-col p-6 space-y-6 overflow-y-auto">
       <div className="flex items-center justify-between">
@@ -48,8 +66,18 @@ export function SessionsScreen() {
         </button>
       </div>
 
+      {loading && <div className="text-[#8B978F]">Loading…</div>}
+      {error && (
+        <div className="rounded-[18px] border border-garage-red/40 bg-garage-red/10 px-6 py-4 text-sm text-garage-red">
+          Failed to load sessions: {error}
+        </div>
+      )}
+      {!loading && !error && (data?.length ?? 0) === 0 && (
+        <div className="text-[#8B978F]">No sessions yet.</div>
+      )}
+
       <div className="flex flex-col space-y-4">
-        {sessions.map((session) => (
+        {(data ?? []).map((session) => (
           <div
             key={session.id}
             className={cn(
@@ -74,7 +102,6 @@ export function SessionsScreen() {
 
               <div className="flex items-center space-x-3">
                 <Avatar className="w-8 h-8 ring-1 ring-[#242C27]">
-                  <AvatarImage src={session.avatar} />
                   <AvatarFallback>{session.player.charAt(0)}</AvatarFallback>
                 </Avatar>
                 <span className="text-[#E7EEE9] font-medium">

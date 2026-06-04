@@ -1,6 +1,6 @@
 import type {
   Player, Session, SwingDetail, SessionDetail, History, SyncProposals,
-  CaptureStatus, ActivePlayerIn,
+  CaptureStatus, ActivePlayerIn, Settings, PlayerWithCounts, SwingSummary,
 } from "./types";
 
 async function getJSON<T>(url: string): Promise<T> {
@@ -18,8 +18,17 @@ async function postJSON<T>(url: string, body: unknown): Promise<T> {
   if (!r.ok) throw new Error(`${r.status} ${url}`);
   return r.json() as Promise<T>;
 }
+async function putJSON<T>(url: string, body: unknown): Promise<T> {
+  const r = await fetch(url, {
+    method: "PUT",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(body),
+  });
+  if (!r.ok) throw new Error(`${r.status} ${url}`);
+  return r.json() as Promise<T>;
+}
 
-export const getPlayers = () => getJSON<Player[]>("/api/players");
+export const getPlayers = () => getJSON<PlayerWithCounts[]>("/api/players");
 export const createPlayer = (p: ActivePlayerIn) => postJSON<Player>("/api/players", p);
 
 export const getSessions = (player?: number) =>
@@ -51,3 +60,14 @@ export const resumeCapture = () => postJSON<CaptureStatus>("/api/capture/resume"
 export const restartCapture = () => postJSON<CaptureStatus & { ok: true }>("/api/capture/restart", {});
 export const setActivePlayer = (p: ActivePlayerIn) =>
   postJSON<CaptureStatus>("/api/capture/active-player", p);
+
+export const getSettings = () => getJSON<Settings>("/api/settings");
+export const putSettings = (s: Partial<Settings>) => putJSON<Settings>("/api/settings", s);
+
+export const getSwings = (player?: number, session?: number, limit = 50) => {
+  const qs = new URLSearchParams();
+  if (player) qs.set("player", String(player));
+  if (session) qs.set("session", String(session));
+  qs.set("limit", String(limit));
+  return getJSON<SwingSummary[]>(`/api/swings?${qs.toString()}`);
+};

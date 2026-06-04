@@ -8,6 +8,7 @@ import sqlite3
 from pathlib import Path
 
 from store import db as dbmod
+from store import repo
 
 from web.backend.capture import CaptureEventBus, CaptureSupervisor
 
@@ -59,7 +60,11 @@ def capture_bus() -> CaptureEventBus:
 def get_supervisor() -> CaptureSupervisor:
     global _supervisor
     if _supervisor is None:
-        _supervisor = CaptureSupervisor(conn=_listener_conn(), bus=capture_bus())
+        conn = _listener_conn()
+        settings = repo.get_settings(conn)
+        _supervisor = CaptureSupervisor(
+            conn=conn, bus=capture_bus(),
+            port=settings["port"], idle_minutes=settings["idle_minutes"])
     return _supervisor
 
 

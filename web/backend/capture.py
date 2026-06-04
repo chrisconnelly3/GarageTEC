@@ -111,6 +111,16 @@ class CaptureSupervisor:
             "carry": saved.carry, "shot_count": self._shot_count})
         return saved
 
+    # ---- settings ---------------------------------------------------------
+    def apply_settings(self, settings: dict):
+        """Adopt idle_minutes + port from a settings dict. idle takes effect
+        immediately (next sweep); port takes effect on the next listener spawn
+        (i.e. restart())."""
+        if "idle_minutes" in settings:
+            self.session_mgr.idle_minutes = int(settings["idle_minutes"])
+        if "port" in settings:
+            self.port = int(settings["port"])
+
     # ---- active player ----------------------------------------------------
     def set_active_player(self, name, height_in, handedness):
         player = self.session_mgr.set_active_player(name, height_in, handedness)

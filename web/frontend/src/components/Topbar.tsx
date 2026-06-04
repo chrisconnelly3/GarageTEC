@@ -1,32 +1,26 @@
 import { Pause, Play, Wifi } from 'lucide-react'
 import { cn } from '../lib/utils'
-import { Avatar, AvatarFallback, AvatarImage } from './Avatar'
+import { Avatar, AvatarFallback } from './Avatar'
+
+interface TopbarPlayer { id: number; name: string }
 interface TopbarProps {
+  players: TopbarPlayer[]
+  activePlayerId: number | null
   isPaused: boolean
-  setIsPaused: (paused: boolean) => void
   r50Status: 'connected' | 'waiting' | 'paused'
+  onPause: () => void
+  onResume: () => void
+  onSelectPlayer: (p: TopbarPlayer) => void
 }
-export function Topbar({ isPaused, setIsPaused, r50Status }: TopbarProps) {
-  const players = [
-    {
-      id: '1',
-      name: 'Alex M.',
-      avatar: 'https://i.pravatar.cc/150?u=alex',
-      active: true,
-    },
-    {
-      id: '2',
-      name: 'Sarah T.',
-      avatar: 'https://i.pravatar.cc/150?u=sarah',
-      active: false,
-    },
-    {
-      id: '3',
-      name: 'Guest',
-      avatar: '',
-      active: false,
-    },
-  ]
+export function Topbar({
+  players,
+  activePlayerId,
+  isPaused,
+  r50Status,
+  onPause,
+  onResume,
+  onSelectPlayer,
+}: TopbarProps) {
   return (
     <header className="h-20 border-b border-[#242C27] bg-[#0A0D0B]/80 backdrop-blur-md flex items-center justify-between px-8 sticky top-0 z-10">
       <div className="flex items-center space-x-4">
@@ -34,38 +28,41 @@ export function Topbar({ isPaused, setIsPaused, r50Status }: TopbarProps) {
           Who's Hitting
         </span>
         <div className="flex items-center space-x-2">
-          {players.map((player) => (
-            <button
-              key={player.id}
-              className={cn(
-                'flex items-center space-x-2 px-1.5 py-1.5 pr-4 rounded-full transition-all min-h-[44px]',
-                player.active
-                  ? 'bg-[#1A211D] ring-1 ring-garage-green'
-                  : 'hover:bg-[#1A211D]',
-              )}
-            >
-              <Avatar
+          {players.map((player) => {
+            const active = player.id === activePlayerId
+            return (
+              <button
+                key={player.id}
+                onClick={() => onSelectPlayer(player)}
                 className={cn(
-                  'w-8 h-8',
-                  player.active &&
-                    'ring-2 ring-garage-green ring-offset-2 ring-offset-[#1A211D]',
+                  'flex items-center space-x-2 px-1.5 py-1.5 pr-4 rounded-full transition-all min-h-[44px]',
+                  active
+                    ? 'bg-[#1A211D] ring-1 ring-garage-green'
+                    : 'hover:bg-[#1A211D]',
                 )}
               >
-                <AvatarImage src={player.avatar} />
-                <AvatarFallback className="bg-[#242C27] text-xs">
-                  {player.name.charAt(0)}
-                </AvatarFallback>
-              </Avatar>
-              <span
-                className={cn(
-                  'text-sm font-medium',
-                  player.active ? 'text-[#E7EEE9]' : 'text-[#8B978F]',
-                )}
-              >
-                {player.name}
-              </span>
-            </button>
-          ))}
+                <Avatar
+                  className={cn(
+                    'w-8 h-8',
+                    active &&
+                      'ring-2 ring-garage-green ring-offset-2 ring-offset-[#1A211D]',
+                  )}
+                >
+                  <AvatarFallback className="bg-[#242C27] text-xs">
+                    {player.name.charAt(0)}
+                  </AvatarFallback>
+                </Avatar>
+                <span
+                  className={cn(
+                    'text-sm font-medium',
+                    active ? 'text-[#E7EEE9]' : 'text-[#8B978F]',
+                  )}
+                >
+                  {player.name}
+                </span>
+              </button>
+            )
+          })}
         </div>
       </div>
 
@@ -96,7 +93,7 @@ export function Topbar({ isPaused, setIsPaused, r50Status }: TopbarProps) {
         </div>
 
         <button
-          onClick={() => setIsPaused(!isPaused)}
+          onClick={() => (isPaused ? onResume() : onPause())}
           className={cn(
             'flex items-center space-x-2 px-6 py-2.5 rounded-full font-medium transition-all min-h-[44px]',
             isPaused

@@ -1,6 +1,7 @@
 import type {
   Player, Session, SwingDetail, SessionDetail, History, SyncProposals,
   CaptureStatus, ActivePlayerIn, Settings, PlayerWithCounts, SwingSummary,
+  CalibrationStartIn, CalibrationStatus, CalibrationResult, ActiveCalibration,
 } from "./types";
 
 async function getJSON<T>(url: string): Promise<T> {
@@ -71,3 +72,12 @@ export const getSwings = (player?: number, session?: number, limit = 50) => {
   qs.set("limit", String(limit));
   return getJSON<SwingSummary[]>(`/api/swings?${qs.toString()}`);
 };
+
+export const startCalibration = (b: CalibrationStartIn) =>
+  postJSON<{ ok: boolean }>("/api/calibration/start", b);
+export const stopCalibration = () => postJSON<{ ok: boolean }>("/api/calibration/stop", {});
+export const runCalibration = () => postJSON<CalibrationResult>("/api/calibration/run", {});
+export const getCalibrationStatus = () =>
+  getJSON<CalibrationStatus>("/api/calibration/status");
+export const getActiveCalibration = () =>
+  getJSON<ActiveCalibration | null>("/api/calibration/active");

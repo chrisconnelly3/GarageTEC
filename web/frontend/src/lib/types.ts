@@ -28,3 +28,18 @@ export interface SwingSummary {
   id: number; created_at: string; club: string | null; has_shot: boolean;
   hip_sway_in: number | null; shoulder_tilt_deg: number | null;
 }
+
+export interface CalibrationStartIn {
+  device_index: number; cols: number; rows: number; square_mm: number;
+}
+export interface CalibrationStatus {
+  capturing: boolean; good_poses: number; coverage: [number, number][];
+  device_index: number; cols: number; rows: number;
+}
+export interface CalibrationResult {
+  ok: boolean; n_poses?: number; reprojection_error?: number; error?: string;
+}
+export interface ActiveCalibration {
+  id: number; created_at: string; n_poses: number;
+  reprojection_error: number; cols: number; rows: number; device_index: number;
+}

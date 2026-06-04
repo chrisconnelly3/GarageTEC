@@ -10,7 +10,7 @@ from typing import Callable, List, Optional, Tuple
 from vision import constants as C
 from vision.frames import VideoFileSource, FrameSource
 from vision.pose import PoseEstimator
-from vision.swing_detect import motion_energy_from_timeline, detect_swings
+from vision.swing_detect import hand_trajectory_from_timeline, detect_swings
 from vision.segment import segment_swing
 from vision.persist import persist_swing
 from vision.render import render_swing_clip
@@ -51,8 +51,8 @@ def process_video(conn, video_path: str, *, player_id: int, session_id: int,
         down_line, face_on = build_timelines(source, dl_pose, fo_pose)
         crops_cache = getattr(build_timelines, "last_crops", {})
 
-        energy = motion_energy_from_timeline(face_on)
-        windows = detect_swings(energy, single_swing=single_swing)
+        signal = hand_trajectory_from_timeline(face_on)
+        windows = detect_swings(signal, single_swing=single_swing)
         print(f"[vision] detected {len(windows)} swing(s) in {video_path}")
 
         for wi, window in enumerate(windows):

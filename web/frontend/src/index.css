@@ -1,0 +1,59 @@
+/* @import url() FONT IMPORTS MUST ALWAYS BE AT THE VERY TOP OF THIS FILE, ABOVE THE TAILWIND IMPORTS */
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;700&display=swap');
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --background: #0A0D0B;
+  --foreground: #E7EEE9;
+  --card: #121714;
+  --card-foreground: #E7EEE9;
+  --popover: #121714;
+  --popover-foreground: #E7EEE9;
+  --primary: #84CE39;
+  --primary-foreground: #0A0D0B;
+  --secondary: #1A211D;
+  --secondary-foreground: #E7EEE9;
+  --muted: #1A211D;
+  --muted-foreground: #8B978F;
+  --accent: #1A211D;
+  --accent-foreground: #E7EEE9;
+  --destructive: #FF5A5A;
+  --destructive-foreground: #0A0D0B;
+  --border: #242C27;
+  --input: #242C27;
+  --ring: #84CE39;
+  --radius: 18px;
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+  body {
+    @apply bg-background text-foreground font-sans antialiased selection:bg-garage-green/30 selection:text-garage-green;
+  }
+  /* Force dark mode */
+  html {
+    color-scheme: dark;
+  }
+}
+
+/* Hide scrollbar for clean dashboard look */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  background: #242C27;
+  border-radius: 10px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: #8B978F;
+}

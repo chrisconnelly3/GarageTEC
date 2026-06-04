@@ -1,2 +1,7 @@
 node_modules/
 dist/
+
+# tsc -b (composite project) build artifacts
+*.tsbuildinfo
+vite.config.js
+vite.config.d.ts

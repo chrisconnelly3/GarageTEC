@@ -3,6 +3,9 @@
 A swing is READY when it has at least one metric AND at least one coaching
 row. The watcher remembers the highest swing id it has emitted and only
 returns newly-ready swings with a larger id, so each ready swing fires once.
+
+The stream also drains the in-process CaptureEventBus, emitting capture frames
+(shot_received, capture_status, active_player_changed) alongside swing_ready.
 """
 import asyncio
 import json
@@ -10,7 +13,7 @@ import json
 from fastapi import APIRouter, Depends, Request
 from fastapi.responses import StreamingResponse
 
-from web.backend.deps import get_conn
+from web.backend.deps import get_conn, capture_bus
 
 router = APIRouter(tags=["events"])
 
@@ -42,25 +45,32 @@ class SwingWatcher:
         return events
 
 
-def _format(event: dict) -> str:
-    return f"event: swing_ready\ndata: {json.dumps(event)}\n\n"
+def _format(event_name: str, data: dict) -> str:
+    return f"event: {event_name}\ndata: {json.dumps(data)}\n\n"
 
 
 @router.get("/events")
-async def events(request: Request, once: int = 0, conn=Depends(get_conn)):
+async def events(request: Request, once: int = 0, conn=Depends(get_conn),
+                 bus=Depends(capture_bus)):
     watcher = SwingWatcher(conn)
 
+    def _emit_capture():
+        return [_format(e["event"], e["data"]) for e in bus.drain()]
+
     async def gen():
-        # emit any already-ready swings immediately
         for e in watcher.poll():
-            yield _format(e)
+            yield _format("swing_ready", e)
+        for frame in _emit_capture():
+            yield frame
         if once:
             return
         while True:
             if await request.is_disconnected():
                 break
             for e in watcher.poll():
-                yield _format(e)
+                yield _format("swing_ready", e)
+            for frame in _emit_capture():
+                yield frame
             yield ": keep-alive\n\n"
             await asyncio.sleep(POLL_INTERVAL_S)
 

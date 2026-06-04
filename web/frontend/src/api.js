@@ -33,3 +33,9 @@ export const applyMatch = (swing_id, shot_id) =>
 export const unlinkSwing = (swing_id) =>
   postJSON("/api/sync/unlink", { swing_id });
 export const mediaUrl = (path) => `/media/${path}`;
+
+export const getCaptureStatus = () => getJSON("/api/capture/status");
+export const pauseCapture = () => postJSON("/api/capture/pause", {});
+export const resumeCapture = () => postJSON("/api/capture/resume", {});
+export const restartCapture = () => postJSON("/api/capture/restart", {});
+export const setActivePlayer = (p) => postJSON("/api/capture/active-player", p);

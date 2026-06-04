@@ -9,6 +9,24 @@ from store import repo
 from store.models import Shot, Moment, Metric, Media, Coaching
 from web.backend.app import create_app
 from web.backend import deps
+from web.backend.capture import CaptureEventBus, CaptureSupervisor
+
+
+class FakeListener:
+    """No-socket stand-in for OpenConnectListener used across web tests."""
+    def __init__(self, **kwargs):
+        self.kwargs = kwargs
+        self.alive = False
+        self.hand = kwargs.get("handedness")
+
+    def start(self):
+        self.alive = True
+
+    def stop(self):
+        self.alive = False
+
+    def set_handedness(self, h):
+        self.hand = h
 
 
 @pytest.fixture
@@ -24,14 +42,34 @@ def conn():
 
 
 @pytest.fixture
-def client(conn, tmp_path):
+def bus():
+    return CaptureEventBus()
+
+
+@pytest.fixture
+def supervisor(conn, bus, tmp_path):
+    sup = CaptureSupervisor(
+        conn=conn, bus=bus,
+        listener_factory=lambda **kw: FakeListener(**kw),
+        buffer_path=str(tmp_path / "pending_shots.jsonl"),
+        restart_poll_s=0.02)
+    yield sup
+    sup.stop()
+
+
+@pytest.fixture
+def client(conn, supervisor, bus, tmp_path):
     app = create_app()
     app.dependency_overrides[deps.get_conn] = lambda: conn
+    app.dependency_overrides[deps.get_supervisor] = lambda: supervisor
+    app.dependency_overrides[deps.capture_bus] = lambda: bus
     media_dir = tmp_path / "media"
     media_dir.mkdir()
     app.dependency_overrides[deps.media_root] = lambda: media_dir
     with TestClient(app) as c:
         c.media_dir = media_dir  # expose for media tests
+        c.supervisor = supervisor
+        c.bus = bus
         yield c
 
 

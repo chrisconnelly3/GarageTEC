@@ -9,6 +9,13 @@ from web.backend.serializers import (
 router = APIRouter(prefix="/api/swings", tags=["swings"])
 
 
+@router.get("")
+def list_swings(player: int | None = None, session: int | None = None,
+                limit: int = 50, conn=Depends(get_conn)):
+    return repo.list_swing_summaries(conn, player_id=player,
+                                     session_id=session, limit=limit)
+
+
 @router.get("/latest")
 def latest_swing(player: int, session: int | None = None,
                  conn=Depends(get_conn)):

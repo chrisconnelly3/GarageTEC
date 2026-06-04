@@ -71,6 +71,11 @@ CREATE TABLE IF NOT EXISTS coaching (
   model TEXT, created_at TEXT NOT NULL
 );
 
+CREATE TABLE IF NOT EXISTS settings (
+  key TEXT PRIMARY KEY,
+  value TEXT
+);
+
 CREATE INDEX IF NOT EXISTS ix_swing_session ON swing(session_id);
 CREATE INDEX IF NOT EXISTS ix_swing_player ON swing(player_id);
 CREATE INDEX IF NOT EXISTS ix_pose_swing ON pose_frame(swing_id, view);

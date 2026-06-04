@@ -7,7 +7,7 @@ from fastapi.staticfiles import StaticFiles
 
 from web.backend import (
     api_players, api_sessions, api_swings, api_history, api_sync, api_capture,
-    events, media, deps,
+    api_settings, events, media, deps,
 )
 
 
@@ -43,6 +43,7 @@ def create_app() -> FastAPI:
     app.include_router(api_history.router)
     app.include_router(api_sync.router)
     app.include_router(api_capture.router)
+    app.include_router(api_settings.router)
     app.include_router(events.router)
     app.include_router(media.router)
 

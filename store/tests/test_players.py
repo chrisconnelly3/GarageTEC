@@ -12,6 +12,21 @@ def test_create_and_list_player(db):
     assert names == ["Brother", "Chris"]
 
 
+def test_player_swing_and_session_counts(db):
+    from store import repo
+    p = repo.get_or_create_player(db, "Cnt", 70.0, "R")
+    s1 = repo.create_session(db, p.id).id
+    s2 = repo.create_session(db, p.id).id
+    repo.add_swing(db, s1, p.id, "a.mp4")
+    repo.add_swing(db, s1, p.id, "b.mp4")
+    repo.add_swing(db, s2, p.id, "c.mp4")
+    assert repo.count_swings_for_player(db, p.id) == 3
+    assert repo.count_sessions_for_player(db, p.id) == 2
+    # a different player is isolated
+    other = repo.get_or_create_player(db, "Other", 70.0, "L")
+    assert repo.count_swings_for_player(db, other.id) == 0
+
+
 def test_get_player_by_id(db):
     p = repo.get_or_create_player(db, "Heighted", 73.0, "R")
     got = repo.get_player(db, p.id)

@@ -18,7 +18,8 @@ import { cn } from '../lib/utils'
 import { motion } from 'framer-motion'
 import { useApi } from '../lib/useApi'
 import { getHistory } from '../lib/api'
-import { labelFor, deltaVsBaseline, METRIC_GOOD } from '../lib/format'
+import { labelFor, deltaVsBaseline, METRIC_GOOD, withinTimeframe } from '../lib/format'
+import type { Timeframe } from '../lib/format'
 import type { History } from '../lib/types'
 
 const HERO_METRIC = 'shoulder_tilt_deg'
@@ -47,7 +48,7 @@ interface HistoryScreenProps {
 }
 
 export function HistoryScreen({ playerId }: HistoryScreenProps) {
-  const [timeframe, setTimeframe] = useState('Month')
+  const [timeframe, setTimeframe] = useState<Timeframe>('Month')
 
   const { data: hero, loading, error } = useApi<History | null>(
     () =>
@@ -68,7 +69,7 @@ export function HistoryScreen({ playerId }: HistoryScreenProps) {
         ),
       )
       return TREND_METRICS.map((name, i) => {
-        const points = histories[i].points ?? []
+        const points = withinTimeframe(histories[i].points ?? [], timeframe)
         const vals = points.map((p) => p.value)
         const { value, delta } = deltaVsBaseline(points)
         const good = METRIC_GOOD[name] ?? 'neutral'
@@ -90,10 +91,11 @@ export function HistoryScreen({ playerId }: HistoryScreenProps) {
         }
       })
     },
-    [playerId],
+    [playerId, timeframe],
   )
 
-  const chartData = (hero?.points ?? []).map((p) => ({
+  const heroPoints = withinTimeframe(hero?.points ?? [], timeframe)
+  const chartData = heroPoints.map((p) => ({
     date: shortDate(p.created_at),
     value: p.value,
   }))
@@ -121,8 +123,7 @@ export function HistoryScreen({ playerId }: HistoryScreenProps) {
         </div>
 
         <div className="flex bg-[#121714] border border-[#242C27] rounded-full p-1">
-          {/* Phase 3: server-side timeframe filtering; visual-only for now */}
-          {['Session', 'Week', 'Month', 'Year'].map((tf) => (
+          {(['Session', 'Week', 'Month', 'Year'] as Timeframe[]).map((tf) => (
             <button
               key={tf}
               onClick={() => setTimeframe(tf)}

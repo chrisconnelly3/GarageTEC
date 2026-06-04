@@ -1,13 +1,13 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { SwingReplay } from '../components/SwingReplay'
 import { AIInsightCard } from '../components/AIInsightCard'
 import { BallClubStrip } from '../components/BallClubStrip'
 import { cn } from '../lib/utils'
 import { CheckCircle2, AlertCircle } from 'lucide-react'
 import { useApi } from '../lib/useApi'
-import { getSwing } from '../lib/api'
+import { getSwing, getSwings } from '../lib/api'
 import { labelFor, coachingToInsights, METRIC_IDEAL } from '../lib/format'
-import type { SwingDetail, Metric } from '../lib/types'
+import type { SwingDetail, Metric, SwingSummary } from '../lib/types'
 
 const PHASES = [
   'Address', 'Takeaway', 'Lead-arm', 'Top',
@@ -29,26 +29,57 @@ function statusFor(name: string, impactVal: number | null | undefined): string {
 }
 
 interface ReviewScreenProps {
-  swingId: number | null
+  playerId: number | null
+  sessionId: number | null
+  defaultSwingId: number | null
 }
 
-export function ReviewScreen({ swingId }: ReviewScreenProps) {
+export function ReviewScreen({ playerId, sessionId, defaultSwingId }: ReviewScreenProps) {
   const [activePhase, setActivePhase] = useState('Impact')
+  const [selectedId, setSelectedId] = useState<number | null>(defaultSwingId)
+  useEffect(() => { setSelectedId(defaultSwingId) }, [defaultSwingId])
+
+  const { data: swings } = useApi<SwingSummary[]>(
+    () => (playerId ? getSwings(playerId, sessionId ?? undefined, 50) : Promise.resolve([])),
+    [playerId, sessionId],
+  )
+
+  const swingId = selectedId ?? defaultSwingId
   const { data, loading, error } = useApi<SwingDetail | null>(
     () => (swingId ? getSwing(swingId) : Promise.resolve(null)),
     [swingId],
   )
 
+  const picker = (swings?.length ?? 0) > 0 && (
+    <div className="flex items-center gap-3">
+      <label className="text-[11px] uppercase tracking-wider text-[#8B978F] font-semibold">Swing</label>
+      <select
+        value={swingId ?? ''}
+        onChange={(e) => setSelectedId(Number(e.target.value))}
+        className="bg-[#1A211D] border border-[#242C27] rounded-xl px-4 py-2 text-[#E7EEE9] focus:border-garage-green outline-none min-h-[44px]"
+      >
+        {(swings ?? []).map((s, i) => (
+          <option key={s.id} value={s.id}>
+            {`#${s.id} · ${s.club ?? '—'} · ${new Date(s.created_at).toLocaleTimeString(undefined, { hour: 'numeric', minute: '2-digit' })}${s.has_shot ? ' · R50' : ''}${i === 0 ? ' (latest)' : ''}`}
+          </option>
+        ))}
+      </select>
+    </div>
+  )
+
   if (!swingId || (!data && !loading && !error)) {
     return (
-      <div className="h-full flex items-center justify-center p-6">
-        <div className="text-center border-2 border-dashed border-[#242C27] rounded-[24px] bg-[#0A0D0B]/50 px-12 py-16">
-          <h2 className="text-xl font-semibold text-[#E7EEE9] mb-2">
-            Select a swing to review
-          </h2>
-          <p className="text-[#8B978F]">
-            Take a swing or pick one from a session to see the breakdown.
-          </p>
+      <div className="h-full flex flex-col p-6 space-y-6 overflow-y-auto">
+        {picker}
+        <div className="flex-1 flex items-center justify-center">
+          <div className="text-center border-2 border-dashed border-[#242C27] rounded-[24px] bg-[#0A0D0B]/50 px-12 py-16">
+            <h2 className="text-xl font-semibold text-[#E7EEE9] mb-2">
+              Select a swing to review
+            </h2>
+            <p className="text-[#8B978F]">
+              Take a swing or pick one from a session to see the breakdown.
+            </p>
+          </div>
         </div>
       </div>
     )
@@ -103,6 +134,7 @@ export function ReviewScreen({ swingId }: ReviewScreenProps) {
 
   return (
     <div className="h-full flex flex-col p-6 space-y-6 overflow-y-auto">
+      {picker}
       {/* HERO: Video Scrubber & Timeline */}
       <div className="bg-[#121714] border border-[#242C27] rounded-[24px] p-6 flex flex-col space-y-6">
         <div className="h-[360px] rounded-[18px] overflow-hidden">

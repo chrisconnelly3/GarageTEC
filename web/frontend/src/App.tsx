@@ -96,7 +96,13 @@ export default function App() {
               lastCapture={lastCapture}
             />
           )}
-          {activeTab === 'review' && <ReviewScreen swingId={reviewSwingId} />}
+          {activeTab === 'review' && (
+            <ReviewScreen
+              playerId={activePlayerId}
+              sessionId={activeSessionId}
+              defaultSwingId={reviewSwingId}
+            />
+          )}
           {activeTab === 'history' && <HistoryScreen playerId={activePlayerId} />}
           {activeTab === 'sessions' && (
             <SessionsScreen activeSessionId={activeSessionId} />

@@ -1,6 +1,8 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { Wifi, Smartphone, Settings, CheckCircle2 } from 'lucide-react'
 import { cn } from '../lib/utils'
+import { useApi } from '../lib/useApi'
+import { getSettings, putSettings, restartCapture } from '../lib/api'
 import type { CaptureStatus } from '../lib/types'
 
 interface ConnectScreenProps {
@@ -12,10 +14,37 @@ export function ConnectScreen({ captureStatus }: ConnectScreenProps) {
     ? 'connected'
     : 'waiting'
 
-  // Phase 3: persist via a settings endpoint; local-only for now.
+  const { data: settings } = useApi(getSettings, [])
   const [idleTimeout, setIdleTimeout] = useState('15')
   const [units, setUnits] = useState<'Yards' | 'Meters'>('Yards')
   const [port, setPort] = useState('921')
+  const [saved, setSaved] = useState(false)
+
+  useEffect(() => {
+    if (settings) {
+      setIdleTimeout(String(settings.idle_minutes))
+      setUnits(settings.units === 'meters' ? 'Meters' : 'Yards')
+      setPort(String(settings.port))
+    }
+  }, [settings])
+
+  const onSave = () => {
+    const nextPort = parseInt(port || '921', 10) || 921
+    putSettings({
+      idle_minutes: parseInt(idleTimeout || '15', 10) || 15,
+      units: units === 'Meters' ? 'meters' : 'yards',
+      port: nextPort,
+    })
+      .then(() => {
+        setSaved(true)
+        setTimeout(() => setSaved(false), 2000)
+        // A port change only binds on the next listener spawn, so restart it.
+        if (settings && nextPort !== settings.port) {
+          restartCapture().catch(() => {})
+        }
+      })
+      .catch(() => {})
+  }
 
   return (
     <div className="h-full flex flex-col p-6 space-y-8 overflow-y-auto max-w-5xl mx-auto w-full">
@@ -111,7 +140,6 @@ export function ConnectScreen({ captureStatus }: ConnectScreenProps) {
       </div>
 
       {/* Settings Card */}
-      {/* Phase 3: persist via POST /api/capture/settings; local-only for now */}
       <div className="bg-[#121714] border border-[#242C27] rounded-[24px] p-6 mt-auto">
         <div className="flex items-center space-x-2 mb-6">
           <Settings className="w-5 h-5 text-[#8B978F]" />
@@ -172,6 +200,15 @@ export function ConnectScreen({ captureStatus }: ConnectScreenProps) {
               className="bg-[#1A211D] border border-[#242C27] rounded-xl px-4 py-3 text-[#E7EEE9] focus:border-garage-green outline-none min-h-[44px] font-mono"
             />
           </div>
+        </div>
+
+        <div className="flex justify-end mt-6">
+          <button
+            onClick={onSave}
+            className="bg-garage-green text-[#0A0D0B] font-semibold rounded-xl px-6 py-3 min-h-[44px] hover:brightness-110 transition"
+          >
+            {saved ? 'Saved ✓' : 'Save Settings'}
+          </button>
         </div>
       </div>
     </div>

@@ -36,6 +36,51 @@ def get_player(conn, player_id):
                   handedness=row["handedness"], created_at=row["created_at"])
 
 
+SETTINGS_DEFAULTS = {"idle_minutes": 15, "units": "yards", "port": 921}
+
+
+def get_settings(conn):
+    """Single global settings dict. Missing keys fall back to defaults;
+    idle_minutes/port are coerced to int."""
+    rows = conn.execute("SELECT key, value FROM settings").fetchall()
+    stored = {r["key"]: r["value"] for r in rows}
+    out = dict(SETTINGS_DEFAULTS)
+    for k in ("idle_minutes", "port"):
+        if k in stored and stored[k] is not None:
+            try:
+                out[k] = int(stored[k])
+            except (TypeError, ValueError):
+                pass
+    if "units" in stored and stored["units"]:
+        out["units"] = stored["units"]
+    return out
+
+
+def save_settings(conn, values: dict):
+    """Upsert only the provided keys. Values stored as TEXT."""
+    for k, v in values.items():
+        if k not in SETTINGS_DEFAULTS:
+            continue  # ignore unknown keys
+        conn.execute(
+            "INSERT INTO settings(key, value) VALUES (?, ?) "
+            "ON CONFLICT(key) DO UPDATE SET value=excluded.value",
+            (k, str(v)))
+    conn.commit()
+    return get_settings(conn)
+
+
+def count_swings_for_player(conn, player_id):
+    row = conn.execute("SELECT COUNT(*) c FROM swing WHERE player_id=?",
+                       (player_id,)).fetchone()
+    return row["c"]
+
+
+def count_sessions_for_player(conn, player_id):
+    row = conn.execute("SELECT COUNT(*) c FROM session WHERE player_id=?",
+                       (player_id,)).fetchone()
+    return row["c"]
+
+
 def create_session(conn, player_id, location=None, notes=None):
     ts = dbmod.now_iso()
     cur = conn.execute(
@@ -156,6 +201,36 @@ def list_swings(conn, session_id=None, limit=None):
         sql += " LIMIT ?"
         args.append(limit)
     return [_swing_from_row(r) for r in conn.execute(sql, args).fetchall()]
+
+
+def list_swing_summaries(conn, player_id=None, session_id=None, limit=None):
+    """Lightweight swing rows for a picker: id, created_at, club, has_shot,
+    and two key impact metrics (hip_sway_in, shoulder_tilt_deg) when present.
+    Newest first."""
+    sql = "SELECT * FROM swing WHERE 1=1"
+    args = []
+    if player_id is not None:
+        sql += " AND player_id=?"; args.append(player_id)
+    if session_id is not None:
+        sql += " AND session_id=?"; args.append(session_id)
+    sql += " ORDER BY id DESC"
+    if limit is not None:
+        sql += " LIMIT ?"; args.append(limit)
+    rows = conn.execute(sql, args).fetchall()
+    out = []
+    for r in rows:
+        sw = _swing_from_row(r)
+        metrics = {m.name: m.value for m in get_metrics(conn, sw.id)
+                   if m.context == "impact"}
+        out.append({
+            "id": sw.id,
+            "created_at": sw.created_at,
+            "club": sw.club,
+            "has_shot": sw.shot_id is not None,
+            "hip_sway_in": metrics.get("hip_sway_in"),
+            "shoulder_tilt_deg": metrics.get("shoulder_tilt_deg"),
+        })
+    return out
 
 
 _SHOT_COLS = [

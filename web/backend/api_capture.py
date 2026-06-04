@@ -3,7 +3,8 @@ from dataclasses import asdict
 from fastapi import APIRouter, Depends
 from pydantic import BaseModel
 
-from web.backend.deps import get_supervisor
+from store import repo
+from web.backend.deps import get_conn, get_supervisor
 
 router = APIRouter(prefix="/api/capture", tags=["capture"])
 
@@ -36,7 +37,8 @@ def resume(sup=Depends(get_supervisor)):
 
 
 @router.post("/restart")
-def restart(sup=Depends(get_supervisor)):
+def restart(sup=Depends(get_supervisor), conn=Depends(get_conn)):
+    sup.apply_settings(repo.get_settings(conn))
     sup.restart()
     return {"ok": True, **_status_dict(sup)}
 

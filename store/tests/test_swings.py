@@ -18,6 +18,25 @@ def test_add_get_list_swing(db):
     assert [s.id for s in repo.list_swings(db, session_id=sid)] == [sw.id]
 
 
+def test_list_swing_summaries_enriches(db):
+    import json
+    from store.models import Metric, Coaching
+    p = repo.get_or_create_player(db, "Sum", 70.0, "R")
+    sid = repo.create_session(db, p.id).id
+    sw = repo.add_swing(db, sid, p.id, "a.mp4", club="7i")
+    repo.save_metrics(db, sw.id, [
+        Metric(sw.id, "hip_sway_in", "impact", 2.5, "in", "ratio"),
+        Metric(sw.id, "shoulder_tilt_deg", "impact", 38.0, "deg", "exact"),
+    ])
+    rows = repo.list_swing_summaries(db, player_id=p.id, session_id=sid, limit=10)
+    assert len(rows) == 1
+    r = rows[0]
+    assert r["id"] == sw.id and r["club"] == "7i"
+    assert r["has_shot"] is False
+    # a key metric surfaced (hip_sway impact)
+    assert r["hip_sway_in"] == 2.5
+
+
 def test_latest_ready_swing_picks_newest_with_metric_and_coaching(db):
     import json
     from store.models import Metric, Coaching

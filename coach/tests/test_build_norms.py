@@ -133,3 +133,32 @@ def test_main_writes_deterministically(tmp_path):
     import re
     norm = lambda s: re.sub(r'"generated":\s*"[^"]*"', '"generated":"X"', s)
     assert norm(first) == norm(second)
+
+
+from coach import norms as coach_norms
+
+
+def test_generated_json_loads_and_compares(tmp_path):
+    out = tmp_path / "norms.json"
+    b.main(csv_path=FIX, out_path=str(out))
+    data = coach_norms.load_norms(str(out))
+
+    assert "_meta" in data
+    # mapped metric: in-range value inside [low, high]
+    st = data["shoulder_tilt_deg"]
+    low, high = st["range"]
+    mid = (low + high) / 2.0
+    r_in = coach_norms.compare("shoulder_tilt_deg", mid, norms=data)
+    assert r_in["in_range"] is True
+    assert r_in["use_history_only"] is False
+
+    # mapped metric: out-of-range value above high
+    r_out = coach_norms.compare("shoulder_tilt_deg", high + 5.0, norms=data)
+    assert r_out["in_range"] is False
+    assert r_out["direction"] == "above"
+
+    # confidence:none metric -> history-only path
+    r_hist = coach_norms.compare("hip_sway_in", 1.0, norms=data)
+    assert r_hist["confidence"] == "none"
+    assert r_hist["in_range"] is None
+    assert r_hist["use_history_only"] is True

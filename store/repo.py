@@ -36,6 +36,39 @@ def get_player(conn, player_id):
                   handedness=row["handedness"], created_at=row["created_at"])
 
 
+SETTINGS_DEFAULTS = {"idle_minutes": 15, "units": "yards", "port": 921}
+
+
+def get_settings(conn):
+    """Single global settings dict. Missing keys fall back to defaults;
+    idle_minutes/port are coerced to int."""
+    rows = conn.execute("SELECT key, value FROM settings").fetchall()
+    stored = {r["key"]: r["value"] for r in rows}
+    out = dict(SETTINGS_DEFAULTS)
+    for k in ("idle_minutes", "port"):
+        if k in stored and stored[k] is not None:
+            try:
+                out[k] = int(stored[k])
+            except (TypeError, ValueError):
+                pass
+    if "units" in stored and stored["units"]:
+        out["units"] = stored["units"]
+    return out
+
+
+def save_settings(conn, values: dict):
+    """Upsert only the provided keys. Values stored as TEXT."""
+    for k, v in values.items():
+        if k not in SETTINGS_DEFAULTS:
+            continue  # ignore unknown keys
+        conn.execute(
+            "INSERT INTO settings(key, value) VALUES (?, ?) "
+            "ON CONFLICT(key) DO UPDATE SET value=excluded.value",
+            (k, str(v)))
+    conn.commit()
+    return get_settings(conn)
+
+
 def create_session(conn, player_id, location=None, notes=None):
     ts = dbmod.now_iso()
     cur = conn.execute(

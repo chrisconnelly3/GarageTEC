@@ -4,11 +4,11 @@ Holds smoothed pose timelines (per view), a (view, kind) -> frame_index map,
 the pixels-per-inch ruler from the player's height + address shoulder width,
 and the player. Built from the store by build_context().
 """
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from typing import Dict, List, Optional, Tuple
 
 from store import repo
-from store.models import Landmark, Player, PoseFrame
+from store.models import Landmark, Landmark3D, Player, PoseFrame
 from metrics import geometry as g
 
 # Number of frames in the centered moving-average smoothing window (odd).
@@ -25,6 +25,8 @@ class MetricContext:
     _pose: Dict[str, Dict[int, List[Landmark]]]
     # (view, kind) -> frame_index
     _moment_frame: Dict[Tuple[str, str], int]
+    # frame_index -> [Landmark3D]  (empty when no 3D reconstruction exists)
+    pose_3d: Dict[int, List[Landmark3D]] = field(default_factory=dict)
 
     def frame_index_for(self, view: str, kind: str) -> Optional[int]:
         return self._moment_frame.get((view, kind))
@@ -40,6 +42,15 @@ class MetricContext:
         if idx is None:
             return None
         return self.pose_at_frame(view, idx)
+
+    def pose_3d_at(self, kind: str) -> Optional[List[Landmark3D]]:
+        """3D pose at the moment `kind` (uses either view's frame index; the
+        synced composite shares it). None if missing."""
+        for view in ("face_on", "down_line"):
+            idx = self._moment_frame.get((view, kind))
+            if idx is not None and idx in (self.pose_3d or {}):
+                return self.pose_3d[idx]
+        return None
 
 
 def _smooth(frames: List[PoseFrame], window: int) -> Dict[int, List[Landmark]]:
@@ -96,8 +107,11 @@ def build_context(conn, swing_id: int) -> MetricContext:
 
     ppi = _ppi_from_address(pose.get("face_on", {}), moment_frame, player)
 
+    pose_3d = repo.get_pose_3d_frames(conn, swing_id)   # {} when none
+
     return MetricContext(swing_id=swing_id, player=player, ppi=ppi,
-                         fps=swing.fps, _pose=pose, _moment_frame=moment_frame)
+                         fps=swing.fps, _pose=pose, _moment_frame=moment_frame,
+                         pose_3d=pose_3d)
 
 
 def _ppi_from_address(face_on: Dict[int, List[Landmark]],

@@ -64,3 +64,40 @@ class VideoFileSource(FrameSource):
         if self._cap is not None:
             self._cap.release()
             self._cap = None
+
+
+class LiveCameraSource(FrameSource):
+    """Live capture device (the bay's synced side-by-side composite as a video
+    device). First live FrameSource; foundation for live swing capture too.
+    `cap_factory` is injectable so tests pass a fake (no real device opened)."""
+
+    def __init__(self, device_index: int = 0, split: float = C.DEFAULT_SPLIT,
+                 max_frames=None, cap_factory=None):
+        self.device_index = device_index
+        self.split = split
+        self._max = max_frames
+        factory = cap_factory or (lambda i: cv2.VideoCapture(i))
+        self._cap = factory(device_index)
+        if not self._cap.isOpened():
+            raise RuntimeError(f"could not open camera device {device_index}")
+        self.width = int(self._cap.get(cv2.CAP_PROP_FRAME_WIDTH))
+        self.height = int(self._cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
+        self.fps = float(self._cap.get(cv2.CAP_PROP_FPS)) or 30.0
+
+    def frames(self) -> Iterator[FrameSample]:
+        i = 0
+        while self._max is None or i < self._max:
+            ok, frame = self._cap.read()
+            if not ok:
+                break
+            yield FrameSample(index=i, time_s=i / self.fps,
+                              view_crops=split_views(frame, self.split))
+            i += 1
+
+    def read_composite(self):
+        """Return the next raw composite frame (full, unsplit), or None."""
+        ok, frame = self._cap.read()
+        return frame if ok else None
+
+    def close(self) -> None:
+        self._cap.release()

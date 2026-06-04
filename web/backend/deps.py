@@ -11,6 +11,7 @@ from store import db as dbmod
 from store import repo
 
 from web.backend.capture import CaptureEventBus, CaptureSupervisor
+from web.backend.calibration import CalibrationEventBus, CalibrationSupervisor
 
 
 def get_conn():
@@ -78,3 +79,31 @@ def reset_capture_singletons():
             pass
     _capture_bus = None
     _supervisor = None
+
+
+_calibration_bus = None
+_calibration_supervisor = None
+
+
+def calibration_bus() -> CalibrationEventBus:
+    global _calibration_bus
+    if _calibration_bus is None:
+        _calibration_bus = CalibrationEventBus()
+    return _calibration_bus
+
+
+def get_calibration_supervisor() -> CalibrationSupervisor:
+    global _calibration_supervisor
+    if _calibration_supervisor is None:
+        _calibration_supervisor = CalibrationSupervisor(
+            conn=_listener_conn(), bus=calibration_bus())
+    return _calibration_supervisor
+
+
+def reset_calibration_singletons():
+    global _calibration_bus, _calibration_supervisor
+    if _calibration_supervisor is not None:
+        try: _calibration_supervisor.stop()
+        except Exception: pass
+    _calibration_bus = None
+    _calibration_supervisor = None

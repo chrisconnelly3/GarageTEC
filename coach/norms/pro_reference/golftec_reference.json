@@ -1,0 +1,286 @@
+{
+  "_meta": {
+    "critical_2d_vs_3d_caveat": "GolfTEC numbers are 3D. The app measures 2D. A 2D value equals the 3D target only when the segment is square to the camera (\u2248 address for face-on); at top/impact the 2D projection foreshortens and under-reads. Honor each context's `two_d_comparable_now`: compare the live 2D metric to GolfTEC ONLY where it is true. The rest need the deferred two-camera 3D path (see handoff: GolfTEC-grade 3D).",
+    "generated": "2026-06-04",
+    "golfdb_secondary": "coach/norms/pro_reference/pro_reference.json supplies head/hand-depth (no GolfTEC value) and a same-projection 2D pro baseline for the rotated-position metrics until 3D exists.",
+    "precedence": "GolfTEC is trusted OVER our GolfDB-deduced numbers wherever they conflict (user decision 2026-06-04). pro_reference.json (GolfDB) is secondary: gap-fill + a 2D-measured pro baseline + variability bands.",
+    "sources": {
+      "swingtru": "GolfTEC SwingTRU Motion Study (13,000+ golfers, pro to 30-handicap; OptiMotion-class 3D). https://www.golftec.ca/swingtru",
+      "tour_averages": "GolfTEC Tour Averages (150+ PGA/Senior PGA/LPGA/mini-tour players, with HealthSouth); 3D body measurement."
+    },
+    "status": "AUTHORITATIVE tour-pro ideal tier (GolfTEC published numbers)",
+    "tier": "pro_ideal_golftec"
+  },
+  "early_extension_in": {
+    "authoritative": false,
+    "confidence": "none",
+    "reason": "No GolfTEC magnitude (binary screen: pros ~0% early extension); see pro_reference.json / literature.",
+    "source": null,
+    "tier": "golfdb_only"
+  },
+  "hand_depth_in": {
+    "authoritative": false,
+    "confidence": "none",
+    "reason": "No GolfTEC value; see pro_reference.json (GolfDB; not yet computed).",
+    "source": null,
+    "tier": "golfdb_only"
+  },
+  "head_sway_in": {
+    "authoritative": false,
+    "confidence": "none",
+    "reason": "No GolfTEC value; see pro_reference.json (GolfDB, provisional).",
+    "source": null,
+    "tier": "golfdb_only"
+  },
+  "hip_sway_in": {
+    "authoritative": true,
+    "confidence": "high",
+    "contexts": {
+      "impact": {
+        "direction": "toward target",
+        "needs_3d": false,
+        "source": "GolfTEC SwingTRU Motion Study (13,000+ golfers, pro to 30-handicap; OptiMotion-class 3D). https://www.golftec.ca/swingtru",
+        "two_d_comparable_now": true,
+        "value": 1.6
+      },
+      "top": {
+        "direction": "toward target",
+        "needs_3d": false,
+        "source": "GolfTEC SwingTRU Motion Study (13,000+ golfers, pro to 30-handicap; OptiMotion-class 3D). https://www.golftec.ca/swingtru",
+        "two_d_comparable_now": true,
+        "value": 3.9
+      }
+    },
+    "note": "pelvis lateral translation toward target (+); in-plane for face-on so 2D-measurable once our definition is reconciled to GolfTEC's",
+    "source": "GolfTEC (Tour Averages + SwingTRU Motion Study)",
+    "tier": "pro_ideal_golftec",
+    "units": "in",
+    "value_by_phase": {
+      "impact": 1.6,
+      "top": 3.9
+    }
+  },
+  "hip_tilt_deg": {
+    "authoritative": true,
+    "confidence": "high",
+    "contexts": {
+      "address": {
+        "direction": "neutral",
+        "needs_3d": false,
+        "source": "GolfTEC Tour Averages (150+ PGA/Senior PGA/LPGA/mini-tour players, with HealthSouth); 3D body measurement.",
+        "two_d_comparable_now": true,
+        "value": 0
+      },
+      "finish": {
+        "direction": "trail(right) hip down",
+        "needs_3d": true,
+        "source": "GolfTEC Tour Averages (150+ PGA/Senior PGA/LPGA/mini-tour players, with HealthSouth); 3D body measurement.",
+        "two_d_comparable_now": false,
+        "value": 5
+      },
+      "impact": {
+        "direction": "trail(right) hip down",
+        "needs_3d": true,
+        "source": "GolfTEC Tour Averages (150+ PGA/Senior PGA/LPGA/mini-tour players, with HealthSouth); 3D body measurement.",
+        "two_d_comparable_now": false,
+        "value": 14
+      },
+      "top": {
+        "direction": "lead(left) hip down",
+        "needs_3d": true,
+        "source": "GolfTEC Tour Averages (150+ PGA/Senior PGA/LPGA/mini-tour players, with HealthSouth); 3D body measurement.",
+        "two_d_comparable_now": false,
+        "value": 11
+      }
+    },
+    "note": "pelvis-line tilt from horizontal (O-factor)",
+    "source": "GolfTEC (Tour Averages + SwingTRU Motion Study)",
+    "tier": "pro_ideal_golftec",
+    "units": "deg",
+    "value_by_phase": {
+      "address": 0,
+      "finish": 5,
+      "impact": 14,
+      "top": 11
+    }
+  },
+  "hip_turn_deg": {
+    "authoritative": true,
+    "confidence": "high",
+    "contexts": {
+      "address": {
+        "direction": "closed",
+        "needs_3d": true,
+        "source": "GolfTEC Tour Averages (150+ PGA/Senior PGA/LPGA/mini-tour players, with HealthSouth); 3D body measurement.",
+        "two_d_comparable_now": false,
+        "value": 2
+      },
+      "finish": {
+        "direction": "open",
+        "needs_3d": true,
+        "source": "GolfTEC Tour Averages (150+ PGA/Senior PGA/LPGA/mini-tour players, with HealthSouth); 3D body measurement.",
+        "two_d_comparable_now": false,
+        "value": 106
+      },
+      "impact": {
+        "direction": "open",
+        "needs_3d": true,
+        "source": "GolfTEC SwingTRU Motion Study (13,000+ golfers, pro to 30-handicap; OptiMotion-class 3D). https://www.golftec.ca/swingtru",
+        "two_d_comparable_now": false,
+        "value": 36
+      },
+      "top": {
+        "direction": "closed",
+        "needs_3d": true,
+        "source": "GolfTEC Tour Averages (150+ PGA/Senior PGA/LPGA/mini-tour players, with HealthSouth); 3D body measurement.",
+        "two_d_comparable_now": false,
+        "value": 48
+      }
+    },
+    "needs_3d_all": true,
+    "note": "pelvis axial rotation vs target line; 3D-ONLY",
+    "source": "GolfTEC (Tour Averages + SwingTRU Motion Study)",
+    "tier": "pro_ideal_golftec",
+    "units": "deg",
+    "value_by_phase": {
+      "address": 2,
+      "finish": 106,
+      "impact": 36,
+      "top": 48
+    }
+  },
+  "shoulder_tilt_deg": {
+    "authoritative": true,
+    "confidence": "high",
+    "contexts": {
+      "address": {
+        "direction": "trail(right) shoulder down",
+        "needs_3d": false,
+        "source": "GolfTEC Tour Averages (150+ PGA/Senior PGA/LPGA/mini-tour players, with HealthSouth); 3D body measurement.",
+        "two_d_comparable_now": true,
+        "value": 10
+      },
+      "finish": {
+        "direction": "trail(right) shoulder down",
+        "needs_3d": true,
+        "source": "GolfTEC Tour Averages (150+ PGA/Senior PGA/LPGA/mini-tour players, with HealthSouth); 3D body measurement.",
+        "two_d_comparable_now": false,
+        "value": 15
+      },
+      "impact": {
+        "direction": "trail(right) shoulder down",
+        "needs_3d": true,
+        "source": "GolfTEC SwingTRU Motion Study (13,000+ golfers, pro to 30-handicap; OptiMotion-class 3D). https://www.golftec.ca/swingtru",
+        "two_d_comparable_now": false,
+        "value": 39
+      },
+      "top": {
+        "direction": "lead(left) shoulder down",
+        "needs_3d": true,
+        "source": "GolfTEC SwingTRU Motion Study (13,000+ golfers, pro to 30-handicap; OptiMotion-class 3D). https://www.golftec.ca/swingtru",
+        "two_d_comparable_now": false,
+        "value": 36
+      }
+    },
+    "note": "shoulder-line tilt from horizontal (side-bend)",
+    "source": "GolfTEC (Tour Averages + SwingTRU Motion Study)",
+    "tier": "pro_ideal_golftec",
+    "units": "deg",
+    "value_by_phase": {
+      "address": 10,
+      "finish": 15,
+      "impact": 39,
+      "top": 36
+    }
+  },
+  "shoulder_turn_deg": {
+    "authoritative": true,
+    "confidence": "high",
+    "contexts": {
+      "address": {
+        "direction": "open",
+        "needs_3d": true,
+        "source": "GolfTEC Tour Averages (150+ PGA/Senior PGA/LPGA/mini-tour players, with HealthSouth); 3D body measurement.",
+        "two_d_comparable_now": false,
+        "value": 5
+      },
+      "finish": {
+        "direction": "open",
+        "needs_3d": true,
+        "source": "GolfTEC Tour Averages (150+ PGA/Senior PGA/LPGA/mini-tour players, with HealthSouth); 3D body measurement.",
+        "two_d_comparable_now": false,
+        "value": 138
+      },
+      "impact": {
+        "direction": "open",
+        "needs_3d": true,
+        "source": "GolfTEC Tour Averages (150+ PGA/Senior PGA/LPGA/mini-tour players, with HealthSouth); 3D body measurement.",
+        "two_d_comparable_now": false,
+        "value": 48
+      },
+      "top": {
+        "direction": "closed",
+        "needs_3d": true,
+        "source": "GolfTEC Tour Averages (150+ PGA/Senior PGA/LPGA/mini-tour players, with HealthSouth); 3D body measurement.",
+        "two_d_comparable_now": false,
+        "value": 89
+      }
+    },
+    "needs_3d_all": true,
+    "note": "thorax axial rotation vs target line; 3D-ONLY",
+    "source": "GolfTEC (Tour Averages + SwingTRU Motion Study)",
+    "tier": "pro_ideal_golftec",
+    "units": "deg",
+    "value_by_phase": {
+      "address": 5,
+      "finish": 138,
+      "impact": 48,
+      "top": 89
+    }
+  },
+  "spine_angle_deg": {
+    "authoritative": true,
+    "confidence": "high",
+    "contexts": {
+      "address": {
+        "direction": "forward",
+        "needs_3d": false,
+        "source": "GolfTEC Tour Averages (150+ PGA/Senior PGA/LPGA/mini-tour players, with HealthSouth); 3D body measurement.",
+        "two_d_comparable_now": true,
+        "value": 36
+      },
+      "finish": {
+        "direction": "back",
+        "needs_3d": true,
+        "source": "GolfTEC SwingTRU Motion Study (13,000+ golfers, pro to 30-handicap; OptiMotion-class 3D). https://www.golftec.ca/swingtru",
+        "two_d_comparable_now": false,
+        "value": 32
+      },
+      "impact": {
+        "direction": "forward",
+        "needs_3d": true,
+        "source": "GolfTEC Tour Averages (150+ PGA/Senior PGA/LPGA/mini-tour players, with HealthSouth); 3D body measurement.",
+        "two_d_comparable_now": false,
+        "value": 17
+      },
+      "top": {
+        "direction": "forward",
+        "needs_3d": true,
+        "source": "GolfTEC Tour Averages (150+ PGA/Senior PGA/LPGA/mini-tour players, with HealthSouth); 3D body measurement.",
+        "two_d_comparable_now": false,
+        "value": 2
+      }
+    },
+    "mapping_confidence": "low",
+    "note": "MAPPING NOTE: GolfTEC 'shoulder bend' is thorax FORWARD flexion vs vertical; our spine_angle is shoulder-center->hip-center lean vs vertical. Related, not identical -> mapping_confidence low.",
+    "source": "GolfTEC (Tour Averages + SwingTRU Motion Study)",
+    "tier": "pro_ideal_golftec",
+    "units": "deg",
+    "value_by_phase": {
+      "address": 36,
+      "finish": 32,
+      "impact": 17,
+      "top": 2
+    }
+  }
+}

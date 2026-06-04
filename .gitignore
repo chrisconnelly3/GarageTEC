@@ -36,6 +36,11 @@ swings/
 *.mov
 *.mp4
 
+# Pro-reference build scratch (CC BY-NC GolfDB clone + downloaded videos +
+# annotation table + per-run cache). NEVER commit these; only the derived
+# coach/norms/pro_reference/pro_reference.json is versioned.
+.proref_work/
+
 # OS cruft
 Thumbs.db
 .DS_Store

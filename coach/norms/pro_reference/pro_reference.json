@@ -1,0 +1,326 @@
+{
+  "_meta": {
+    "attribution": "Derived from GolfDB (wmcnally/golfdb, CC BY-NC, NON-COMMERCIAL). Only derived numbers are vendored; not the videos or annotation table. See coach/norms/pro_reference/SOURCE.md.",
+    "method": "yt-dlp source download -> native-res bbox crop -> MediaPipe pose (model_complexity per vision.constants) at shipped GolfDB event frames (address=event0, top=event3, impact=event5) -> our metrics.geometry. Pose-quality gate: mean keyframe shoulder/hip visibility >= 0.5; angle bands winsorized to [p1,p99] when n>=40. shoulder_tilt_deg/hip_tilt_deg folded to acute magnitude from horizontal [0,90] to normalize GolfDB's mixed orientation.",
+    "n_players": 84,
+    "n_records": 99,
+    "note": "The IDEAL tier: per-phase tour-pro bands (p10-p90) computed in our exact metric definitions from real tour-pro swings. Distinct from the CaddieSet mixed-skill POPULATION tier in norms.json. EXACT angle metrics (shoulder_tilt_deg, hip_tilt_deg, spine_angle_deg) are directly comparable to the app's exact metrics. Sway metrics are scale-free (fraction of shoulder width) and PROVISIONAL.",
+    "players": [
+      "AI MIYAZATO",
+      "ALISON LEE",
+      "ALISON WALSHE",
+      "AMELIA LEWIS",
+      "ANGEL YIN",
+      "ANGELA STANFORD",
+      "ANNA NORDQVIST",
+      "ARIYA JUTANUGARN",
+      "AUSTIN ERNST",
+      "AYAKO UEHARA",
+      "AZAHARA MUNOZ",
+      "BEATRIZ RECARI",
+      "BERNHARD LANGER",
+      "BRANDT SNEDEKER",
+      "BROOKE HENDERSON",
+      "BRYSON DECHAMBEAU",
+      "BUBBA WATSON",
+      "CARLOTA CIGANDA",
+      "CHARLES HOWELL",
+      "CHARLEY HOFFMAN",
+      "CHELLA CHOI",
+      "CHEYENNE WOODS",
+      "CHRIS DIMARCO",
+      "CHRIS STROUD",
+      "COLIN MONTGOMERIE",
+      "CURTIS STRANGE",
+      "DANIEL BERGER",
+      "DARREN CLARKE",
+      "DUSTIN JOHNSON",
+      "EUN-HEE JI",
+      "FRED COUPLES",
+      "FREDRIK JACOBSON",
+      "GARY WOODLAND",
+      "GRAEME MCDOWELL",
+      "GREG NORMAN",
+      "HARRIS ENGLISH",
+      "HEE YOUNG PARK",
+      "HYO JOO KIM",
+      "IAN POULTER",
+      "IK KIM",
+      "IN-GEE CHUN",
+      "INBEE PARK",
+      "JASON DAY",
+      "JASON DUFNER",
+      "JERRY KELLY",
+      "JIN YOUNG KO",
+      "JOHN SENDEN",
+      "JOHNSON WAGNER",
+      "JUSTIN ROSE",
+      "JUSTIN THOMAS",
+      "KARRIE WEBB",
+      "KEEGAN BRADLEY",
+      "KEN DUKE",
+      "KEVIN KISNER",
+      "LEE JANZEN",
+      "LEXI THOMPSON",
+      "LIZETTE SALAS",
+      "LYDIA KO",
+      "MARIAJO URIBE",
+      "MATT KUCHAR",
+      "MICHELLE WIE",
+      "NA YEON CHOI",
+      "NELLY KORDA",
+      "PADRAIG HARRINGTON",
+      "PATRICK RODGERS",
+      "PAULA CREAMER",
+      "PETER HANSON",
+      "PETER JACOBSON",
+      "PHIL MICKELSON",
+      "PORNANONG PHATLUM",
+      "RICKIE FOWLER",
+      "RORY MCILROY",
+      "RYAN PALMER",
+      "SANDRA GAL",
+      "SEAN OHAIR",
+      "SEI YOUNG KIM",
+      "SHANSHAN FENG",
+      "STACY LEWIS",
+      "STEPHEN AMES",
+      "SYDNEE MICHAELS",
+      "TIGER WOODS",
+      "TOM LEHMAN",
+      "TONY FINAU",
+      "YANI TSENG"
+    ],
+    "status": "Tour-pro reference computed from GolfDB via our pose+metrics",
+    "swings_by_view": {
+      "down-the-line": 53,
+      "face-on": 46
+    },
+    "tier": "pro_ideal"
+  },
+  "_n_swings_by_view": {
+    "down-the-line": 53,
+    "face-on": 46
+  },
+  "head_sway_sw": {
+    "comment": "Tour-pro sway as a fraction of address shoulder width (scale-free). PROVISIONAL: needs the matching amateur-side %-shoulder-width redefinition before in-app comparison.",
+    "confidence": "provisional",
+    "contexts": {
+      "impact": {
+        "median": 0.06,
+        "n": 46,
+        "p25_p75": [
+          -0.03,
+          0.2
+        ],
+        "range": [
+          -0.18,
+          0.32
+        ]
+      },
+      "top": {
+        "median": 0.01,
+        "n": 46,
+        "p25_p75": [
+          -0.04,
+          0.13
+        ],
+        "range": [
+          -0.12,
+          0.29
+        ]
+      }
+    },
+    "range": [
+      -0.18,
+      0.32
+    ],
+    "source": "GolfDB (wmcnally/golfdb, CC BY-NC) tour-pro swings, computed in our exact metric definitions via MediaPipe pose at the shipped address/top/impact event frames. https://github.com/wmcnally/golfdb",
+    "tier": "pro_ideal",
+    "units": "fraction_shoulder_width"
+  },
+  "hip_sway_sw": {
+    "comment": "Tour-pro sway as a fraction of address shoulder width (scale-free). PROVISIONAL: needs the matching amateur-side %-shoulder-width redefinition before in-app comparison.",
+    "confidence": "provisional",
+    "contexts": {
+      "impact": {
+        "median": 0.06,
+        "n": 46,
+        "p25_p75": [
+          0.03,
+          0.26
+        ],
+        "range": [
+          0.01,
+          0.36
+        ]
+      },
+      "top": {
+        "median": 0.05,
+        "n": 46,
+        "p25_p75": [
+          0.01,
+          0.14
+        ],
+        "range": [
+          -0.0,
+          0.25
+        ]
+      }
+    },
+    "range": [
+      -0.0,
+      0.36
+    ],
+    "source": "GolfDB (wmcnally/golfdb, CC BY-NC) tour-pro swings, computed in our exact metric definitions via MediaPipe pose at the shipped address/top/impact event frames. https://github.com/wmcnally/golfdb",
+    "tier": "pro_ideal",
+    "units": "fraction_shoulder_width"
+  },
+  "hip_tilt_deg": {
+    "comment": "Tour-pro reference (ideal tier) in our exact metric definition. Per-phase p10-p90 under 'contexts'. Reported as acute tilt MAGNITUDE from horizontal [0,90] (orientation-normalized across GolfDB's mixed handedness/camera-side); compare the app's value as |tilt|.",
+    "confidence": "high",
+    "contexts": {
+      "address": {
+        "median": 3.76,
+        "n": 46,
+        "p25_p75": [
+          1.85,
+          6.06
+        ],
+        "range": [
+          1.17,
+          7.65
+        ]
+      },
+      "impact": {
+        "median": 4.16,
+        "n": 46,
+        "p25_p75": [
+          2.14,
+          5.35
+        ],
+        "range": [
+          0.7,
+          7.42
+        ]
+      },
+      "top": {
+        "median": 4.0,
+        "n": 46,
+        "p25_p75": [
+          2.0,
+          5.76
+        ],
+        "range": [
+          0.8,
+          7.82
+        ]
+      }
+    },
+    "range": [
+      0.7,
+      7.82
+    ],
+    "source": "GolfDB (wmcnally/golfdb, CC BY-NC) tour-pro swings, computed in our exact metric definitions via MediaPipe pose at the shipped address/top/impact event frames. https://github.com/wmcnally/golfdb",
+    "tier": "pro_ideal",
+    "units": "deg"
+  },
+  "shoulder_tilt_deg": {
+    "comment": "Tour-pro reference (ideal tier) in our exact metric definition. Per-phase p10-p90 under 'contexts'. Reported as acute tilt MAGNITUDE from horizontal [0,90] (orientation-normalized across GolfDB's mixed handedness/camera-side); compare the app's value as |tilt|.",
+    "confidence": "high",
+    "contexts": {
+      "address": {
+        "median": 10.52,
+        "n": 46,
+        "p25_p75": [
+          7.91,
+          13.24
+        ],
+        "range": [
+          5.75,
+          14.96
+        ]
+      },
+      "impact": {
+        "median": 11.9,
+        "n": 46,
+        "p25_p75": [
+          8.23,
+          14.27
+        ],
+        "range": [
+          5.75,
+          24.67
+        ]
+      },
+      "top": {
+        "median": 9.82,
+        "n": 46,
+        "p25_p75": [
+          7.71,
+          13.03
+        ],
+        "range": [
+          4.14,
+          14.61
+        ]
+      }
+    },
+    "range": [
+      4.14,
+      24.67
+    ],
+    "source": "GolfDB (wmcnally/golfdb, CC BY-NC) tour-pro swings, computed in our exact metric definitions via MediaPipe pose at the shipped address/top/impact event frames. https://github.com/wmcnally/golfdb",
+    "tier": "pro_ideal",
+    "units": "deg"
+  },
+  "spine_angle_deg": {
+    "comment": "Tour-pro reference (ideal tier) in our exact metric definition. Per-phase p10-p90 under 'contexts'.",
+    "confidence": "high",
+    "contexts": {
+      "address": {
+        "median": 28.32,
+        "n": 52,
+        "p25_p75": [
+          21.34,
+          33.6
+        ],
+        "range": [
+          8.32,
+          37.86
+        ]
+      },
+      "impact": {
+        "median": 23.09,
+        "n": 52,
+        "p25_p75": [
+          15.6,
+          29.5
+        ],
+        "range": [
+          4.69,
+          33.63
+        ]
+      },
+      "top": {
+        "median": 27.87,
+        "n": 52,
+        "p25_p75": [
+          19.74,
+          32.23
+        ],
+        "range": [
+          4.9,
+          36.38
+        ]
+      }
+    },
+    "range": [
+      4.69,
+      37.86
+    ],
+    "source": "GolfDB (wmcnally/golfdb, CC BY-NC) tour-pro swings, computed in our exact metric definitions via MediaPipe pose at the shipped address/top/impact event frames. https://github.com/wmcnally/golfdb",
+    "tier": "pro_ideal",
+    "units": "deg"
+  }
+}

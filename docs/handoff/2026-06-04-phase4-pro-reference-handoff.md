@@ -1,5 +1,43 @@
 # GarageTEC — Handoff: Phase 4 Pro-Reference + Benchmarking
 
+> ## ✅ UPDATE 2026-06-04 (session 2): A + B BOTH DONE
+> - **B (deep literature research) — DONE.** Cited, adversarially-verified report:
+>   `docs/research/2026-06-04-pro-biomechanics-literature.md`. Headline: of the 10
+>   metrics, only secondary spine tilt @ impact (and maybe hip tilt @ impact) are
+>   2D-face-on-viable; forward bend is DTL-only; **all axial rotation/X-factor is
+>   3D-only** (confirms dropping the 2D-foreshortening rotation metric). Sway/head/
+>   hand-depth have **no published skilled-golfer norms** → our GolfDB numbers fill
+>   that gap. Control for sex.
+> - **A (GolfDB pro reference) — BUILT + RUN.** Pipeline `coach/norms/pro_reference/`
+>   (`manifest`/`extract`/`build`/`aggregate` + SOURCE.md), 14 tests. Generated
+>   `coach/norms/pro_reference/pro_reference.json` from **99 swings / 84 pros**
+>   (50/view sample; full set = 1034 swings is one `build.py` run away). EXACT
+>   angle metrics `shoulder_tilt_deg`/`hip_tilt_deg`/`spine_angle_deg` = `high`;
+>   scale-free sway = `provisional`. Two bugs found+fixed: ±180° tilt wrap → acute-
+>   magnitude fold (aggregate); **~18% GolfDB view mislabels** → pose-based view
+>   auto-detection (extract.detect_view).
+> - **GolfTEC cross-check — DONE.** `docs/research/2026-06-04-golftec-crossreference.md`.
+>   Our 2D matches GolfTEC tour averages **at address** (shoulder tilt 10.5° vs 10°;
+>   impact hip sway ~1.0" vs 1.6") and **under-reads at top/impact** (2D
+>   foreshortening once the torso rotates). **OptiMotion = our SAME two cameras
+>   (face-on + DTL) fused into 3D by AI, markerless** — that fusion is how they get
+>   turn/X-factor we can't from independent 2D views.
+> - **NEW DIRECTION (the real unlock): 3D.** To match GolfTEC on turn/X-factor and
+>   on tilt-at-rotated-positions we must go 3D. Two paths: (1) cheap spike —
+>   MediaPipe already returns `pose_world_landmarks` (monocular 3D) we don't use,
+>   testable on GolfDB clips now; (2) GolfTEC-grade — calibrate + time-sync the two
+>   bay cameras, triangulate the 2D landmarks to metric 3D. **OPEN/OFFERED:** run
+>   the option-1 MediaPipe-3D turn spike on GolfDB and compare to GolfTEC 89°-closed
+>   / 48°-open before any calibration work.
+> - **NOT committed yet** (awaiting user go-ahead): new files under
+>   `coach/norms/pro_reference/`, `coach/tests/test_pro_reference.py`, the two
+>   `docs/research/` docs, `.gitignore` (+`.proref_work/`). `.proref_work/` (CC
+>   BY-NC GolfDB clone + videos) is gitignored — never commit it.
+>
+> Remaining original plan below (benchmarking build + UI) is unchanged.
+
+---
+
 **Purpose:** Continue the pro-reference + benchmarking work in a FRESH session (this one is near context max). The auto-memory (`project_garagetec_plan.md`) loads the full project history; this doc adds the active Phase-4 context + the exact next steps.
 
 ---

@@ -4,6 +4,7 @@ import { cn } from '../lib/utils'
 import { useApi } from '../lib/useApi'
 import { getSettings, putSettings, restartCapture } from '../lib/api'
 import type { CaptureStatus } from '../lib/types'
+import { CalibrationCard } from '../components/CalibrationCard'
 
 interface ConnectScreenProps {
   captureStatus: CaptureStatus | null
@@ -211,6 +212,8 @@ export function ConnectScreen({ captureStatus }: ConnectScreenProps) {
           </button>
         </div>
       </div>
+
+      <CalibrationCard />
     </div>
   )
 }

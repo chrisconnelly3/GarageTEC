@@ -6,3 +6,4 @@ from metrics.defs import extension  # noqa: F401
 from metrics.defs import hand_depth  # noqa: F401
 from metrics.defs import rotation  # noqa: F401
 from metrics.defs import rotation_3d  # noqa: F401
+from metrics.defs import sidebend_3d  # noqa: F401

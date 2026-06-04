@@ -86,6 +86,10 @@ def process_video(conn, video_path: str, *, player_id: int, session_id: int,
                 view_layout=C.VIEW_LAYOUT, down_line=down_line, face_on=face_on,
                 window=window, moments=moments, annotated_path=annotated_path)
 
+            if calibration is None:
+                from vision.threed.calibration import active_calibration
+                calibration = active_calibration(conn, image_width=source.width,
+                                                 image_height=source.height)
             if calibration is not None:
                 frames_3d = reconstruct_window(
                     face_on, down_line, calibration,

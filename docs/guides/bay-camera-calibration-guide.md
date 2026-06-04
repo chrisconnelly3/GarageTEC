@@ -175,3 +175,10 @@ views, held still). Extract the frames to PNGs, run
 `scripts/calibrate_bay_cameras.py <frames> --cols 9 --rows 6 --square-mm <measured>
 --split 0.5 --out bay_calib.json`, confirm ≥20 pairs used, then verify a known-good
 swing shows ~89°/48° shoulder/hip turn. Never move the cameras afterward.
+
+## In the app (the normal way)
+
+You don't need the command line. In the app: **Connect → Camera Calibration →
+Start Capture**, wave the board through the bay (watch the live preview + coverage
+map fill in), then **Run Calibration**. It saves and activates automatically; the
+3D metrics use it immediately. **Export** downloads `bay_calib.json` as a backup.

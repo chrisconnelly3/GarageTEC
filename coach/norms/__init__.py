@@ -1,7 +1,7 @@
 import json
 import os
 
-_DEFAULT_PATH = os.path.join(os.path.dirname(__file__), "norms", "norms.json")
+_DEFAULT_PATH = os.path.join(os.path.dirname(__file__), "norms.json")
 _RESERVED = {"_meta"}
 
 

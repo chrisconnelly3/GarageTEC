@@ -1,28 +1,131 @@
 {
   "_meta": {
-    "status": "PLACEHOLDER, not curated",
-    "note": "Curating accurate, well-sourced ideal ranges is a HUMAN research task. Do not treat these numbers as authoritative. Entries with confidence 'none' have no reputable public range and the coach falls back to the player's own history for them. Replace ranges and add real citations from reputable golf-biomechanics sources before relying on this dataset.",
-    "units_doc": "range is [low, high] inclusive in the stated units; empty range means no ideal."
+    "attribution": "Derived from CaddieSet (damilab, MIT License). https://github.com/damilab/CaddieSet \u2014 see coach/norms/data/SOURCE.md.",
+    "confidence_none": {
+      "early_extension_in": "CaddieSet positional features are normalized ratios, not inches; needs calibration + literature.",
+      "hand_depth_in": "CaddieSet positional features are normalized ratios, not inches; needs calibration + literature.",
+      "head_sway_in": "CaddieSet positional features are normalized ratios, not inches; needs calibration + literature.",
+      "hip_sway_in": "CaddieSet positional features are normalized ratios, not inches; needs calibration + literature.",
+      "hip_tilt_deg": "CaddieSet has no hip-line-angle-vs-horizontal feature; HIP-LINE/HIP-SHIFTED are displacements and HIP-ROTATION/HIP-ANGLE are rotations.",
+      "hip_turn_deg": "Closest CaddieSet features (HIP-ROTATION/HIP-ANGLE, pelvis rotation vs address) have severe clamp artifacts (floods of 0.0, spikes of 180.0), an unverifiable zero-point/axis vs our coarse foreshortening estimate, and are absent at impact (FACEON) \u2014 not defensible.",
+      "shoulder_turn_deg": "CaddieSet SHOULDER-ANGLE is a tilt vs horizontal, not rotation-relative-to-address; no shoulder-turn feature exists."
+    },
+    "event_phase_assumption": "CaddieSet events 0..7 mapped to phases address=0, top=3, impact=5 (standard 8-event golf sequence; upstream does not name events).",
+    "generated": "2026-06-04",
+    "note": "Bands are CaddieSet mixed-skill POPULATION typical ranges (p10-p90), NOT validated ideal/good-bad thresholds and NOT a human-curated standard. Treat them as 'where most swings land', not 'what you should do'. Metrics with confidence 'none' have no defensible CaddieSet source and the coach falls back to the player's own history for them.",
+    "status": "Generated from CaddieSet, not human-curated ideals",
+    "units_doc": "range is [low, high] inclusive in the stated units; empty range means no ideal (history-only)."
+  },
+  "early_extension_in": {
+    "comment": "No defensible CaddieSet source; coach uses player history.",
+    "confidence": "none",
+    "range": [],
+    "reason": "CaddieSet positional features are normalized ratios, not inches; needs calibration + literature.",
+    "source": null,
+    "units": "in"
+  },
+  "hand_depth_in": {
+    "comment": "No defensible CaddieSet source; coach uses player history.",
+    "confidence": "none",
+    "range": [],
+    "reason": "CaddieSet positional features are normalized ratios, not inches; needs calibration + literature.",
+    "source": null,
+    "units": "in"
+  },
+  "head_sway_in": {
+    "comment": "No defensible CaddieSet source; coach uses player history.",
+    "confidence": "none",
+    "range": [],
+    "reason": "CaddieSet positional features are normalized ratios, not inches; needs calibration + literature.",
+    "source": null,
+    "units": "in"
   },
   "hip_sway_in": {
-    "range": [],
-    "units": "in",
-    "source": null,
+    "comment": "No defensible CaddieSet source; coach uses player history.",
     "confidence": "none",
-    "comment": "Lateral pelvic sway toward target at impact; no reputable single public range. Use player history."
+    "range": [],
+    "reason": "CaddieSet positional features are normalized ratios, not inches; needs calibration + literature.",
+    "source": null,
+    "units": "in"
+  },
+  "hip_tilt_deg": {
+    "comment": "No defensible CaddieSet source; coach uses player history.",
+    "confidence": "none",
+    "range": [],
+    "reason": "CaddieSet has no hip-line-angle-vs-horizontal feature; HIP-LINE/HIP-SHIFTED are displacements and HIP-ROTATION/HIP-ANGLE are rotations.",
+    "source": null,
+    "units": "deg"
+  },
+  "hip_turn_deg": {
+    "comment": "No defensible CaddieSet source; coach uses player history.",
+    "confidence": "none",
+    "range": [],
+    "reason": "Closest CaddieSet features (HIP-ROTATION/HIP-ANGLE, pelvis rotation vs address) have severe clamp artifacts (floods of 0.0, spikes of 180.0), an unverifiable zero-point/axis vs our coarse foreshortening estimate, and are absent at impact (FACEON) \u2014 not defensible.",
+    "source": null,
+    "units": "deg"
   },
   "shoulder_tilt_deg": {
-    "range": [],
-    "units": "deg",
-    "source": null,
-    "confidence": "none",
-    "comment": "Secondary spine tilt away from target at impact varies by club/player. Use player history."
+    "comment": "Mixed-skill population typical range (p10-p90), NOT a validated ideal. Per-phase bands under 'contexts'.",
+    "confidence": "medium",
+    "contexts": {
+      "address": {
+        "median": 11.24,
+        "n": 907,
+        "range": [
+          5.76,
+          16.81
+        ]
+      },
+      "impact": {
+        "median": 19.98,
+        "n": 900,
+        "range": [
+          11.55,
+          31.22
+        ]
+      }
+    },
+    "range": [
+      5.76,
+      31.22
+    ],
+    "source": "CaddieSet (damilab, MIT) - mixed-skill population p10-p90 typical range, NOT a validated ideal. https://github.com/damilab/CaddieSet",
+    "units": "deg"
   },
-  "club_path_deg": {
-    "range": [-2.0, 2.0],
-    "units": "deg",
-    "source": "Directional convention only: a near-zero club path produces a straighter start line; this is a rule-of-thumb band, NOT a validated population norm. Replace with a cited source.",
-    "confidence": "low",
-    "comment": "Sign convention: positive = in-to-out. Band is illustrative; verify before use."
+  "shoulder_turn_deg": {
+    "comment": "No defensible CaddieSet source; coach uses player history.",
+    "confidence": "none",
+    "range": [],
+    "reason": "CaddieSet SHOULDER-ANGLE is a tilt vs horizontal, not rotation-relative-to-address; no shoulder-turn feature exists.",
+    "source": null,
+    "units": "deg"
+  },
+  "spine_angle_deg": {
+    "comment": "Mixed-skill population typical range (p10-p90), NOT a validated ideal. Per-phase bands under 'contexts'.",
+    "confidence": "medium",
+    "contexts": {
+      "address": {
+        "median": 19.48,
+        "n": 790,
+        "range": [
+          8.22,
+          31.74
+        ]
+      },
+      "impact": {
+        "median": 12.7,
+        "n": 802,
+        "range": [
+          2.67,
+          25.32
+        ]
+      }
+    },
+    "range": [
+      2.67,
+      31.74
+    ],
+    "source": "CaddieSet (damilab, MIT) - mixed-skill population p10-p90 typical range, NOT a validated ideal. https://github.com/damilab/CaddieSet",
+    "units": "deg"
   }
 }

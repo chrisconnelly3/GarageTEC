@@ -41,8 +41,12 @@ MIN_RETURN_FRAMES = 24
 # An excursion must reach at least this fraction of the signal's full vertical
 # span to count as a swing (rejects fidgets / waggles below it).
 MIN_SWING_AMPLITUDE_FRAC = 0.35
-# Reject excursions shorter than this many frames (fidgets).
-MIN_SWING_FRAMES = 12
+# Reject excursions shorter than this many frames. A real golf swing window
+# (address-departure -> apex -> follow-through -> sustained return) always spans
+# ~1 s; the shortest real window observed on field clips was ~46 frames. A floor
+# of 26 (~0.85 s @ 30 fps) sits safely below that yet firmly rejects sub-second
+# blips (e.g. a spurious ~17-frame "swing" seen on a real multi-swing clip).
+MIN_SWING_FRAMES = 26
 # Pad each window outward by this many frames (clamped to the signal bounds).
 SWING_PAD_FRAMES = 3
 

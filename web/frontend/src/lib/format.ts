@@ -45,6 +45,31 @@ export function coachingToInsights(content: CoachContent | null | undefined): In
     severity: (f.severity as "good" | "neutral" | "bad") ?? "neutral",
   }));
 }
+export type Timeframe = "Session" | "Week" | "Month" | "Year";
+
+// Returns the cutoff Date for a timeframe relative to `now`. "Session" uses a
+// 12-hour window (one bay session); Week/Month/Year are calendar-ish spans.
+export function timeframeCutoff(tf: Timeframe, now = new Date()): Date {
+  const d = new Date(now);
+  switch (tf) {
+    case "Session": d.setHours(d.getHours() - 12); break;
+    case "Week": d.setDate(d.getDate() - 7); break;
+    case "Month": d.setMonth(d.getMonth() - 1); break;
+    case "Year": d.setFullYear(d.getFullYear() - 1); break;
+  }
+  return d;
+}
+
+export function withinTimeframe<T extends { created_at: string }>(
+  points: T[], tf: Timeframe, now = new Date(),
+): T[] {
+  const cutoff = timeframeCutoff(tf, now).getTime();
+  return points.filter((p) => {
+    const t = new Date(p.created_at).getTime();
+    return Number.isNaN(t) ? true : t >= cutoff;
+  });
+}
+
 export const isEstimated = (method?: string | null) =>
   !!method && method.includes("confidence=low");
 export const heightToFtIn = (inches: number) =>

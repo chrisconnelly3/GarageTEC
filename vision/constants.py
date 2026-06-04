@@ -16,15 +16,35 @@ POSE_MIN_DET_CONF = 0.5
 POSE_MIN_TRK_CONF = 0.5
 LANDMARK_SMOOTH_WINDOW = 5     # moving-average window (frames) for landmark series
 
-# ---- swing detection (motion energy) ----
-MOTION_SMOOTH_WINDOW = 5       # moving-average window for the energy signal
-# A frame is "in motion" if energy >= this fraction of the per-video peak energy.
-SWING_ENERGY_THRESH_FRAC = 0.15
-MIN_SWING_FRAMES = 12          # reject motion bursts shorter than this (fidgets)
-MIN_STILL_FRAMES = 4           # stillness frames required to close a swing window
-# A burst must reach at least this fraction of peak energy to count as a swing.
-MIN_PEAK_FRAC = 0.40
-SWING_PAD_FRAMES = 3           # pad each window outward by this many frames (clamped)
+# ---- swing detection (hand-position trajectory) ----
+# A swing is ONE excursion-and-return of the hands away from the address rest
+# region, NOT a burst of motion. A boundary is declared only when the hands
+# RETURN to the address region and STAY there for a sustained minimum duration,
+# so a mid-swing pause (top-of-backswing dwell or a lag-artifact freeze) can
+# never split one swing. Defaults are tuned for SMOOTH ~30 fps video.
+
+# Centered moving-average window (frames) applied to the hand-height trajectory.
+# Wide enough to absorb jitter AND brief freezes without erasing the swing arc.
+TRAJ_SMOOTH_WINDOW = 7
+# The address rest region is |h - addr_level| <= ADDRESS_REGION_RADIUS_FRAC * span,
+# where `span` is the full vertical travel of the smoothed signal. Hands inside
+# this band count as "at address".
+ADDRESS_REGION_RADIUS_FRAC = 0.18
+# Frames of sustained low movement required at the START to lock the address
+# level (the calm setup). Short relative to a swing.
+ADDRESS_REST_FRAMES = 8
+# THE CORE FIX: hands must sit inside the address region continuously for at
+# least this many frames before a swing boundary is declared. ~0.8 s @ 30 fps.
+# A momentary dwell mid-swing keeps the hands AWAY from address, so it never
+# reaches this threshold and never triggers a boundary.
+MIN_RETURN_FRAMES = 24
+# An excursion must reach at least this fraction of the signal's full vertical
+# span to count as a swing (rejects fidgets / waggles below it).
+MIN_SWING_AMPLITUDE_FRAC = 0.35
+# Reject excursions shorter than this many frames (fidgets).
+MIN_SWING_FRAMES = 12
+# Pad each window outward by this many frames (clamped to the signal bounds).
+SWING_PAD_FRAMES = 3
 
 # ---- segmentation (8 phases) ----
 PHASE_ORDER = (

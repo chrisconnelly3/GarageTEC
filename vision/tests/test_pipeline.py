@@ -103,39 +103,24 @@ def test_process_video_smoke_stores_swing(db):
 
 
 @requires_video
-def test_golf_swing_mov_detects_expected_count(db):
-    """Regression lock for golf swing.MOV.
+def test_golf_swing_mov_resolves_to_one_swing(db):
+    """Regression lock for the trajectory detector on golf swing.MOV.
 
-    HUMAN-REVIEW NOTE (deviation from plan Task 11 Step 3): the plan assumed the
-    DEFAULT (multi-swing) detector yields exactly one window for this clip and
-    asserted ``len(results) == 1``. On the real clip the default detector
-    actually returns FOUR windows (observed frame ranges:
-    [208,241], [329,369], [378,422], [435,471]) -- it is splitting the single
-    physical swing's high-motion stretch into several bursts, and/or picking up
-    setup/regrip motion. Visual confirmation of the true swing count was not
-    possible in this environment, so per the executor's guidance we lock the
-    conservative invariant (>=1 swing, each a plausible length) plus record the
-    observed default count so a threshold change that materially alters
-    segmentation is caught. ``--single-swing`` correctly collapses to one window
-    (frames [208,241]); see the manual CLI run. Re-tune MIN_STILL_FRAMES /
-    SWING_ENERGY_THRESH_FRAC after eyeballing, then tighten this assertion.
+    golf swing.MOV is ONE physical swing recorded on a laggy PC, so it contains
+    a genuine top-of-backswing pause AND random lag-artifact freezes. The OLD
+    motion-energy detector split it into FOUR windows
+    ([208,241] [329,369] [378,422] [435,471]); the hand-trajectory detector
+    declares a boundary only on a SUSTAINED return to address, so every
+    mid-swing pause is absorbed and the clip resolves to EXACTLY ONE swing.
+
+    HUMAN-EYEBALL NOTE: this count is the algorithm's design target (one swing in
+    the clip). If a human review of the annotated clip ever shows a different
+    true count, update the asserted number and record why in the commit.
     """
     pid = repo.get_or_create_player(db, "Chris", 72.0, "R").id
     sid = repo.create_session(db, pid).id
     results = process_video(db, TEST_VIDEO, player_id=pid, session_id=sid,
                             render=False)
-    # Conservative invariant: at least one swing detected.
-    assert len(results) >= 1
-    # Observed default-detector count for this clip (adjust ONLY after re-eyeball).
-    assert len(results) == 4
-    # every detected swing should span a plausible chunk of frames
-    for r in results:
-        start, end = r.frame_range
-        assert end - start >= C.MIN_SWING_FRAMES
-
-    # --single-swing must collapse to exactly one window (the strongest).
-    pid2 = repo.get_or_create_player(db, "ChrisSingle", 72.0, "R").id
-    sid2 = repo.create_session(db, pid2).id
-    single = process_video(db, TEST_VIDEO, player_id=pid2, session_id=sid2,
-                           render=False, single_swing=True)
-    assert len(single) == 1
+    assert len(results) == 1
+    start, end = results[0].frame_range
+    assert end - start >= C.MIN_SWING_FRAMES   # a plausibly long swing

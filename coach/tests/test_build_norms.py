@@ -109,3 +109,27 @@ def test_build_entries_none_metrics_are_history_only():
         assert e["confidence"] == "none"
         assert e["range"] == []
         assert e["reason"]            # documented why
+
+
+def test_meta_has_disclaimer_and_none_list():
+    meta = b.build_meta()
+    text = (meta["status"] + " " + meta["note"]).lower()
+    assert "human" in text or "curated" in text     # keeps test_norms happy
+    assert "not" in meta["note"].lower() and "ideal" in meta["note"].lower()
+    assert "CaddieSet" in meta["attribution"]
+    # every confidence:none metric is listed with a reason
+    for m in NONE_METRICS:
+        assert m in meta["confidence_none"]
+
+
+def test_main_writes_deterministically(tmp_path):
+    out = tmp_path / "norms.json"
+    p1 = b.main(csv_path=FIX, out_path=str(out))
+    first = out.read_text(encoding="utf-8")
+    p2 = b.main(csv_path=FIX, out_path=str(out))
+    second = out.read_text(encoding="utf-8")
+    assert p1 == p2 == str(out)
+    # deterministic except the generated date line, which we blank for the diff
+    import re
+    norm = lambda s: re.sub(r'"generated":\s*"[^"]*"', '"generated":"X"', s)
+    assert norm(first) == norm(second)

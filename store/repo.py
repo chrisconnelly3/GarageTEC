@@ -203,6 +203,36 @@ def list_swings(conn, session_id=None, limit=None):
     return [_swing_from_row(r) for r in conn.execute(sql, args).fetchall()]
 
 
+def list_swing_summaries(conn, player_id=None, session_id=None, limit=None):
+    """Lightweight swing rows for a picker: id, created_at, club, has_shot,
+    and two key impact metrics (hip_sway_in, shoulder_tilt_deg) when present.
+    Newest first."""
+    sql = "SELECT * FROM swing WHERE 1=1"
+    args = []
+    if player_id is not None:
+        sql += " AND player_id=?"; args.append(player_id)
+    if session_id is not None:
+        sql += " AND session_id=?"; args.append(session_id)
+    sql += " ORDER BY id DESC"
+    if limit is not None:
+        sql += " LIMIT ?"; args.append(limit)
+    rows = conn.execute(sql, args).fetchall()
+    out = []
+    for r in rows:
+        sw = _swing_from_row(r)
+        metrics = {m.name: m.value for m in get_metrics(conn, sw.id)
+                   if m.context == "impact"}
+        out.append({
+            "id": sw.id,
+            "created_at": sw.created_at,
+            "club": sw.club,
+            "has_shot": sw.shot_id is not None,
+            "hip_sway_in": metrics.get("hip_sway_in"),
+            "shoulder_tilt_deg": metrics.get("shoulder_tilt_deg"),
+        })
+    return out
+
+
 _SHOT_COLS = [
     "swing_id", "player_id", "session_id", "captured_at", "device_id",
     "shot_number", "ball_speed", "total_spin", "spin_axis", "hla", "vla",

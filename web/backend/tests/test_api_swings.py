@@ -34,6 +34,32 @@ def test_missing_swing_404(client):
     assert client.get("/api/swings/999").status_code == 404
 
 
+def test_list_swings_endpoint(client, conn):
+    p = seed_player(conn)
+    swing = seed_ready_swing(conn, p)
+    r = client.get(f"/api/swings?player={p.id}")
+    assert r.status_code == 200
+    body = r.json()
+    assert isinstance(body, list) and len(body) >= 1
+    top = body[0]
+    assert top["id"] == swing.id
+    assert top["has_shot"] is True            # seed_ready_swing links a shot
+    assert top["club"] == "7i"
+    assert "created_at" in top
+
+
+def test_list_swings_scoped_to_session(client, conn):
+    from store import repo
+    p = seed_player(conn)
+    seed_ready_swing(conn, p)                  # session A
+    # a swing in a different session should be excluded when session= is passed
+    other_sid = repo.create_session(conn, p.id).id
+    repo.add_swing(conn, other_sid, p.id, "z.mp4")
+    body = client.get(f"/api/swings?player={p.id}&session={other_sid}").json()
+    assert [s["id"] for s in body] == [body[0]["id"]]
+    assert all(s["club"] is None for s in body)  # the z.mp4 swing has no club
+
+
 def test_latest_swing_endpoint(client, conn):
     p = seed_player(conn)
     swing = seed_ready_swing(conn, p)

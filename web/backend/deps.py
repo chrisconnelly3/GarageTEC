@@ -13,7 +13,15 @@ from web.backend.capture import CaptureEventBus, CaptureSupervisor
 
 
 def get_conn():
-    conn = dbmod.connect()
+    # check_same_thread=False: FastAPI runs sync deps in a worker thread while
+    # async endpoints (e.g. the /events SSE generator) iterate on the event-loop
+    # thread; a default connection would raise "SQLite objects created in a
+    # thread can only be used in that same thread". The connection is
+    # request-scoped and closed below, so no two threads use it concurrently.
+    conn = sqlite3.connect(dbmod.default_db_path(), check_same_thread=False)
+    conn.row_factory = sqlite3.Row
+    conn.execute("PRAGMA journal_mode=WAL;")
+    conn.execute("PRAGMA foreign_keys=ON;")
     dbmod.init_db(conn=conn)
     try:
         yield conn

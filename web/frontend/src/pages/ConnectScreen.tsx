@@ -1,13 +1,22 @@
-import { useEffect, useState } from 'react'
+import { useState } from 'react'
 import { Wifi, Smartphone, Settings, CheckCircle2 } from 'lucide-react'
 import { cn } from '../lib/utils'
-export function ConnectScreen() {
-  const [status, setStatus] = useState<'waiting' | 'connected'>('waiting')
-  // Simulate connection after a few seconds
-  useEffect(() => {
-    const timer = setTimeout(() => setStatus('connected'), 4000)
-    return () => clearTimeout(timer)
-  }, [])
+import type { CaptureStatus } from '../lib/types'
+
+interface ConnectScreenProps {
+  captureStatus: CaptureStatus | null
+}
+
+export function ConnectScreen({ captureStatus }: ConnectScreenProps) {
+  const status: 'waiting' | 'connected' = captureStatus?.connected
+    ? 'connected'
+    : 'waiting'
+
+  // Phase 3: persist via a settings endpoint; local-only for now.
+  const [idleTimeout, setIdleTimeout] = useState('15')
+  const [units, setUnits] = useState<'Yards' | 'Meters'>('Yards')
+  const [port, setPort] = useState('921')
+
   return (
     <div className="h-full flex flex-col p-6 space-y-8 overflow-y-auto max-w-5xl mx-auto w-full">
       <div className="text-center space-y-2 mt-4">
@@ -20,7 +29,7 @@ export function ConnectScreen() {
       </div>
 
       {/* Large Status Indicator */}
-      <div className="flex justify-center py-8">
+      <div className="flex flex-col items-center py-8">
         <div
           className={cn(
             'relative w-48 h-48 rounded-full flex flex-col items-center justify-center border-4 transition-all duration-1000',
@@ -34,7 +43,9 @@ export function ConnectScreen() {
               <div className="absolute inset-0 rounded-full border-4 border-garage-amber animate-ping opacity-20" />
               <Wifi className="w-12 h-12 text-garage-amber mb-2 animate-pulse" />
               <span className="text-garage-amber font-medium text-sm">
-                Waiting for R50...
+                {captureStatus?.status === 'paused'
+                  ? 'R50 Paused'
+                  : 'Waiting for R50...'}
               </span>
             </>
           )}
@@ -45,11 +56,16 @@ export function ConnectScreen() {
                 Connected
               </span>
               <span className="text-garage-green/80 text-xs font-mono mt-1">
-                Garmin-R50-8A2F
+                {captureStatus?.shot_count ?? 0} shots
               </span>
             </>
           )}
         </div>
+        {captureStatus?.last_error && (
+          <p className="text-xs text-garage-red mt-4">
+            {captureStatus.last_error}
+          </p>
+        )}
       </div>
 
       {/* 3-Step Wizard */}
@@ -95,6 +111,7 @@ export function ConnectScreen() {
       </div>
 
       {/* Settings Card */}
+      {/* Phase 3: persist via POST /api/capture/settings; local-only for now */}
       <div className="bg-[#121714] border border-[#242C27] rounded-[24px] p-6 mt-auto">
         <div className="flex items-center space-x-2 mb-6">
           <Settings className="w-5 h-5 text-[#8B978F]" />
@@ -110,7 +127,8 @@ export function ConnectScreen() {
             </label>
             <input
               type="number"
-              defaultValue={15}
+              value={idleTimeout}
+              onChange={(e) => setIdleTimeout(e.target.value)}
               className="bg-[#1A211D] border border-[#242C27] rounded-xl px-4 py-3 text-[#E7EEE9] focus:border-garage-green outline-none min-h-[44px]"
             />
           </div>
@@ -119,10 +137,26 @@ export function ConnectScreen() {
               Units
             </label>
             <div className="flex bg-[#1A211D] border border-[#242C27] rounded-xl p-1 min-h-[44px]">
-              <button className="flex-1 rounded-lg bg-[#242C27] text-[#E7EEE9] font-medium">
+              <button
+                onClick={() => setUnits('Yards')}
+                className={cn(
+                  'flex-1 rounded-lg font-medium',
+                  units === 'Yards'
+                    ? 'bg-[#242C27] text-[#E7EEE9]'
+                    : 'text-[#8B978F] hover:text-[#E7EEE9]',
+                )}
+              >
                 Yards
               </button>
-              <button className="flex-1 rounded-lg text-[#8B978F] hover:text-[#E7EEE9] font-medium">
+              <button
+                onClick={() => setUnits('Meters')}
+                className={cn(
+                  'flex-1 rounded-lg font-medium',
+                  units === 'Meters'
+                    ? 'bg-[#242C27] text-[#E7EEE9]'
+                    : 'text-[#8B978F] hover:text-[#E7EEE9]',
+                )}
+              >
                 Meters
               </button>
             </div>
@@ -133,7 +167,8 @@ export function ConnectScreen() {
             </label>
             <input
               type="text"
-              defaultValue="921"
+              value={port}
+              onChange={(e) => setPort(e.target.value)}
               className="bg-[#1A211D] border border-[#242C27] rounded-xl px-4 py-3 text-[#E7EEE9] focus:border-garage-green outline-none min-h-[44px] font-mono"
             />
           </div>

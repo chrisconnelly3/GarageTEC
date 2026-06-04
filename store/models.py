@@ -128,3 +128,17 @@ class Coaching:
     model: Optional[str] = None
     created_at: Optional[str] = None
     id: Optional[int] = None
+
+
+@dataclass
+class Calibration:
+    device_index: int
+    cols: int
+    rows: int
+    square_mm: float
+    n_poses: int
+    reprojection_error: float
+    calib_json: str
+    is_active: int = 1
+    created_at: Optional[str] = None
+    id: Optional[int] = None

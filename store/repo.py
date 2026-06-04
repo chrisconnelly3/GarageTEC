@@ -3,7 +3,7 @@ from datetime import datetime, timedelta, timezone
 from store import db as dbmod
 from store.models import (
     Player, Session, Swing, Shot, Landmark, Landmark3D, PoseFrame, Moment, Metric, Media,
-    Coaching,
+    Coaching, Calibration,
 )
 
 
@@ -458,3 +458,48 @@ def get_coaching(conn, swing_id=None, session_id=None):
     return [Coaching(id=r["id"], swing_id=r["swing_id"], session_id=r["session_id"],
                      kind=r["kind"], content_json=r["content_json"],
                      model=r["model"], created_at=r["created_at"]) for r in rows]
+
+
+def _row_to_calibration(r):
+    return Calibration(id=r["id"], created_at=r["created_at"],
+                       device_index=r["device_index"], cols=r["cols"],
+                       rows=r["rows"], square_mm=r["square_mm"],
+                       n_poses=r["n_poses"], reprojection_error=r["reprojection_error"],
+                       calib_json=r["calib_json"], is_active=r["is_active"])
+
+
+def save_calibration(conn, *, device_index, cols, rows, square_mm, n_poses,
+                     reprojection_error, calib_json):
+    """Insert a calibration and make it the active one (clears other actives)."""
+    conn.execute("UPDATE calibration SET is_active=0")
+    cur = conn.execute(
+        "INSERT INTO calibration(created_at, device_index, cols, rows, square_mm,"
+        " n_poses, reprojection_error, calib_json, is_active) "
+        "VALUES (?,?,?,?,?,?,?,?,1)",
+        (dbmod.now_iso(), device_index, cols, rows, square_mm, n_poses,
+         reprojection_error, calib_json))
+    conn.commit()
+    return get_calibration(conn, cur.lastrowid)
+
+
+def get_calibration(conn, cal_id):
+    r = conn.execute("SELECT * FROM calibration WHERE id=?", (cal_id,)).fetchone()
+    return _row_to_calibration(r) if r else None
+
+
+def get_active_calibration(conn):
+    r = conn.execute("SELECT * FROM calibration WHERE is_active=1 "
+                     "ORDER BY id DESC LIMIT 1").fetchone()
+    return _row_to_calibration(r) if r else None
+
+
+def list_calibrations(conn):
+    rows = conn.execute("SELECT * FROM calibration ORDER BY id DESC").fetchall()
+    return [_row_to_calibration(r) for r in rows]
+
+
+def set_active_calibration(conn, cal_id):
+    conn.execute("UPDATE calibration SET is_active=0")
+    conn.execute("UPDATE calibration SET is_active=1 WHERE id=?", (cal_id,))
+    conn.commit()
+    return get_calibration(conn, cal_id)

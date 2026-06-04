@@ -52,6 +52,16 @@ CREATE TABLE IF NOT EXISTS pose_3d_frame (
   UNIQUE(swing_id, frame_index)
 );
 
+CREATE TABLE IF NOT EXISTS calibration (
+  id INTEGER PRIMARY KEY,
+  created_at TEXT NOT NULL,
+  device_index INTEGER NOT NULL,
+  cols INTEGER NOT NULL, rows INTEGER NOT NULL, square_mm REAL NOT NULL,
+  n_poses INTEGER NOT NULL, reprojection_error REAL NOT NULL,
+  calib_json TEXT NOT NULL,
+  is_active INTEGER NOT NULL DEFAULT 0
+);
+
 CREATE TABLE IF NOT EXISTS moment (
   id INTEGER PRIMARY KEY,
   swing_id INTEGER NOT NULL REFERENCES swing(id),

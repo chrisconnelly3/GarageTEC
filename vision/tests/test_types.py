@@ -1,11 +1,19 @@
 def test_constants_present():
     from vision import constants as C
-    # swing detection
-    assert C.MOTION_SMOOTH_WINDOW >= 1
-    assert 0.0 < C.SWING_ENERGY_THRESH_FRAC < 1.0
+    # ---- swing detection (hand-position trajectory) ----
+    assert C.TRAJ_SMOOTH_WINDOW >= 1
+    assert 0.0 < C.ADDRESS_REGION_RADIUS_FRAC < 1.0
+    assert C.ADDRESS_REST_FRAMES >= 1
+    assert C.MIN_RETURN_FRAMES >= 1
+    assert 0.0 < C.MIN_SWING_AMPLITUDE_FRAC < 1.0
     assert C.MIN_SWING_FRAMES >= 1
-    assert C.MIN_STILL_FRAMES >= 1
-    # segmentation
+    assert C.SWING_PAD_FRAMES >= 0
+    # the old motion-energy knobs must be gone
+    assert not hasattr(C, "MOTION_SMOOTH_WINDOW")
+    assert not hasattr(C, "SWING_ENERGY_THRESH_FRAC")
+    assert not hasattr(C, "MIN_STILL_FRAMES")
+    assert not hasattr(C, "MIN_PEAK_FRAC")
+    # segmentation block is untouched
     assert isinstance(C.PHASE_ORDER, tuple)
     assert C.PHASE_ORDER[0] == "address"
     assert C.PHASE_ORDER[-1] == "early_follow_through"

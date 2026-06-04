@@ -1,44 +1,67 @@
 import { useState } from 'react'
 import { Plus, User } from 'lucide-react'
 import { cn } from '../lib/utils'
-import { Avatar, AvatarFallback, AvatarImage } from '../components/Avatar'
-const players = [
-  {
-    id: '1',
-    name: 'Alex M.',
-    avatar: 'https://i.pravatar.cc/150?u=alex',
-    height: '6\' 1"',
-    handedness: 'R',
-    swings: 1240,
-    sessions: 24,
-    lastActive: 'Right now',
-    isActive: true,
-  },
-  {
-    id: '2',
-    name: 'Sarah T.',
-    avatar: 'https://i.pravatar.cc/150?u=sarah',
-    height: '5\' 6"',
-    handedness: 'R',
-    swings: 450,
-    sessions: 8,
-    lastActive: '3 days ago',
-    isActive: false,
-  },
-  {
-    id: '3',
-    name: 'Guest',
-    avatar: '',
-    height: '--',
-    handedness: 'R',
-    swings: 12,
-    sessions: 1,
-    lastActive: '2 weeks ago',
-    isActive: false,
-  },
-]
-export function PlayersScreen() {
+import { Avatar, AvatarFallback } from '../components/Avatar'
+import { useApi } from '../lib/useApi'
+import { getPlayers, getSessions, createPlayer } from '../lib/api'
+import { heightToFtIn } from '../lib/format'
+import type { Player, Handedness } from '../lib/types'
+
+interface PlayerVM extends Player {
+  isActive: boolean
+  sessions: number
+  lastActive: string
+}
+
+const formatDate = (iso: string) => {
+  const d = new Date(iso)
+  return Number.isNaN(d.getTime())
+    ? '--'
+    : d.toLocaleDateString(undefined, { month: 'short', day: 'numeric' })
+}
+
+interface PlayersScreenProps {
+  activePlayerId: number | null
+  onSetActive: (p: Player) => void
+  onAdded: () => void
+}
+
+export function PlayersScreen({ activePlayerId, onSetActive, onAdded }: PlayersScreenProps) {
   const [showAdd, setShowAdd] = useState(false)
+  const [name, setName] = useState('')
+  const [ft, setFt] = useState('')
+  const [inch, setInch] = useState('')
+  const [hand, setHand] = useState<Handedness>('R')
+  const [formError, setFormError] = useState<string | null>(null)
+
+  const { data, loading, error, reload } = useApi<PlayerVM[]>(async () => {
+    const players = await getPlayers()
+    const sessionLists = await Promise.all(
+      players.map((p) => getSessions(p.id).catch(() => [])),
+    )
+    return players.map((p, i) => {
+      const sessions = sessionLists[i]
+      return {
+        ...p,
+        isActive: p.id === activePlayerId,
+        sessions: sessions.length,
+        lastActive: sessions[0] ? formatDate(sessions[0].started_at) : '--',
+      }
+    })
+  }, [activePlayerId])
+
+  const resetForm = () => {
+    setName(''); setFt(''); setInch(''); setHand('R'); setFormError(null)
+  }
+
+  const save = () => {
+    if (!name.trim()) { setFormError('Name is required.'); return }
+    const height_in = (parseInt(ft || '0', 10) || 0) * 12 + (parseInt(inch || '0', 10) || 0)
+    createPlayer({ name: name.trim(), height_in, handedness: hand })
+      .then(() => { resetForm(); setShowAdd(false); reload(); onAdded() })
+      .catch((e) => setFormError(String(e)))
+  }
+
   return (
     <div className="h-full flex flex-col p-6 space-y-6 overflow-y-auto relative">
       <div className="flex items-center justify-between">
@@ -51,6 +74,13 @@ export function PlayersScreen() {
           Add Player
         </button>
       </div>
+
+      {loading && <div className="text-[#8B978F]">Loading…</div>}
+      {error && (
+        <div className="rounded-[18px] border border-garage-red/40 bg-garage-red/10 px-6 py-4 text-sm text-garage-red">
+          Failed to load players: {error}
+        </div>
+      )}
 
       <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
         {/* Add Player Card (Inline) */}
@@ -65,6 +95,8 @@ export function PlayersScreen() {
                 </label>
                 <input
                   type="text"
+                  value={name}
+                  onChange={(e) => setName(e.target.value)}
                   placeholder="Enter name"
                   className="w-full bg-[#1A211D] border border-[#242C27] rounded-xl px-4 py-3 text-[#E7EEE9] focus:border-garage-green focus:ring-1 focus:ring-garage-green outline-none transition-all min-h-[44px]"
                 />
@@ -78,11 +110,15 @@ export function PlayersScreen() {
                   <div className="flex space-x-2">
                     <input
                       type="number"
+                      value={ft}
+                      onChange={(e) => setFt(e.target.value)}
                       placeholder="Ft"
                       className="w-full bg-[#1A211D] border border-[#242C27] rounded-xl px-4 py-3 text-[#E7EEE9] focus:border-garage-green outline-none min-h-[44px]"
                     />
                     <input
                       type="number"
+                      value={inch}
+                      onChange={(e) => setInch(e.target.value)}
                       placeholder="In"
                       className="w-full bg-[#1A211D] border border-[#242C27] rounded-xl px-4 py-3 text-[#E7EEE9] focus:border-garage-green outline-none min-h-[44px]"
                     />
@@ -93,25 +129,47 @@ export function PlayersScreen() {
                     Hand
                   </label>
                   <div className="flex bg-[#1A211D] border border-[#242C27] rounded-xl p-1 min-h-[44px]">
-                    <button className="px-4 py-1 rounded-lg bg-[#242C27] text-[#E7EEE9] font-medium">
+                    <button
+                      onClick={() => setHand('R')}
+                      className={cn(
+                        'px-4 py-1 rounded-lg font-medium',
+                        hand === 'R'
+                          ? 'bg-[#242C27] text-[#E7EEE9]'
+                          : 'text-[#8B978F] hover:text-[#E7EEE9]',
+                      )}
+                    >
                       R
                     </button>
-                    <button className="px-4 py-1 rounded-lg text-[#8B978F] hover:text-[#E7EEE9] font-medium">
+                    <button
+                      onClick={() => setHand('L')}
+                      className={cn(
+                        'px-4 py-1 rounded-lg font-medium',
+                        hand === 'L'
+                          ? 'bg-[#242C27] text-[#E7EEE9]'
+                          : 'text-[#8B978F] hover:text-[#E7EEE9]',
+                      )}
+                    >
                       L
                     </button>
                   </div>
                 </div>
               </div>
+              {formError && (
+                <p className="text-xs text-garage-red">{formError}</p>
+              )}
             </div>
 
             <div className="flex space-x-3 mt-auto pt-4">
               <button
-                onClick={() => setShowAdd(false)}
+                onClick={() => { setShowAdd(false); resetForm() }}
                 className="flex-1 bg-[#1A211D] text-[#E7EEE9] py-3 rounded-xl font-medium hover:bg-[#242C27] transition-colors min-h-[44px]"
               >
                 Cancel
               </button>
-              <button className="flex-1 bg-garage-green text-[#0A0D0B] py-3 rounded-xl font-medium hover:bg-garage-green-deep transition-colors min-h-[44px]">
+              <button
+                onClick={save}
+                className="flex-1 bg-garage-green text-[#0A0D0B] py-3 rounded-xl font-medium hover:bg-garage-green-deep transition-colors min-h-[44px]"
+              >
                 Save
               </button>
             </div>
@@ -119,7 +177,7 @@ export function PlayersScreen() {
         )}
 
         {/* Player Cards */}
-        {players.map((player) => (
+        {(data ?? []).map((player) => (
           <div
             key={player.id}
             className={cn(
@@ -139,7 +197,6 @@ export function PlayersScreen() {
                     'ring-2 ring-garage-green ring-offset-4 ring-offset-[#121714]',
                 )}
               >
-                <AvatarImage src={player.avatar} />
                 <AvatarFallback className="bg-[#1A211D] text-xl">
                   <User className="w-8 h-8 text-[#8B978F]" />
                 </AvatarFallback>
@@ -157,7 +214,7 @@ export function PlayersScreen() {
               {player.name}
             </h3>
             <div className="flex items-center space-x-2 text-sm text-[#8B978F] mb-6">
-              <span>{player.height}</span>
+              <span>{heightToFtIn(player.height_in)}</span>
               <span>•</span>
               <span>{player.handedness}H</span>
             </div>
@@ -165,10 +222,10 @@ export function PlayersScreen() {
             <div className="grid grid-cols-2 gap-4 mt-auto pt-4 border-t border-[#242C27]">
               <div>
                 <div className="text-[10px] uppercase tracking-wider text-[#8B978F] font-semibold mb-1">
-                  Total Swings
+                  Sessions
                 </div>
                 <div className="text-lg font-mono text-[#E7EEE9]">
-                  {player.swings.toLocaleString()}
+                  {player.sessions}
                 </div>
               </div>
               <div>
@@ -182,7 +239,10 @@ export function PlayersScreen() {
             </div>
 
             {!player.isActive && (
-              <button className="w-full mt-6 bg-[#1A211D] text-[#E7EEE9] py-3 rounded-xl font-medium hover:bg-[#242C27] transition-colors min-h-[44px]">
+              <button
+                onClick={() => onSetActive(player)}
+                className="w-full mt-6 bg-[#1A211D] text-[#E7EEE9] py-3 rounded-xl font-medium hover:bg-[#242C27] transition-colors min-h-[44px]"
+              >
                 Set as Active
               </button>
             )}

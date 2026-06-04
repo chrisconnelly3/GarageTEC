@@ -32,3 +32,17 @@ def test_swing_detail_unmatched_has_null_shot(client, conn):
 
 def test_missing_swing_404(client):
     assert client.get("/api/swings/999").status_code == 404
+
+
+def test_latest_swing_endpoint(client, conn):
+    p = seed_player(conn)
+    swing = seed_ready_swing(conn, p)
+    r = client.get(f"/api/swings/latest?player={p.id}")
+    assert r.status_code == 200
+    assert r.json()["swing"]["id"] == swing.id
+
+
+def test_latest_swing_204_when_none(client, conn):
+    p = seed_player(conn)
+    r = client.get(f"/api/swings/latest?player={p.id}")
+    assert r.status_code == 204

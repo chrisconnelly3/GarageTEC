@@ -16,68 +16,88 @@ import {
 } from 'lucide-react'
 import { cn } from '../lib/utils'
 import { motion } from 'framer-motion'
-const chartData = [
-  {
-    date: 'Oct 1',
-    value: 45,
-  },
-  {
-    date: 'Oct 5',
-    value: 43,
-  },
-  {
-    date: 'Oct 12',
-    value: 44,
-  },
-  {
-    date: 'Oct 18',
-    value: 41,
-  },
-  {
-    date: 'Oct 22',
-    value: 39,
-  },
-  {
-    date: 'Oct 28',
-    value: 38,
-  }, // Target is ~38
+import { useApi } from '../lib/useApi'
+import { getHistory } from '../lib/api'
+import { labelFor, deltaVsBaseline, METRIC_GOOD } from '../lib/format'
+import type { History } from '../lib/types'
+
+const HERO_METRIC = 'shoulder_tilt_deg'
+const TREND_METRICS = [
+  'shoulder_tilt_deg', 'hip_sway_in', 'spine_angle_deg', 'shoulder_turn_deg',
 ]
-const trendMetrics = [
-  {
-    name: 'Shoulder Tilt',
-    value: '38°',
-    delta: 2,
-    deltaGood: 'up',
-    isPB: true,
-    sparkline: [35, 36, 38, 37, 38],
-  },
-  {
-    name: 'Hip Sway',
-    value: '2.1"',
-    delta: -0.4,
-    deltaGood: 'down',
-    isPB: false,
-    sparkline: [3.5, 3.0, 2.8, 2.5, 2.1],
-  },
-  {
-    name: 'Spine Angle',
-    value: '42°',
-    delta: 0,
-    deltaGood: 'neutral',
-    isPB: false,
-    sparkline: [42, 41, 42, 42, 42],
-  },
-  {
-    name: 'Club Speed',
-    value: '112',
-    delta: 3,
-    deltaGood: 'up',
-    isPB: true,
-    sparkline: [105, 108, 107, 109, 112],
-  },
-]
-export function HistoryScreen() {
+
+const shortDate = (iso: string) => {
+  const d = new Date(iso)
+  return Number.isNaN(d.getTime())
+    ? iso
+    : d.toLocaleDateString(undefined, { month: 'short', day: 'numeric' })
+}
+
+interface TrendVM {
+  name: string
+  value: string
+  delta: number
+  deltaGood: 'up' | 'down' | 'neutral'
+  isPB: boolean
+  sparkline: number[]
+}
+
+interface HistoryScreenProps {
+  playerId: number | null
+}
+
+export function HistoryScreen({ playerId }: HistoryScreenProps) {
   const [timeframe, setTimeframe] = useState('Month')
+
+  const { data: hero, loading, error } = useApi<History | null>(
+    () =>
+      playerId
+        ? getHistory(playerId, HERO_METRIC, 'impact')
+        : Promise.resolve(null),
+    [playerId],
+  )
+
+  const { data: trends } = useApi<TrendVM[]>(
+    async () => {
+      if (!playerId) return []
+      const histories = await Promise.all(
+        TREND_METRICS.map((name) =>
+          getHistory(playerId, name, 'impact').catch(
+            () => ({ points: [] } as Pick<History, 'points'>),
+          ),
+        ),
+      )
+      return TREND_METRICS.map((name, i) => {
+        const points = histories[i].points ?? []
+        const vals = points.map((p) => p.value)
+        const { value, delta } = deltaVsBaseline(points)
+        const good = METRIC_GOOD[name] ?? 'neutral'
+        const latest = vals[vals.length - 1]
+        const isPB =
+          vals.length > 1 &&
+          (good === 'down'
+            ? latest === Math.min(...vals)
+            : good === 'up'
+              ? latest === Math.max(...vals)
+              : false)
+        return {
+          name: labelFor(name),
+          value: Number(value.toFixed(1)).toString(),
+          delta,
+          deltaGood: good,
+          isPB,
+          sparkline: vals.slice(-5),
+        }
+      })
+    },
+    [playerId],
+  )
+
+  const chartData = (hero?.points ?? []).map((p) => ({
+    date: shortDate(p.created_at),
+    value: p.value,
+  }))
+
   return (
     <div className="h-full flex flex-col p-6 space-y-6 overflow-y-auto">
       {/* Header & Filters */}
@@ -86,7 +106,7 @@ export function HistoryScreen() {
           <h1 className="text-2xl font-semibold text-[#E7EEE9]">History</h1>
           <div className="h-6 w-px bg-[#242C27] mx-2" />
           <div className="flex space-x-2">
-            {['Player: Alex M.', 'Club: Driver', 'Metric: Shoulder Tilt'].map(
+            {[`Metric: ${labelFor(HERO_METRIC)}`, 'Context: Impact'].map(
               (filter) => (
                 <button
                   key={filter}
@@ -101,6 +121,7 @@ export function HistoryScreen() {
         </div>
 
         <div className="flex bg-[#121714] border border-[#242C27] rounded-full p-1">
+          {/* Phase 3: server-side timeframe filtering; visual-only for now */}
           {['Session', 'Week', 'Month', 'Year'].map((tf) => (
             <button
               key={tf}
@@ -121,85 +142,85 @@ export function HistoryScreen() {
       {/* HERO Chart */}
       <div className="flex-1 bg-[#121714] border border-[#242C27] rounded-[24px] p-6 flex flex-col min-h-[300px]">
         <h3 className="text-[#8B978F] text-sm font-medium mb-6 uppercase tracking-wider">
-          Shoulder Tilt (Degrees)
+          {labelFor(HERO_METRIC)} (Impact)
         </h3>
-        <div className="flex-1 w-full">
-          <ResponsiveContainer width="100%" height="100%">
-            <LineChart
-              data={chartData}
-              margin={{
-                top: 20,
-                right: 20,
-                bottom: 0,
-                left: -20,
-              }}
-            >
-              <XAxis
-                dataKey="date"
-                stroke="#4A554E"
-                tick={{
-                  fill: '#8B978F',
-                  fontSize: 12,
-                }}
-                tickLine={false}
-                axisLine={false}
-                dy={10}
-              />
-              <YAxis
-                stroke="#4A554E"
-                tick={{
-                  fill: '#8B978F',
-                  fontSize: 12,
-                }}
-                tickLine={false}
-                axisLine={false}
-              />
-              <Tooltip
-                contentStyle={{
-                  backgroundColor: '#1A211D',
-                  borderColor: '#242C27',
-                  borderRadius: '12px',
-                  color: '#E7EEE9',
-                }}
-                itemStyle={{
-                  color: '#84CE39',
-                  fontWeight: 'bold',
-                }}
-                cursor={{
-                  stroke: '#242C27',
-                  strokeWidth: 2,
-                  strokeDasharray: '4 4',
-                }}
-              />
-              <Line
-                type="monotone"
-                dataKey="value"
-                stroke="#84CE39"
-                strokeWidth={4}
-                dot={{
-                  fill: '#0A0D0B',
-                  stroke: '#84CE39',
-                  strokeWidth: 2,
-                  r: 6,
-                }}
-                activeDot={{
-                  r: 8,
-                  fill: '#84CE39',
-                  stroke: '#0A0D0B',
-                  strokeWidth: 3,
-                }}
-                style={{
-                  filter: 'drop-shadow(0px 0px 12px rgba(132,206,57,0.4))',
-                }}
-              />
-            </LineChart>
-          </ResponsiveContainer>
-        </div>
+        {loading ? (
+          <div className="flex-1 flex items-center justify-center text-[#8B978F]">
+            Loading…
+          </div>
+        ) : error ? (
+          <div className="flex-1 flex items-center justify-center text-garage-red text-sm">
+            Failed to load history: {error}
+          </div>
+        ) : chartData.length === 0 ? (
+          <div className="flex-1 flex items-center justify-center text-[#8B978F]">
+            No history yet for this player.
+          </div>
+        ) : (
+          <div className="flex-1 w-full min-h-[240px] h-[240px]">
+            <ResponsiveContainer width="100%" height="100%">
+              <LineChart
+                data={chartData}
+                margin={{ top: 20, right: 20, bottom: 0, left: -20 }}
+              >
+                <XAxis
+                  dataKey="date"
+                  stroke="#4A554E"
+                  tick={{ fill: '#8B978F', fontSize: 12 }}
+                  tickLine={false}
+                  axisLine={false}
+                  dy={10}
+                />
+                <YAxis
+                  stroke="#4A554E"
+                  tick={{ fill: '#8B978F', fontSize: 12 }}
+                  tickLine={false}
+                  axisLine={false}
+                />
+                <Tooltip
+                  contentStyle={{
+                    backgroundColor: '#1A211D',
+                    borderColor: '#242C27',
+                    borderRadius: '12px',
+                    color: '#E7EEE9',
+                  }}
+                  itemStyle={{ color: '#84CE39', fontWeight: 'bold' }}
+                  cursor={{
+                    stroke: '#242C27',
+                    strokeWidth: 2,
+                    strokeDasharray: '4 4',
+                  }}
+                />
+                <Line
+                  type="monotone"
+                  dataKey="value"
+                  stroke="#84CE39"
+                  strokeWidth={4}
+                  dot={{
+                    fill: '#0A0D0B',
+                    stroke: '#84CE39',
+                    strokeWidth: 2,
+                    r: 6,
+                  }}
+                  activeDot={{
+                    r: 8,
+                    fill: '#84CE39',
+                    stroke: '#0A0D0B',
+                    strokeWidth: 3,
+                  }}
+                  style={{
+                    filter: 'drop-shadow(0px 0px 12px rgba(132,206,57,0.4))',
+                  }}
+                />
+              </LineChart>
+            </ResponsiveContainer>
+          </div>
+        )}
       </div>
 
       {/* Trend Cards */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-        {trendMetrics.map((metric, i) => {
+        {(trends ?? []).map((metric, i) => {
           const isGood =
             metric.deltaGood === 'up'
               ? metric.delta > 0
@@ -207,20 +228,14 @@ export function HistoryScreen() {
                 ? metric.delta < 0
                 : true
           const isNeutral = metric.delta === 0
+          const max = Math.max(...metric.sparkline, 1)
+          const min = Math.min(...metric.sparkline, 0)
           return (
             <motion.div
               key={metric.name}
-              initial={{
-                opacity: 0,
-                y: 10,
-              }}
-              animate={{
-                opacity: 1,
-                y: 0,
-              }}
-              transition={{
-                delay: i * 0.1,
-              }}
+              initial={{ opacity: 0, y: 10 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: i * 0.1 }}
               className="bg-[#121714] border border-[#242C27] rounded-[18px] p-5 relative overflow-hidden"
             >
               <div className="flex justify-between items-start mb-3">
@@ -264,15 +279,11 @@ export function HistoryScreen() {
                   )}
                 </div>
 
-                {/* Mini Sparkline Placeholder */}
+                {/* Mini Sparkline */}
                 <div className="w-16 h-8 flex items-end space-x-0.5 opacity-60">
                   {metric.sparkline.map((val, idx) => {
-                    const max = Math.max(...metric.sparkline)
-                    const min = Math.min(...metric.sparkline)
-                    const height = Math.max(
-                      10,
-                      ((val - min) / (max - min)) * 100,
-                    )
+                    const height =
+                      max === min ? 50 : Math.max(10, ((val - min) / (max - min)) * 100)
                     return (
                       <div
                         key={idx}
@@ -280,9 +291,7 @@ export function HistoryScreen() {
                           'flex-1 rounded-t-sm',
                           isGood ? 'bg-garage-green' : 'bg-[#8B978F]',
                         )}
-                        style={{
-                          height: `${height}%`,
-                        }}
+                        style={{ height: `${height}%` }}
                       />
                     )
                   })}

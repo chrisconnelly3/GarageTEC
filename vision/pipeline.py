@@ -14,6 +14,7 @@ from vision.swing_detect import hand_trajectory_from_timeline, detect_swings
 from vision.segment import segment_swing
 from vision.persist import persist_swing
 from vision.render import render_swing_clip
+from vision.threed.pipeline3d import reconstruct_window
 from vision.types import PoseTimeline, SwingResult
 
 
@@ -39,7 +40,8 @@ def build_timelines(source: FrameSource, dl_pose, fo_pose):
 def process_video(conn, video_path: str, *, player_id: int, session_id: int,
                   split: float = C.DEFAULT_SPLIT, single_swing: bool = False,
                   render: bool = False, out_dir: str = "swings",
-                  on_swing: Optional[Callable[[SwingResult], None]] = None
+                  on_swing: Optional[Callable[[SwingResult], None]] = None,
+                  calibration=None
                   ) -> List[SwingResult]:
     """Process a recorded video end to end. Returns the list of SwingResults
     (also delivered one-by-one via on_swing as each swing is persisted)."""
@@ -83,6 +85,14 @@ def process_video(conn, video_path: str, *, player_id: int, session_id: int,
                 width=source.width, height=source.height,
                 view_layout=C.VIEW_LAYOUT, down_line=down_line, face_on=face_on,
                 window=window, moments=moments, annotated_path=annotated_path)
+
+            if calibration is not None:
+                frames_3d = reconstruct_window(
+                    face_on, down_line, calibration,
+                    window.start_index, window.end_index)
+                if frames_3d:
+                    from store import repo
+                    repo.save_pose_3d_frames(conn, swing_id, frames_3d)
 
             media_paths = [video_path] + (
                 [annotated_path] if annotated_path else [])

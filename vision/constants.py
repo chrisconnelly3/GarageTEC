@@ -79,3 +79,8 @@ IMPACT_HEIGHT_TOL_FRAC = 0.20
 RENDER_FOURCC = "mp4v"
 SKELETON_THICKNESS = 2
 LABEL_FONT_SCALE = 0.7
+
+# 3D reconstruction (two-camera triangulation). Off unless a Calibration is
+# passed to process_video; this documents the default focal/distance the
+# AssumedGeometry provider uses when no checkerboard calibration exists.
+THREED_DEFAULT_CAMERA_DISTANCE_M = 4.0

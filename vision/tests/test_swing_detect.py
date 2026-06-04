@@ -120,6 +120,25 @@ def test_pure_fidget_only_zero_windows():
     assert detect_swings(sig) == []
 
 
+def test_too_short_arc_rejected_by_min_frames():
+    """A full-amplitude excursion that is too SHORT (sub-second blip) must be
+    rejected by the MIN_SWING_FRAMES floor. ~16 frames of excursion (~0.5 s @
+    30 fps) reaches the apex amplitude but is far below a real swing window
+    (always ~1 s / >=46 frames), so it yields ZERO swing windows.
+    """
+    short_arc = _arc(8, 8)                  # 16-frame excursion, full span up
+    assert short_arc.shape[0] < C.MIN_SWING_FRAMES   # guard: it IS too short
+    sig = np.concatenate([
+        # leading rest >= MIN_RETURN_FRAMES so the smoothing edge-blip at the
+        # signal start is isolated as its own (rejected) touch, leaving the short
+        # arc cleanly bounded at its true ~16-frame length.
+        _rest(C.MIN_RETURN_FRAMES + 8),
+        short_arc,
+        _rest(C.MIN_RETURN_FRAMES + 10),
+    ])
+    assert detect_swings(sig) == []         # rejected by the length floor
+
+
 def test_single_swing_flag_keeps_largest_excursion():
     sig = np.concatenate([
         _rest(C.ADDRESS_REST_FRAMES + 5),

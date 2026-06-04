@@ -9,6 +9,7 @@ import type { Player, Handedness } from '../lib/types'
 
 interface PlayerVM extends Player {
   isActive: boolean
+  swings: number
   sessions: number
   lastActive: string
 }
@@ -36,6 +37,8 @@ export function PlayersScreen({ activePlayerId, onSetActive, onAdded }: PlayersS
 
   const { data, loading, error, reload } = useApi<PlayerVM[]>(async () => {
     const players = await getPlayers()
+    // Counts come straight from the API; one cheap getSessions fan-out only
+    // remains to derive lastActive (no timestamp on the counts endpoint).
     const sessionLists = await Promise.all(
       players.map((p) => getSessions(p.id).catch(() => [])),
     )
@@ -44,7 +47,8 @@ export function PlayersScreen({ activePlayerId, onSetActive, onAdded }: PlayersS
       return {
         ...p,
         isActive: p.id === activePlayerId,
-        sessions: sessions.length,
+        swings: p.swing_count,
+        sessions: p.session_count,
         lastActive: sessions[0] ? formatDate(sessions[0].started_at) : '--',
       }
     })
@@ -219,7 +223,15 @@ export function PlayersScreen({ activePlayerId, onSetActive, onAdded }: PlayersS
               <span>{player.handedness}H</span>
             </div>
 
-            <div className="grid grid-cols-2 gap-4 mt-auto pt-4 border-t border-[#242C27]">
+            <div className="grid grid-cols-3 gap-4 mt-auto pt-4 border-t border-[#242C27]">
+              <div>
+                <div className="text-[10px] uppercase tracking-wider text-[#8B978F] font-semibold mb-1">
+                  Swings
+                </div>
+                <div className="text-lg font-mono text-[#E7EEE9]">
+                  {player.swings}
+                </div>
+              </div>
               <div>
                 <div className="text-[10px] uppercase tracking-wider text-[#8B978F] font-semibold mb-1">
                   Sessions

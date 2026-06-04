@@ -69,6 +69,18 @@ def save_settings(conn, values: dict):
     return get_settings(conn)
 
 
+def count_swings_for_player(conn, player_id):
+    row = conn.execute("SELECT COUNT(*) c FROM swing WHERE player_id=?",
+                       (player_id,)).fetchone()
+    return row["c"]
+
+
+def count_sessions_for_player(conn, player_id):
+    row = conn.execute("SELECT COUNT(*) c FROM session WHERE player_id=?",
+                       (player_id,)).fetchone()
+    return row["c"]
+
+
 def create_session(conn, player_id, location=None, notes=None):
     ts = dbmod.now_iso()
     cur = conn.execute(

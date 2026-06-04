@@ -16,7 +16,13 @@ class PlayerIn(BaseModel):
 
 @router.get("")
 def list_players(conn=Depends(get_conn)):
-    return [player_dict(p) for p in repo.list_players(conn)]
+    out = []
+    for p in repo.list_players(conn):
+        d = player_dict(p)
+        d["swing_count"] = repo.count_swings_for_player(conn, p.id)
+        d["session_count"] = repo.count_sessions_for_player(conn, p.id)
+        out.append(d)
+    return out
 
 
 @router.post("")

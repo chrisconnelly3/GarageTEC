@@ -185,7 +185,7 @@ export function HistoryScreen({ playerId }: HistoryScreenProps) {
                     borderRadius: '12px',
                     color: '#E7EEE9',
                   }}
-                  itemStyle={{ color: '#84CE39', fontWeight: 'bold' }}
+                  itemStyle={{ color: '#A3FE41', fontWeight: 'bold' }}
                   cursor={{
                     stroke: '#242C27',
                     strokeWidth: 2,
@@ -195,17 +195,17 @@ export function HistoryScreen({ playerId }: HistoryScreenProps) {
                 <Line
                   type="monotone"
                   dataKey="value"
-                  stroke="#84CE39"
+                  stroke="#A3FE41"
                   strokeWidth={4}
                   dot={{
                     fill: '#0A0D0B',
-                    stroke: '#84CE39',
+                    stroke: '#A3FE41',
                     strokeWidth: 2,
                     r: 6,
                   }}
                   activeDot={{
                     r: 8,
-                    fill: '#84CE39',
+                    fill: '#A3FE41',
                     stroke: '#0A0D0B',
                     strokeWidth: 3,
                   }}

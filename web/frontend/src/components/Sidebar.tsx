@@ -47,11 +47,11 @@ export function Sidebar({ activeTab, setActiveTab }: SidebarProps) {
   ]
   return (
     <div className="w-64 h-screen bg-[#0A0D0B] border-r border-[#242C27] flex flex-col pt-6 pb-8 px-4 flex-shrink-0">
-      <div className="mb-10 px-2">
+      <div className="mb-10 px-1">
         <img
-          src="https://cdn.magicpatterns.com/uploads/tdBtRoVyzboBhgeXUNvqbn/garagetec-logo.png"
+          src="/garagetec-logo.png"
           alt="GarageTEC"
-          className="h-8 object-contain"
+          className="w-full max-w-[200px] object-contain"
         />
       </div>
 

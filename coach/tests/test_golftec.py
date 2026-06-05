@@ -68,10 +68,17 @@ def test_benchmark_dedup_prefers_comparable_3d_row():
     assert rows[0]["comparable"] is True and rows[0]["value"] == 38.0
 
 
-def test_benchmark_skips_metrics_without_golftec_target():
+def test_benchmark_emits_raw_row_for_metrics_without_golftec_target():
+    # Previously this asserted an empty list; now unreferenced metrics get a
+    # 'raw' row so the UI can still render a card for them.
     metrics = [{"name": "head_sway_in", "context": "impact", "value": 1.0,
                 "unit": "in", "method": "shoulder_ratio_0.24"}]
-    assert golftec.benchmark_metrics(metrics) == []
+    rows = golftec.benchmark_metrics(metrics)
+    assert len(rows) == 1
+    r = rows[0]
+    assert r["state"] == "raw"
+    assert r["target"] is None and r["zone"] is None and r["delta"] is None
+    assert r["value"] == 1.0
 
 
 def test_supplementary_references_merged():
@@ -89,3 +96,30 @@ def test_supplementary_references_merged():
 def test_compare_uses_supplementary_target():
     c = golftec.compare("early_extension_in", "impact", 1.5)
     assert c["comparable"] is True and c["target"] == 0 and c["delta"] == 1.5
+
+
+def test_benchmark_row_has_zone_and_state_for_comparable():
+    metrics = [{"name": "shoulder_tilt_deg", "context": "address",
+                "value": 12.0, "unit": "deg", "method": "exact"}]
+    row = golftec.benchmark_metrics(metrics)[0]
+    assert row["state"] == "ok"
+    assert row["direction"] == "match"
+    assert row["zone"] == "green"        # |12-10|=2 <= 3
+    assert row["target"] == 10 and row["delta"] == 2.0
+
+
+def test_benchmark_needs_3d_has_no_zone():
+    metrics = [{"name": "shoulder_turn_deg", "context": "top",
+                "value": 50.0, "unit": "deg", "method": "foreshortening_2d"}]
+    row = golftec.benchmark_metrics(metrics)[0]
+    assert row["state"] == "needs_3d" and row["zone"] is None
+    assert row["comparable"] is False and row["target"] == 89
+
+
+def test_benchmark_emits_raw_row_for_unreferenced_metric():
+    metrics = [{"name": "hand_depth_in", "context": "impact",
+                "value": 9.2, "unit": "in", "method": "shoulder_ratio_0.24"}]
+    row = golftec.benchmark_metrics(metrics)[0]
+    assert row["state"] == "raw"
+    assert row["target"] is None and row["zone"] is None and row["delta"] is None
+    assert row["value"] == 9.2

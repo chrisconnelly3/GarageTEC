@@ -6,6 +6,8 @@ comparable when it is two_d_comparable_now OR a 3D value is available.
 import json
 import os
 
+from coach import metric_thresholds
+
 _DIR = os.path.join(os.path.dirname(__file__), "norms", "pro_reference")
 _PATH = os.path.join(_DIR, "golftec_reference.json")
 _SUPP_PATH = os.path.join(_DIR, "supplementary_reference.json")
@@ -53,13 +55,19 @@ _PHASE_ORDER = {"address": 0, "top": 1, "impact": 2, "finish": 3, "downswing": 4
 
 
 def benchmark_metrics(metrics, ref=None):
-    """Build the 'vs tour pro' rows for a swing's metrics. `metrics` is a list of
-    dicts {name, context, value, unit, method}. Per row, 3D availability comes
-    from the row's own method (`triangulated_3d*`), so the 2D/3D gate is honored
-    per metric/phase. Only metrics with a GolfTEC target are returned; when both
-    a 2D and a 3D row exist for the same (name, context), the comparable one
-    wins. Each row: {name, context, value, unit, target, delta, comparable,
-    reason}."""
+    """Build 'vs tour pro' rows for a swing's metrics. `metrics` is a list of
+    dicts {name, context, value, unit, method}. Emits a row for EVERY
+    (name, context) present (raw metrics included), so the UI can render a card
+    for everything. 3D availability comes from the row's own method
+    (`triangulated_3d*`); when both a 2D and a 3D row exist for the same
+    (name, context), the comparable one wins.
+
+    Each row: {name, context, value, unit, target, delta, comparable, reason,
+    direction, zone, state}. state is one of:
+      'ok'       - comparable, has a zone color
+      'needs_3d' - has a target but gated until 3D is available (zone None)
+      'raw'      - no tour target at all (target/zone/delta None)
+    """
     ref = load() if ref is None else ref
     rows = {}
     for m in metrics:
@@ -68,13 +76,24 @@ def benchmark_metrics(metrics, ref=None):
             continue
         has_3d = str(m.get("method") or "").startswith("triangulated_3d")
         c = compare(name, context, value, has_3d=has_3d, ref=ref)
-        if c["reason"] in ("no_golftec_target", "no_phase_target"):
-            continue                              # no tour target to show
+        no_target = c["reason"] in ("no_golftec_target", "no_phase_target")
+        if no_target:
+            state, zone = "raw", None
+        elif c["comparable"]:
+            state = "ok"
+            zone = metric_thresholds.zone_for(name, value, c["target"])
+        else:
+            state, zone = "needs_3d", None
         row = {
             "name": name, "context": context, "value": round(value, 1),
-            "unit": m.get("unit"), "target": c["target"],
+            "unit": m.get("unit"),
+            "target": None if no_target else c["target"],
             "delta": round(c["delta"], 1) if c["delta"] is not None else None,
-            "comparable": c["comparable"], "reason": c["reason"],
+            "comparable": c["comparable"],
+            "reason": None if no_target else c["reason"],
+            "direction": metric_thresholds.direction_for(name),
+            "zone": zone,
+            "state": state,
         }
         key = (name, context)
         prev = rows.get(key)

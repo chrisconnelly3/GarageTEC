@@ -14,17 +14,26 @@ router = APIRouter(prefix="/api/calibration", tags=["calibration"])
 
 
 class StartIn(BaseModel):
-    device_index: int = 0
+    device_left: int = 0                # down-the-line camera
+    device_right: int | None = None     # face-on camera (None in mono test mode)
     cols: int = 9
     rows: int = 6
     square_mm: float = 25.0
-    mono: bool = False          # single-camera (laptop webcam) test mode
+    mono: bool = False                  # single-camera (laptop webcam) test mode
+
+
+@router.get("/cameras")
+def cameras():
+    """Connected USB cameras with friendly names, for the device dropdowns."""
+    from vision.frames import list_cameras
+    return list_cameras()
 
 
 @router.post("/start")
 def start(body: StartIn, sup=Depends(get_calibration_supervisor)):
-    sup.start(device_index=body.device_index, cols=body.cols, rows=body.rows,
-              square_mm=body.square_mm, mono=body.mono)
+    sup.start(device_left=body.device_left, device_right=body.device_right,
+              cols=body.cols, rows=body.rows, square_mm=body.square_mm,
+              mono=body.mono)
     return {"ok": True}
 
 

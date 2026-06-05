@@ -9,6 +9,27 @@ Task 11** (`CheckerboardCalibration` is built here). Introduces the first
 **Validatable now** (synthetic + a laptop-webcam smoke test); full stereo
 accuracy needs the real two-camera bay.
 
+> **REVISION 2026-06-04 (post-build, after webcam testing):** two decisions
+> evolved during use and are now the source of truth (superseding the original
+> §3–§5/§9 text below):
+> 1. **Capture = TWO separate USB cameras, not a hardware composite.** The bay
+>    uses two USB cameras (down-line + face-on); a new `DualCameraSource`
+>    combines their streams into the side-by-side composite **in software** (so
+>    everything downstream is unchanged). This reverses the earlier "synced
+>    composite / one device" + "software-combine out of scope" decisions. Sync
+>    caveat: the two cameras free-run independently → fine for a still
+>    checkerboard, small timing skew for fast live-motion later (body rotations
+>    tolerate it; club-speed precision would want hardware sync). The UI has
+>    **two camera dropdowns** populated by **`list_cameras()`** (friendly names
+>    via pygrabber/DirectShow). Single-camera **mono** mode (webcam smoke test)
+>    uses one camera + whole-frame detection.
+> 2. **Varied-angle pose collection (15–30).** Instead of one pose per position
+>    cell (max 12), a pose is accepted only if it adds a new **(position cell,
+>    tilt bucket)** combo — `estimate_tilt_deg` (solvePnP w/ guessed intrinsics)
+>    buckets the board tilt. `MIN_RUN_POSES=15`, `TARGET_POSES=24` (auto-run),
+>    `MAX_POSES=30`, `TILT_BUCKET_DEG=12`. The UI shows poses/target + tilt-angle
+>    variety and prompts the user to tilt the board.
+
 ---
 
 ## 1. Purpose

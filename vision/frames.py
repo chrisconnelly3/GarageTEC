@@ -101,3 +101,80 @@ class LiveCameraSource(FrameSource):
 
     def close(self) -> None:
         self._cap.release()
+
+
+def _enumerate_device_names():
+    """Friendly names of connected video devices, index-ordered. Uses pygrabber
+    (DirectShow) on Windows; falls back to probing indices 0..5."""
+    try:
+        from pygrabber.dshow_graph import FilterGraph
+        return list(FilterGraph().get_input_devices())
+    except Exception:
+        names = []
+        for i in range(6):
+            cap = cv2.VideoCapture(i)
+            opened = cap.isOpened()
+            cap.release()
+            if opened:
+                names.append(f"Camera {i}")
+            elif names:
+                break  # stop at first gap once we've found at least one
+        return names
+
+
+def list_cameras(_enumerator=None):
+    """Return [{index, name}] for connected cameras. `_enumerator` is injectable
+    for tests (a callable returning a list of friendly names)."""
+    names = (_enumerator or _enumerate_device_names)()
+    return [{"index": i, "name": n} for i, n in enumerate(names)]
+
+
+class DualCameraSource(FrameSource):
+    """Combine TWO USB cameras into one side-by-side composite (left half =
+    down_line, right half = face_on), so the rest of the pipeline (split_views,
+    detect_board, triangulation) is unchanged. Each camera free-runs on its own
+    clock — fine for a held-still checkerboard; see the spec for the live-motion
+    sync caveat. `cap_factory` is injectable for tests."""
+
+    def __init__(self, left_index: int, right_index: int,
+                 split: float = C.DEFAULT_SPLIT, cap_factory=None):
+        factory = cap_factory or (lambda i: cv2.VideoCapture(i))
+        self._left = factory(left_index)
+        self._right = factory(right_index)
+        if not self._left.isOpened() or not self._right.isOpened():
+            raise RuntimeError(
+                f"could not open both cameras (left={left_index}, right={right_index})")
+        self.split = split
+        self._w = int(self._left.get(cv2.CAP_PROP_FRAME_WIDTH)) or 640
+        self._h = int(self._left.get(cv2.CAP_PROP_FRAME_HEIGHT)) or 480
+        self.width = self._w * 2          # composite is two equal halves
+        self.height = self._h
+        self.fps = float(self._left.get(cv2.CAP_PROP_FPS)) or 30.0
+
+    def _grab(self):
+        okl, fl = self._left.read()
+        okr, fr = self._right.read()
+        if not (okl and okr):
+            return None
+        # Resize both to the left camera's size so the composite splits at 0.5.
+        fl = cv2.resize(fl, (self._w, self._h))
+        fr = cv2.resize(fr, (self._w, self._h))
+        import numpy as _np
+        return _np.hstack([fl, fr])       # left = down_line, right = face_on
+
+    def read_composite(self):
+        return self._grab()
+
+    def frames(self) -> Iterator[FrameSample]:
+        i = 0
+        while True:
+            comp = self._grab()
+            if comp is None:
+                break
+            yield FrameSample(index=i, time_s=i / self.fps,
+                              view_crops=split_views(comp, self.split))
+            i += 1
+
+    def close(self) -> None:
+        self._left.release()
+        self._right.release()

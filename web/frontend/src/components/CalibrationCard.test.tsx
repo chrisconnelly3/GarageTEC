@@ -11,6 +11,9 @@ vi.mock("../lib/api", () => ({
   getActiveCalibration: vi.fn(async () => null),
   getCalibrationHistory: vi.fn(async () => []),
   activateCalibration: vi.fn(async () => ({ ok: true })),
+  getCameras: vi.fn(async () => [
+    { index: 0, name: "Cam Zero" }, { index: 1, name: "Cam One" },
+  ]),
 }));
 
 // Capture the SSE handlers so tests can simulate status events.
@@ -42,26 +45,28 @@ describe("CalibrationCard", () => {
     // heading is always rendered
     expect(screen.getByText(/History/i)).toBeTruthy();
   });
-  it("auto-runs calibration at full coverage (12 poses)", async () => {
+  it("auto-runs calibration when the varied-pose target is reached", async () => {
     const api = await import("../lib/api");
     render(<CalibrationCard />);
     await act(async () => {
       fireEvent.click(screen.getByRole("button", { name: /Start Capture/i }));
     });
-    // simulate the SSE reporting full coverage -> should auto-run once
+    // SSE reports target reached (24 varied poses) -> auto-run once
     await act(async () => {
-      sse.handlers.calibration_status({ good_poses: 12, coverage: [] });
+      sse.handlers.calibration_status({
+        good_poses: 24, target_poses: 24, min_poses: 15, tilt_buckets: 5, coverage: [] });
     });
     await waitFor(() => expect(api.runCalibration).toHaveBeenCalledTimes(1));
   });
-  it("does NOT auto-run before full coverage", async () => {
+  it("does NOT auto-run before the target", async () => {
     const api = await import("../lib/api");
     render(<CalibrationCard />);
     await act(async () => {
       fireEvent.click(screen.getByRole("button", { name: /Start Capture/i }));
     });
     await act(async () => {
-      sse.handlers.calibration_status({ good_poses: 7, coverage: [] });
+      sse.handlers.calibration_status({
+        good_poses: 14, target_poses: 24, min_poses: 15, tilt_buckets: 3, coverage: [] });
     });
     expect(api.runCalibration).not.toHaveBeenCalled();
   });

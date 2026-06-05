@@ -1,18 +1,22 @@
 // web/frontend/src/components/CalibrationCard.tsx
 import { useEffect, useState, useCallback, useRef } from "react";
 import {
-  startCalibration, stopCalibration, runCalibration,
+  startCalibration, stopCalibration, runCalibration, getCameras,
   getActiveCalibration, getCalibrationHistory, activateCalibration,
 } from "../lib/api";
 import { useCalibrationSse } from "../lib/useCalibrationSse";
-import type { CalibrationResult, ActiveCalibration, CalibrationHistoryItem } from "../lib/types";
+import type {
+  CalibrationResult, ActiveCalibration, CalibrationHistoryItem, CameraInfo,
+} from "../lib/types";
 
-// The coverage map is a 4x3 grid and we keep one pose per cell, so full
-// coverage = 12 poses. Auto-run calibration once the grid is fully covered.
-const COVERAGE_CELLS = 12;
+// Defaults until the backend status reports its targets (varied-angle poses).
+const DEFAULT_TARGET = 24;
+const DEFAULT_MIN = 15;
 
 export function CalibrationCard() {
-  const [device, setDevice] = useState("0");
+  const [cameras, setCameras] = useState<CameraInfo[]>([]);
+  const [deviceLeft, setDeviceLeft] = useState("0");    // down-the-line camera
+  const [deviceRight, setDeviceRight] = useState("1");  // face-on camera
   const [cols, setCols] = useState("9");
   const [rows, setRows] = useState("6");
   const [squareIn, setSquareIn] = useState("1.0");      // inches; converted to mm
@@ -20,10 +24,13 @@ export function CalibrationCard() {
   const [capturing, setCapturing] = useState(false);
   const [goodPoses, setGoodPoses] = useState(0);
   const [coverage, setCoverage] = useState<[number, number][]>([]);
+  const [tiltBuckets, setTiltBuckets] = useState(0);
+  const [target, setTarget] = useState(DEFAULT_TARGET);
+  const [minPoses, setMinPoses] = useState(DEFAULT_MIN);
   const [result, setResult] = useState<CalibrationResult | null>(null);
   const [active, setActive] = useState<ActiveCalibration | null>(null);
   const [history, setHistory] = useState<CalibrationHistoryItem[]>([]);
-  const autoRan = useRef(false);            // fire auto-run at full coverage once
+  const autoRan = useRef(false);            // fire auto-run at target once
 
   const refreshActive = useCallback(() => {
     getActiveCalibration().then(setActive).catch(() => {});
@@ -36,6 +43,11 @@ export function CalibrationCard() {
   useEffect(() => {
     refreshActive();
     refreshHistory();
+    getCameras().then((cams) => {
+      setCameras(cams);
+      if (cams[0]) setDeviceLeft(String(cams[0].index));
+      if (cams[1]) setDeviceRight(String(cams[1].index));
+    }).catch(() => {});
   }, [refreshActive, refreshHistory]);
 
   // Run calibration, then stop capturing (used by both the button and auto-run).
@@ -48,8 +60,11 @@ export function CalibrationCard() {
     calibration_status: (d) => {
       setGoodPoses(d.good_poses);
       setCoverage(d.coverage);
-      // Auto-proceed to Run once the coverage grid is full (one-shot).
-      if (!autoRan.current && d.good_poses >= COVERAGE_CELLS) {
+      setTiltBuckets(d.tilt_buckets ?? 0);
+      if (d.target_poses) setTarget(d.target_poses);
+      if (d.min_poses) setMinPoses(d.min_poses);
+      // Auto-proceed to Run once enough varied poses collected (one-shot).
+      if (!autoRan.current && d.good_poses >= (d.target_poses ?? DEFAULT_TARGET)) {
         autoRan.current = true;
         runAndStop();
       }
@@ -61,7 +76,8 @@ export function CalibrationCard() {
     autoRan.current = false;
     setResult(null);
     startCalibration({
-      device_index: parseInt(device || "0", 10) || 0,
+      device_left: parseInt(deviceLeft || "0", 10) || 0,
+      device_right: mono ? null : (parseInt(deviceRight || "1", 10) || 0),
       cols: parseInt(cols || "9", 10) || 9,
       rows: parseInt(rows || "6", 10) || 6,
       square_mm: (parseFloat(squareIn || "1") || 1) * 25.4,
@@ -91,10 +107,28 @@ export function CalibrationCard() {
         for the checkerboard. Square size is in inches (converted automatically).
       </p>
 
-      <div className="grid grid-cols-4 gap-3">
-        <label className="text-xs text-[#8B978F]">Device
-          <input className="mt-1 w-full bg-[#0A0D0B] rounded p-2 text-[#E7EEE9]"
-                 value={device} onChange={(e) => setDevice(e.target.value)} /></label>
+      {(() => {
+        const opts = cameras.length ? cameras
+          : [{ index: 0, name: "Camera 0" }, { index: 1, name: "Camera 1" }];
+        const sel = "mt-1 w-full bg-[#0A0D0B] rounded p-2 text-[#E7EEE9]";
+        return (
+          <div className="grid grid-cols-2 gap-3">
+            <label className="text-xs text-[#8B978F]">Down-the-line camera
+              <select className={sel} value={deviceLeft}
+                      onChange={(e) => setDeviceLeft(e.target.value)}>
+                {opts.map((c) => <option key={c.index} value={c.index}>{c.name}</option>)}
+              </select></label>
+            <label className={"text-xs " + (mono ? "text-[#8B978F] opacity-40" : "text-[#8B978F]")}>
+              Face-on camera
+              <select className={sel} value={deviceRight} disabled={mono}
+                      onChange={(e) => setDeviceRight(e.target.value)}>
+                {opts.map((c) => <option key={c.index} value={c.index}>{c.name}</option>)}
+              </select></label>
+          </div>
+        );
+      })()}
+
+      <div className="grid grid-cols-3 gap-3">
         <label className="text-xs text-[#8B978F]">Inner cols
           <input className="mt-1 w-full bg-[#0A0D0B] rounded p-2 text-[#E7EEE9]"
                  value={cols} onChange={(e) => setCols(e.target.value)} /></label>
@@ -122,13 +156,20 @@ export function CalibrationCard() {
         <div className="grid grid-cols-4 gap-1 flex-1">{grid}</div>
         <div className="text-right whitespace-nowrap">
           <div className="text-[#E7EEE9] text-sm">
-            {goodPoses} / {COVERAGE_CELLS} good poses
+            {goodPoses} / {target} good poses
           </div>
-          {capturing && (
-            <div className="text-[10px] text-[#8B978F]">auto-runs when full</div>
-          )}
+          <div className="text-[10px] text-[#8B978F]">
+            {tiltBuckets} tilt angle{tiltBuckets === 1 ? "" : "s"}
+            {capturing ? " · auto-runs at target" : ""}
+          </div>
         </div>
       </div>
+      {capturing && (
+        <p className="text-[11px] text-[#8B978F]">
+          Move the board around AND tilt it at different angles (flat, tilted
+          left/right, near/far) — only new positions &amp; angles count.
+        </p>
+      )}
 
       <div className="flex gap-3">
         {!capturing
@@ -136,7 +177,7 @@ export function CalibrationCard() {
               className="px-4 py-2 rounded-lg bg-[#84CE39] text-[#0A0D0B] font-medium">Start Capture</button>
           : <button onClick={onStop}
               className="px-4 py-2 rounded-lg bg-[#2A332C] text-[#E7EEE9]">Stop</button>}
-        <button onClick={onRun} disabled={goodPoses < 8}
+        <button onClick={onRun} disabled={goodPoses < minPoses}
           className="px-4 py-2 rounded-lg bg-[#2A332C] text-[#E7EEE9] disabled:opacity-40">
           Run Calibration</button>
         <a href="/api/calibration/export"

@@ -87,6 +87,27 @@ def _object_points(cols, rows, square_m):
     return objp
 
 
+def estimate_tilt_deg(corners, cols, rows, image_size):
+    """Approximate how far the board is tilted from facing the camera, in
+    degrees (0 = flat-on / parallel to the sensor). Uses solvePnP with a GUESSED
+    intrinsic (focal ~= image width) — rough, but good enough to bucket poses for
+    angle VARIETY during capture (not for the final calibration). Returns 0.0 if
+    it can't be estimated."""
+    try:
+        objp = _object_points(cols, rows, 1.0)        # unit squares; scale-free
+        w, h = image_size
+        K = np.array([[w, 0, w / 2.0], [0, w, h / 2.0], [0, 0, 1]], float)
+        ok, rvec, _tvec = cv2.solvePnP(objp, corners, K, None)
+        if not ok:
+            return 0.0
+        R, _ = cv2.Rodrigues(rvec)
+        normal = R @ np.array([0.0, 0.0, 1.0])        # board normal in cam frame
+        cos = min(1.0, max(-1.0, abs(float(normal[2]))))
+        return float(np.degrees(np.arccos(cos)))
+    except Exception:
+        return 0.0
+
+
 def stereo_calibrate(object_points, fo_pts, dl_pts, image_size, square_m,
                      K_fo=None, K_dl=None) -> CalibrationResult:
     """Calibrate from accumulated corner pairs. If K_* are None, intrinsics are

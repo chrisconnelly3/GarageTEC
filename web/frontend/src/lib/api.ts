@@ -2,7 +2,7 @@ import type {
   Player, Session, SwingDetail, SessionDetail, History, SyncProposals,
   CaptureStatus, ActivePlayerIn, Settings, PlayerWithCounts, SwingSummary,
   CalibrationStartIn, CalibrationStatus, CalibrationResult, ActiveCalibration,
-  CalibrationHistoryItem,
+  CalibrationHistoryItem, CameraInfo,
 } from "./types";
 
 async function getJSON<T>(url: string): Promise<T> {
@@ -74,6 +74,7 @@ export const getSwings = (player?: number, session?: number, limit = 50) => {
   return getJSON<SwingSummary[]>(`/api/swings?${qs.toString()}`);
 };
 
+export const getCameras = () => getJSON<CameraInfo[]>("/api/calibration/cameras");
 export const startCalibration = (b: CalibrationStartIn) =>
   postJSON<{ ok: boolean }>("/api/calibration/start", b);
 export const stopCalibration = () => postJSON<{ ok: boolean }>("/api/calibration/stop", {});

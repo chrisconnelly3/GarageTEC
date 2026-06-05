@@ -29,13 +29,18 @@ export interface SwingSummary {
   hip_sway_in: number | null; shoulder_tilt_deg: number | null;
 }
 
+export interface CameraInfo { index: number; name: string; }
 export interface CalibrationStartIn {
-  device_index: number; cols: number; rows: number; square_mm: number;
-  mono?: boolean;          // single-camera (laptop webcam) test mode
+  device_left: number;             // down-the-line camera
+  device_right?: number | null;    // face-on camera (null in mono test mode)
+  cols: number; rows: number; square_mm: number;
+  mono?: boolean;                  // single-camera (laptop webcam) test mode
 }
 export interface CalibrationStatus {
   capturing: boolean; good_poses: number; coverage: [number, number][];
-  device_index: number; cols: number; rows: number;
+  tilt_buckets: number; min_poses: number; target_poses: number; max_poses: number;
+  device_left: number; device_right: number | null; mono: boolean;
+  cols: number; rows: number;
 }
 export interface CalibrationResult {
   ok: boolean; n_poses?: number; reprojection_error?: number; error?: string;

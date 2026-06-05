@@ -24,11 +24,23 @@ def _client():
 def test_start_stop_run_status():
     client, fake = _client()
     r = client.post("/api/calibration/start",
-                    json={"device_index": 0, "cols": 9, "rows": 6, "square_mm": 25.0})
-    assert r.status_code == 200 and fake.started["cols"] == 9
+                    json={"device_left": 1, "device_right": 2,
+                          "cols": 9, "rows": 6, "square_mm": 25.0})
+    assert r.status_code == 200
+    assert fake.started["cols"] == 9
+    assert fake.started["device_left"] == 1 and fake.started["device_right"] == 2
     assert client.get("/api/calibration/status").json()["cols"] == 9
     assert client.post("/api/calibration/run").json()["ok"] is True
     assert client.post("/api/calibration/stop").status_code == 200
+
+
+def test_cameras_endpoint(monkeypatch):
+    monkeypatch.setattr("vision.frames._enumerate_device_names",
+                        lambda: ["Logitech BRIO", "Integrated Webcam"])
+    client, _ = _client()
+    cams = client.get("/api/calibration/cameras").json()
+    assert cams == [{"index": 0, "name": "Logitech BRIO"},
+                    {"index": 1, "name": "Integrated Webcam"}]
 
 
 def test_preview_streams_jpeg():

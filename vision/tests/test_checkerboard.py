@@ -39,6 +39,18 @@ def test_detect_board_mono_uses_whole_frame():
     assert det.fo_center == det.dl_center
 
 
+def test_estimate_tilt_flat_board_is_low():
+    board = _render_checkerboard(9, 6)
+    det = cb.detect_board(board, cols=9, rows=6, mono=True)
+    tilt = cb.estimate_tilt_deg(det.fo_corners, 9, 6,
+                                (board.shape[1], board.shape[0]))
+    assert 0.0 <= tilt < 20.0          # rendered fronto-parallel board -> ~flat
+
+
+def test_estimate_tilt_handles_bad_input():
+    assert cb.estimate_tilt_deg(None, 9, 6, (640, 480)) == 0.0
+
+
 def test_coverage_cell_buckets_position():
     assert cb.coverage_cell((10, 10), (400, 300), grid=(4, 3)) == (0, 0)
     assert cb.coverage_cell((399, 299), (400, 300), grid=(4, 3)) == (3, 2)

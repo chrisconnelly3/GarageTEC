@@ -31,6 +31,7 @@ export interface SwingSummary {
 
 export interface CalibrationStartIn {
   device_index: number; cols: number; rows: number; square_mm: number;
+  mono?: boolean;          // single-camera (laptop webcam) test mode
 }
 export interface CalibrationStatus {
   capturing: boolean; good_poses: number; coverage: [number, number][];

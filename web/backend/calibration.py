@@ -48,6 +48,7 @@ class CalibrationSupervisor:
         self.square_mm = 25.0
         self.device_index = 0
         self.split = 0.5
+        self.mono = False
         self.image_size = None
         self._obj, self._fo, self._dl = [], [], []
         self._covered = set()
@@ -56,9 +57,11 @@ class CalibrationSupervisor:
 
     # ---- testable core (no thread/device) --------------------------------
     def process_frame(self, composite) -> bool:
-        det = detect_board(composite, self.cols, self.rows, self.split)
+        det = detect_board(composite, self.cols, self.rows, self.split,
+                           mono=self.mono)
         h, w = composite.shape[:2]
-        half = (int(w * (1 - self.split)), h)
+        # mono = single webcam: the whole frame is the "view"; otherwise a half.
+        half = (w, h) if self.mono else (int(w * (1 - self.split)), h)
         self.image_size = half
         accepted = False
         if det.found_both:
@@ -76,9 +79,13 @@ class CalibrationSupervisor:
     def _render_overlay(self, composite, det):
         img = composite.copy()
         if det.found_both:
-            x0 = int(img.shape[1] * (1 - self.split))
-            cv2.drawChessboardCorners(img[:, x0:], (self.cols, self.rows),
-                                      det.fo_corners, True)
+            if self.mono:
+                cv2.drawChessboardCorners(img, (self.cols, self.rows),
+                                          det.fo_corners, True)
+            else:
+                x0 = int(img.shape[1] * (1 - self.split))
+                cv2.drawChessboardCorners(img[:, x0:], (self.cols, self.rows),
+                                          det.fo_corners, True)
         ok, buf = cv2.imencode(".jpg", img)
         return buf.tobytes() if ok else None
 
@@ -92,19 +99,22 @@ class CalibrationSupervisor:
                 "cols": self.cols, "rows": self.rows}
 
     # ---- start/stop/run ---------------------------------------------------
-    def configure(self, *, device_index, cols, rows, square_mm):
+    def configure(self, *, device_index, cols, rows, square_mm, mono=False):
         """Set params + clear accumulation WITHOUT opening a device or spawning
-        the capture thread. The thread-free path used by tests and by start()."""
+        the capture thread. The thread-free path used by tests and by start().
+        `mono` = single-camera (webcam) test mode."""
         self._reset_state()
         self.device_index, self.cols, self.rows = device_index, cols, rows
         self.square_mm = square_mm
+        self.mono = mono
 
-    def start(self, *, device_index, cols, rows, square_mm, source_factory=None):
+    def start(self, *, device_index, cols, rows, square_mm, mono=False,
+              source_factory=None):
         with self._lock:
             if self._run:
                 return
             self.configure(device_index=device_index, cols=cols, rows=rows,
-                           square_mm=square_mm)
+                           square_mm=square_mm, mono=mono)
             self._source = (source_factory or self._source_factory)(device_index, self.split)
             self._capturing = True
             self._run = True
@@ -132,6 +142,13 @@ class CalibrationSupervisor:
             self._source = None
 
     def run(self):
+        if self.mono:
+            # One camera can't yield a real stereo calibration (zero baseline).
+            # The smoke test only validates capture/detection plumbing.
+            return {"ok": False, "mono": True, "n_poses": len(self._obj),
+                    "error": "single-camera test mode: live capture + board "
+                             "detection validated; real calibration needs the "
+                             "two-camera bay."}
         if len(self._obj) < 8:
             return {"ok": False, "error": f"only {len(self._obj)} poses; need >= 8",
                     "n_poses": len(self._obj)}

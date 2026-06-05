@@ -52,3 +52,30 @@ def test_run_calibrates_and_persists(monkeypatch):
     result = sup.run()
     assert result["ok"] is True and result["n_poses"] >= 8
     assert repo.get_active_calibration(conn) is not None
+
+
+def test_mono_mode_forwards_flag_and_uses_full_frame(monkeypatch):
+    # Single-camera test mode: process_frame must pass mono=True to detect_board
+    # AND use the FULL frame (640x480) for coverage/image_size, not a half (320).
+    conn = _conn(); sup = CalibrationSupervisor(conn=conn, bus=CalibrationEventBus())
+    sup.configure(device_index=0, cols=9, rows=6, square_mm=25.4, mono=True)
+    seen = {}
+
+    def fake_detect(composite, cols, rows, split=0.5, mono=False):
+        seen["mono"] = mono
+        return _det(True, 100, 100)
+
+    monkeypatch.setattr("web.backend.calibration.detect_board", fake_detect)
+    sup.process_frame(np.zeros((480, 640, 3), np.uint8))
+    assert seen["mono"] is True                 # flag forwarded
+    assert sup.image_size == (640, 480)         # full frame, not (320, 480)
+    assert sup.status()["good_poses"] == 1
+    # run() in mono returns an informational result, never crashes
+    out = sup.run()
+    assert out["ok"] is False and out.get("mono") is True
+
+
+def test_run_requires_min_poses():
+    conn = _conn(); sup = CalibrationSupervisor(conn=conn, bus=CalibrationEventBus())
+    sup.configure(device_index=0, cols=9, rows=6, square_mm=25.0)
+    assert sup.run()["ok"] is False             # 0 poses < 8

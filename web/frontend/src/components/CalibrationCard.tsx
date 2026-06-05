@@ -12,6 +12,7 @@ export function CalibrationCard() {
   const [cols, setCols] = useState("9");
   const [rows, setRows] = useState("6");
   const [squareIn, setSquareIn] = useState("1.0");      // inches; converted to mm
+  const [mono, setMono] = useState(false);              // single-camera test mode
   const [capturing, setCapturing] = useState(false);
   const [goodPoses, setGoodPoses] = useState(0);
   const [coverage, setCoverage] = useState<[number, number][]>([]);
@@ -43,6 +44,7 @@ export function CalibrationCard() {
       cols: parseInt(cols || "9", 10) || 9,
       rows: parseInt(rows || "6", 10) || 6,
       square_mm: (parseFloat(squareIn || "1") || 1) * 25.4,
+      mono,
     }).then(() => setCapturing(true)).catch(() => {});
   };
   const onStop = () => { stopCalibration().finally(() => setCapturing(false)); };
@@ -82,6 +84,13 @@ export function CalibrationCard() {
           <input className="mt-1 w-full bg-[#0A0D0B] rounded p-2 text-[#E7EEE9]"
                  value={squareIn} onChange={(e) => setSquareIn(e.target.value)} /></label>
       </div>
+
+      <label className="flex items-center gap-2 text-xs text-[#8B978F]">
+        <input type="checkbox" checked={mono}
+               onChange={(e) => setMono(e.target.checked)} />
+        Single-camera test mode (laptop webcam — validates capture/detection only;
+        real calibration needs the two bay cameras)
+      </label>
 
       {capturing && (
         <img alt="calibration preview" src="/api/calibration/preview"

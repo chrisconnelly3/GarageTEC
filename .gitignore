@@ -45,3 +45,6 @@ swings/
 Thumbs.db
 .DS_Store
 desktop.ini
+
+# Runtime server log (dev)
+.uvicorn_8000.log

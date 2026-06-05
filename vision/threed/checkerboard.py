@@ -49,7 +49,19 @@ def _find(gray, cols, rows):
     return corners, center
 
 
-def detect_board(composite, cols, rows, split=0.5) -> BoardDetection:
+def detect_board(composite, cols, rows, split=0.5, mono=False) -> BoardDetection:
+    """Find the checkerboard in each half of the composite (the two camera
+    views). `mono=True` (single-camera test mode) runs detection on the WHOLE
+    frame and reuses those corners for both views — for a laptop webcam that
+    shows ONE board which the 50/50 split would otherwise bisect into neither
+    half. Mono stereo is degenerate (zero baseline); it validates the live
+    capture/detect/preview/coverage plumbing only, not real geometry."""
+    if mono:
+        gray = cv2.cvtColor(composite, cv2.COLOR_BGR2GRAY)
+        c, ctr = _find(gray, cols, rows)
+        return BoardDetection(found_both=(c is not None),
+                              fo_corners=c, dl_corners=c,
+                              fo_center=ctr, dl_center=ctr)
     fo, dl = _split(composite, split)
     g_fo = cv2.cvtColor(fo, cv2.COLOR_BGR2GRAY)
     g_dl = cv2.cvtColor(dl, cv2.COLOR_BGR2GRAY)

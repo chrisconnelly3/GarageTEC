@@ -18,12 +18,13 @@ class StartIn(BaseModel):
     cols: int = 9
     rows: int = 6
     square_mm: float = 25.0
+    mono: bool = False          # single-camera (laptop webcam) test mode
 
 
 @router.post("/start")
 def start(body: StartIn, sup=Depends(get_calibration_supervisor)):
     sup.start(device_index=body.device_index, cols=body.cols, rows=body.rows,
-              square_mm=body.square_mm)
+              square_mm=body.square_mm, mono=body.mono)
     return {"ok": True}
 
 

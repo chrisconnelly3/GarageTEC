@@ -26,6 +26,19 @@ def test_detect_board_finds_corners_in_both_halves():
     assert det.fo_center is not None and det.dl_center is not None
 
 
+def test_detect_board_mono_uses_whole_frame():
+    # A single webcam shows ONE board: with the 50/50 split it is bisected and
+    # found in NEITHER half (the bug); mono=True detects it on the whole frame.
+    board = _render_checkerboard(9, 6)
+    assert cb.detect_board(board, cols=9, rows=6, split=0.5).found_both is False
+    det = cb.detect_board(board, cols=9, rows=6, mono=True)
+    assert det.found_both
+    assert det.fo_corners.shape[0] == 9 * 6
+    # mono uses the same corners for both views (degenerate stereo, plumbing only)
+    assert det.fo_corners is det.dl_corners
+    assert det.fo_center == det.dl_center
+
+
 def test_coverage_cell_buckets_position():
     assert cb.coverage_cell((10, 10), (400, 300), grid=(4, 3)) == (0, 0)
     assert cb.coverage_cell((399, 299), (400, 300), grid=(4, 3)) == (3, 2)

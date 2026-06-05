@@ -48,7 +48,7 @@ def test_raw_ball_fields_order_and_shape():
     rows = br.raw_ball_fields({"club_path": 2.14, "face_to_target": -1.0,
                                "spin_axis": 0.0, "total_spin": 5000.0})
     assert [r["key"] for r in rows] == [
-        "club_path", "face_to_target", "spin_axis", "back_spin", "side_spin"]
+        "club_path", "face_to_target", "spin_axis", "back_spin", "side_spin", "hla"]
     for r in rows:
         assert set(r) == {"key", "label", "unit", "value"}
     by = {r["key"]: r for r in rows}
@@ -91,3 +91,18 @@ def test_target_for_lookup():
     assert br.target_for("ball_speed", "Putter") is None   # unknown club
     assert br.target_for("nonsense", "Driver") is None     # unknown metric
     assert br.target_for("ball_speed", None) is None
+
+
+def test_ball_benchmark_has_direction_and_zone():
+    shot = {"ball_speed": 171.0, "club_speed": 115.0, "vla": 12.2,
+            "total_spin": 3450, "attack_angle": 1.5, "carry": 281.0}
+    rows = {r["key"]: r for r in br.benchmark_ball(shot, "Driver")}
+    assert rows["ball_speed"]["direction"] == "higher"
+    assert rows["ball_speed"]["zone"] == "green"      # above tour
+    assert rows["spin"]["direction"] == "match"
+    assert rows["spin"]["zone"] == "red"              # 3450 vs 2686, way over
+
+
+def test_raw_ball_fields_includes_hla():
+    raw = {r["key"]: r for r in br.raw_ball_fields({"hla": 0.8})}
+    assert raw["hla"]["value"] == 0.8 and raw["hla"]["unit"] == "deg"

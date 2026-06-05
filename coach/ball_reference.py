@@ -38,6 +38,7 @@ CLUBS = list(TRACKMAN)   # ordered Driver -> PW (selector order)
 
 import json
 import math
+from coach import metric_thresholds
 
 
 # (key, label, unit, "near" tolerance) — order shown in the panel.
@@ -82,7 +83,9 @@ def benchmark_ball(shot, club, ref=None):
         delta = round(v - target, 2)
         out.append({"key": key, "label": label, "unit": unit,
                     "value": v, "target": target, "delta": delta,
-                    "near": abs(delta) <= tol})
+                    "near": abs(delta) <= tol,
+                    "direction": metric_thresholds.direction_for(key),
+                    "zone": metric_thresholds.zone_for(key, v, target)})
     return out
 
 
@@ -146,4 +149,6 @@ def raw_ball_fields(shot):
          "value": back_spin},
         {"key": "side_spin",      "label": "Side spin",      "unit": "rpm",
          "value": side_spin},
+        {"key": "hla",            "label": "Horiz. launch",  "unit": "deg",
+         "value": _deg(shot.get("hla"))},
     ]

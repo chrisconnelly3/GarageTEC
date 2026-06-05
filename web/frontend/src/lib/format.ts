@@ -19,6 +19,22 @@ export const METRIC_GOOD: Record<string, "up" | "down" | "neutral"> = {
 };
 export const labelFor = (name: string) => METRIC_LABEL[name] ?? name;
 
+// Ball-metric trends (History → Ball section). `metric` keys match /api/ball-history
+// (which mirror the ball benchmark keys). `good` is the direction that's better;
+// "neutral" metrics (launch/spin/attack) are shown vs the tour target, not as good/bad.
+export interface BallMetricDef {
+  key: string; label: string; unit: string; good: "up" | "down" | "neutral"; decimals: number;
+}
+export const BALL_METRICS: BallMetricDef[] = [
+  { key: "ball_speed", label: "Ball Speed", unit: "mph", good: "up", decimals: 1 },
+  { key: "club_speed", label: "Club Speed", unit: "mph", good: "up", decimals: 1 },
+  { key: "smash", label: "Smash Factor", unit: "", good: "up", decimals: 2 },
+  { key: "carry", label: "Carry", unit: "yds", good: "up", decimals: 1 },
+  { key: "launch", label: "Launch Angle", unit: "deg", good: "neutral", decimals: 1 },
+  { key: "spin", label: "Spin Rate", unit: "rpm", good: "neutral", decimals: 0 },
+  { key: "attack_angle", label: "Attack Angle", unit: "deg", good: "neutral", decimals: 1 },
+];
+
 import type { CoachContent } from "./types";
 
 export interface InsightVM {

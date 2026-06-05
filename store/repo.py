@@ -372,6 +372,56 @@ def swing_history(conn, player_id, metric_name, context="overall"):
     return [(r["id"], r["created_at"], r["value"]) for r in rows]
 
 
+# Allowlisted ball/club history metrics -> safe SQL expression over the shot
+# row. Keys match coach.ball_reference benchmark keys so the frontend can
+# request one consistent set. "smash" and "launch" are derived.
+SHOT_HISTORY_METRICS = {
+    "ball_speed":   "ball_speed",
+    "club_speed":   "club_speed",
+    "spin":         "total_spin",
+    "carry":        "carry",
+    "launch":       "vla",
+    "attack_angle": "attack_angle",
+    "smash":        None,   # derived: ball_speed / club_speed
+}
+
+
+def shot_history(conn, player_id, metric, club=None):
+    """Ball-metric trend for a player over time: list of
+    (shot_id, captured_at, value) ordered by captured_at ascending.
+
+    `metric` must be in SHOT_HISTORY_METRICS (validated against an allowlist;
+    no arbitrary column is ever interpolated into SQL). Rows with a null value
+    are excluded. If `club` is given, only shots with shot.club = club are
+    returned. Raises ValueError for an unknown metric."""
+    if metric not in SHOT_HISTORY_METRICS:
+        raise ValueError(f"unknown shot metric: {metric!r}")
+
+    args = [player_id]
+    where_extra = ""
+    if club is not None:
+        where_extra = " AND club=?"
+        args.append(club)
+
+    if metric == "smash":
+        sql = (
+            "SELECT id, captured_at, ball_speed, club_speed FROM shot "
+            "WHERE player_id=? AND ball_speed IS NOT NULL "
+            "AND club_speed IS NOT NULL AND club_speed > 0"
+            + where_extra + " ORDER BY captured_at")
+        rows = conn.execute(sql, args).fetchall()
+        return [(r["id"], r["captured_at"],
+                 round(r["ball_speed"] / r["club_speed"], 2)) for r in rows]
+
+    col = SHOT_HISTORY_METRICS[metric]
+    sql = (
+        f"SELECT id, captured_at, {col} AS value FROM shot "
+        f"WHERE player_id=? AND {col} IS NOT NULL"
+        + where_extra + " ORDER BY captured_at")
+    rows = conn.execute(sql, args).fetchall()
+    return [(r["id"], r["captured_at"], r["value"]) for r in rows]
+
+
 def save_media(conn, media: Media):
     cur = conn.execute(
         "INSERT INTO media(swing_id, kind, path, meta_json) VALUES (?,?,?,?)",

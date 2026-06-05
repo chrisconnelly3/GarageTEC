@@ -1,5 +1,9 @@
 """TrackMan PGA Tour Averages (per club) + ball-data 'vs ideal' comparison.
 
+Also exposes raw R50/GSPro fields that we store but do NOT benchmark, because
+TrackMan has no comparable column for them (club path, face to target, spin
+axis, and the back/side-spin split derived from total spin + spin axis).
+
 Source: TrackMan "PGA Tour Averages" (https://www.trackmangolf.com). PGA TOUR
 (male professional) averages — aspirational benchmarks, not pass/fail.
 
@@ -31,6 +35,10 @@ TRACKMAN = {
 }
 
 CLUBS = list(TRACKMAN)   # ordered Driver -> PW (selector order)
+
+import json
+import math
+
 
 # (key, label, unit, "near" tolerance) — order shown in the panel.
 _METRICS = [
@@ -76,3 +84,66 @@ def benchmark_ball(shot, club, ref=None):
                     "value": v, "target": target, "delta": delta,
                     "near": abs(delta) <= tol})
     return out
+
+
+def target_for(metric, club, ref=None):
+    """TrackMan tour-average target for a benchmark `metric` key + `club`, or
+    None if the club/metric pair has no target. `metric` keys match the ones
+    benchmark_ball uses: ball_speed, club_speed, smash, launch, spin,
+    attack_angle, carry."""
+    ref = TRACKMAN if ref is None else ref
+    row = ref.get(club) if club else None
+    if row is None:
+        return None
+    return row.get(metric)
+
+
+def _raw_spin_split(shot):
+    """Return (back_spin, side_spin) in rpm. Prefer explicit BackSpin/SideSpin
+    from raw_json BallData (some monitors send them); otherwise derive from
+    total_spin + spin_axis: back = total*cos(axis), side = total*sin(axis).
+    Returns (None, None) gracefully if inputs are missing/unparseable."""
+    raw = shot.get("raw_json")
+    if raw:
+        try:
+            ball = (json.loads(raw).get("BallData") or {})
+            back, side = ball.get("BackSpin"), ball.get("SideSpin")
+            if back is not None or side is not None:
+                bf = float(back) if back is not None else None
+                sf = float(side) if side is not None else None
+                return (round(bf) if bf is not None else None,
+                        round(sf) if sf is not None else None)
+        except (ValueError, TypeError, AttributeError):
+            pass
+    total, axis = shot.get("total_spin"), shot.get("spin_axis")
+    if total is None or axis is None:
+        return None, None
+    rad = math.radians(axis)
+    return round(total * math.cos(rad)), round(total * math.sin(rad))
+
+
+def raw_ball_fields(shot):
+    """Raw informational R50/GSPro values we store but do NOT benchmark
+    (TrackMan has no comparable column). Returns a list of
+    {key, label, unit, value} (value may be None) in a fixed display order:
+    club_path, face_to_target, spin_axis (deg); back_spin, side_spin (rpm).
+    `shot` is a shot dict (or None)."""
+    if shot is None:
+        return []
+
+    def _deg(v):
+        return round(v, 1) if v is not None else None
+
+    back_spin, side_spin = _raw_spin_split(shot)
+    return [
+        {"key": "club_path",      "label": "Club path",      "unit": "deg",
+         "value": _deg(shot.get("club_path"))},
+        {"key": "face_to_target", "label": "Face to target", "unit": "deg",
+         "value": _deg(shot.get("face_to_target"))},
+        {"key": "spin_axis",      "label": "Spin axis",      "unit": "deg",
+         "value": _deg(shot.get("spin_axis"))},
+        {"key": "back_spin",      "label": "Back spin",      "unit": "rpm",
+         "value": back_spin},
+        {"key": "side_spin",      "label": "Side spin",      "unit": "rpm",
+         "value": side_spin},
+    ]

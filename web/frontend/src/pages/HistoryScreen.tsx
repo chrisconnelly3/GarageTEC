@@ -18,6 +18,7 @@ import { cn } from '../lib/utils'
 import { motion } from 'framer-motion'
 import { useApi } from '../lib/useApi'
 import { getHistory } from '../lib/api'
+import { BallHistorySection } from '../components/BallHistorySection'
 import { labelFor, deltaVsBaseline, METRIC_GOOD, withinTimeframe } from '../lib/format'
 import type { Timeframe } from '../lib/format'
 import type { History } from '../lib/types'
@@ -301,6 +302,11 @@ export function HistoryScreen({ playerId }: HistoryScreenProps) {
             </motion.div>
           )
         })}
+      </div>
+
+      {/* Ball-data trends vs TrackMan tour averages, per club */}
+      <div className="border-t border-[#242C27] pt-6">
+        <BallHistorySection playerId={playerId} timeframe={timeframe} />
       </div>
     </div>
   )

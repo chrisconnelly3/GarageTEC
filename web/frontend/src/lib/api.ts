@@ -2,7 +2,8 @@ import type {
   Player, Session, SwingDetail, SessionDetail, History, SyncProposals,
   CaptureStatus, ActivePlayerIn, Settings, PlayerWithCounts, SwingSummary,
   CalibrationStartIn, CalibrationStatus, CalibrationResult, ActiveCalibration,
-  CalibrationHistoryItem, CameraInfo,
+  CalibrationHistoryItem, CameraInfo, BallHistory,
+  LiveCaptureStartIn, LiveCaptureStatus,
 } from "./types";
 
 async function getJSON<T>(url: string): Promise<T> {
@@ -47,6 +48,13 @@ export const buildHistoryUrl = (player: number, metric: string, context = "impac
 export const getHistory = (player: number, metric: string, context = "impact") =>
   getJSON<History>(buildHistoryUrl(player, metric, context));
 
+// Ball-metric trend over time vs the TrackMan tour average for `club`.
+export const getBallHistory = (player: number, metric: string, club?: string | null) => {
+  const qs = new URLSearchParams({ player: String(player), metric });
+  if (club) qs.set("club", club);
+  return getJSON<BallHistory>(`/api/ball-history?${qs.toString()}`);
+};
+
 export const getProposals = (session: number) =>
   getJSON<SyncProposals>(`/api/sync/proposals?session=${session}`);
 export const applyMatch = (swing_id: number, shot_id: number) =>
@@ -90,3 +98,10 @@ export const getCalibrationHistory = () =>
   getJSON<CalibrationHistoryItem[]>("/api/calibration/history");
 export const activateCalibration = (id: number) =>
   postJSON<{ ok: boolean }>("/api/calibration/activate/" + id, {});
+
+export const startLiveCapture = (b: LiveCaptureStartIn) =>
+  postJSON<LiveCaptureStatus>("/api/live-capture/start", b);
+export const stopLiveCapture = () =>
+  postJSON<LiveCaptureStatus>("/api/live-capture/stop", {});
+export const getLiveCaptureStatus = () =>
+  getJSON<LiveCaptureStatus>("/api/live-capture/status");

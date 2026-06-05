@@ -12,6 +12,7 @@ from store import repo
 
 from web.backend.capture import CaptureEventBus, CaptureSupervisor
 from web.backend.calibration import CalibrationEventBus, CalibrationSupervisor
+from web.backend.live_capture import LiveCaptureSupervisor
 
 
 def get_conn():
@@ -65,7 +66,8 @@ def get_supervisor() -> CaptureSupervisor:
         settings = repo.get_settings(conn)
         _supervisor = CaptureSupervisor(
             conn=conn, bus=capture_bus(),
-            port=settings["port"], idle_minutes=settings["idle_minutes"])
+            port=settings["port"], idle_minutes=settings["idle_minutes"],
+            live_capture=get_live_capture_supervisor())  # auto-trigger on shot
     return _supervisor
 
 
@@ -107,3 +109,32 @@ def reset_calibration_singletons():
         except Exception: pass
     _calibration_bus = None
     _calibration_supervisor = None
+
+
+_live_capture_bus = None
+_live_capture_supervisor = None
+
+
+def live_capture_bus() -> CaptureEventBus:
+    """Live-capture events ride a CaptureEventBus (same shape as the others)."""
+    global _live_capture_bus
+    if _live_capture_bus is None:
+        _live_capture_bus = CaptureEventBus()
+    return _live_capture_bus
+
+
+def get_live_capture_supervisor() -> LiveCaptureSupervisor:
+    global _live_capture_supervisor
+    if _live_capture_supervisor is None:
+        _live_capture_supervisor = LiveCaptureSupervisor(
+            conn=_listener_conn(), bus=live_capture_bus())
+    return _live_capture_supervisor
+
+
+def reset_live_capture_singletons():
+    global _live_capture_bus, _live_capture_supervisor
+    if _live_capture_supervisor is not None:
+        try: _live_capture_supervisor.stop()
+        except Exception: pass
+    _live_capture_bus = None
+    _live_capture_supervisor = None

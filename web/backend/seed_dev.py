@@ -54,7 +54,10 @@ def _coaching_content():
 
 
 def _add_processed_swing(conn, session_id, player_id, *, club, jitter, with_shot,
-                         with_coaching):
+                         with_coaching, shot_club=None):
+    # The R50 shot is tagged with a TrackMan club key so ball "vs tour" + ball
+    # history render; defaults to the swing's club when that's already valid.
+    shot_club = shot_club or club
     sw = repo.add_swing(conn, session_id, player_id, "swings/seed/source.mp4",
                         view_layout="face_on", fps=240.0, width=1920,
                         height=1080, club=club)
@@ -75,10 +78,12 @@ def _add_processed_swing(conn, session_id, player_id, *, club, jitter, with_shot
     if with_shot:
         shot = repo.save_shot(conn, Shot(
             captured_at=dbmod.now_iso(), player_id=player_id, session_id=session_id,
-            ball_speed=round(160 + jitter * 6, 1), total_spin=2450, spin_axis=-1.2,
+            ball_speed=round(160 + jitter * 6, 1), total_spin=2450,
+            spin_axis=round(-1.2 + jitter, 1),
             hla=0.8, vla=round(12.0 + jitter, 1), carry=round(280 + jitter * 8, 1),
-            club_speed=round(110 + jitter * 3, 1), attack_angle=2.4, club_path=2.1,
-            face_to_target=1.5))
+            club_speed=round(110 + jitter * 3, 1), attack_angle=2.4,
+            club_path=round(2.1 + jitter * 0.5, 1),
+            face_to_target=1.5, club=shot_club))
         repo.link_shot_to_swing(conn, shot.id, sw.id)
     if with_coaching:
         repo.save_coaching(conn, Coaching(
@@ -108,6 +113,7 @@ def seed(conn):
     existing = repo.list_swings(conn, session_id=open_sess.id)
     for i in range(max(0, TARGET_SWINGS - len(existing))):
         _add_processed_swing(conn, open_sess.id, player.id, club="7i",
+                             shot_club="7 Iron",
                              jitter=random.uniform(-0.5, 0.5),
                              with_shot=(i < TARGET_SWINGS - 1),  # leave 1 unmatched for Sync
                              with_coaching=True)

@@ -274,6 +274,7 @@ export function ReviewScreen({ playerId, sessionId, defaultSwingId }: ReviewScre
         </div>
         <BallBenchmarkPanel
           ball={data.ball_benchmarks ?? []}
+          raw={data.ball_raw ?? []}
           club={data.shot?.club ?? null} />
       </div>
     </div>

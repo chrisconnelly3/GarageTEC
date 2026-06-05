@@ -20,6 +20,8 @@ def _swing_detail(conn, swing, shot):
         "shot": shot_d,
         "ball_benchmarks": ball_reference.benchmark_ball(   # ball vs TrackMan
             shot_d, shot.club if shot else None),
+        "ball_raw": ball_reference.raw_ball_fields(shot_d),  # raw, un-benchmarked
+
         "moments": [moment_dict(m) for m in repo.get_moments(conn, swing.id)],
         "coaching": [coaching_dict(c)
                      for c in repo.get_coaching(conn, swing_id=swing.id)],

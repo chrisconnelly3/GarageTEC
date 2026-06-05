@@ -9,6 +9,9 @@ export interface Moment { id: number; swing_id: number; kind: string; view: stri
 export interface Media { id: number; swing_id: number; kind: string; path: string; meta: unknown | null; }
 export interface Shot { id: number; swing_id: number | null; player_id: number | null; session_id: number | null; captured_at: string; device_id: string | null; shot_number: number | null; ball_speed: number | null; total_spin: number | null; spin_axis: number | null; hla: number | null; vla: number | null; carry: number | null; club_speed: number | null; attack_angle: number | null; club_path: number | null; face_to_target: number | null; club: string | null; }
 export interface BallBenchmark { key: string; label: string; unit: string; value: number; target: number; delta: number; near: boolean; }
+// Raw R50/GSPro fields we surface but don't benchmark (no TrackMan column): club
+// path, face-to-target, spin axis, back/side spin. value may be null.
+export interface BallRawField { key: string; label: string; unit: string; value: number | null; }
 
 export interface CoachFinding { metric: string; context?: string | null; value: number; unit?: string | null; vs_baseline?: string | null; vs_ideal?: string | null; ball_effect?: string | null; severity?: "good" | "neutral" | "bad" | null; }
 export interface CoachDrill { name: string; why?: string | null; how?: string | null; }
@@ -19,11 +22,18 @@ export interface Benchmark {
   name: string; context: string; value: number; unit: string | null;
   target: number; delta: number | null; comparable: boolean; reason: string | null;
 }
-export interface SwingDetail { swing: Swing; metrics: Metric[]; benchmarks?: Benchmark[]; ball_benchmarks?: BallBenchmark[]; moments: Moment[]; shot: Shot | null; coaching: Coaching[]; media: Media[]; }
+export interface SwingDetail { swing: Swing; metrics: Metric[]; benchmarks?: Benchmark[]; ball_benchmarks?: BallBenchmark[]; ball_raw?: BallRawField[]; moments: Moment[]; shot: Shot | null; coaching: Coaching[]; media: Media[]; }
 export interface SessionDetail { session: Session; swings: Swing[]; coaching: Coaching[]; }
 export interface CaptureStatus { status: CaptureState; paused: boolean; connected: boolean; shot_count: number; active_player_id: number | null; active_club: string | null; last_error: string | null; }
 export interface HistoryPoint { swing_id: number; created_at: string; value: number; }
 export interface History { player: number; metric: string; context: string; points: HistoryPoint[]; }
+export interface BallHistoryPoint { shot_id: number; captured_at: string; value: number; }
+// Ball-metric trend vs the TrackMan tour average for the selected club. `target`
+// is null when no club is given or the (metric,club) has no tour average.
+export interface BallHistory {
+  player: number; metric: string; club: string | null;
+  target: number | null; points: BallHistoryPoint[];
+}
 export interface SyncProposal { swing_id: number; shot_id: number; confidence: number; reason: string; }
 export interface SyncProposals { session: number; proposals: SyncProposal[]; unmatched_swings: Swing[]; unmatched_shots: Shot[]; }
 export interface ActivePlayerIn { name: string; height_in: number; handedness: Handedness; }
@@ -57,4 +67,26 @@ export interface ActiveCalibration {
 export interface CalibrationHistoryItem {
   id: number; created_at: string; n_poses: number;
   reprojection_error: number; is_active: number;
+}
+
+// Live swing capture: a rolling frame buffer is flushed to a clip on each R50
+// shot and run through the proven offline pipeline. Degrades to source:"none".
+export interface LiveCaptureStartIn {
+  device_left?: number;
+  device_right?: number | null;   // null / mono => single camera
+  mono?: boolean;
+  fps?: number | null;
+  window_s?: number | null;        // rolling buffer seconds
+  post_shot_delay_s?: number | null;
+}
+export interface LiveCaptureStatus {
+  running: boolean; capturing: boolean;
+  source: "none" | "single" | "dual";
+  buffered_frames: number; swing_count: number;
+  fps: number; window_s: number; post_shot_delay_s: number;
+  last_error: string | null;
+}
+export interface LiveSwingCaptured {
+  swing_id: number; shot_id: number | null;
+  player_id: number | null; session_id: number | null;
 }

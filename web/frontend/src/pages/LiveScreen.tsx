@@ -143,6 +143,7 @@ export function LiveScreen({ playerId, sessionId, lastSwing, activeClub = null, 
               <BallClubStrip shot={data?.shot ?? null} />
               <BallBenchmarkPanel
                 ball={data?.ball_benchmarks ?? []}
+                raw={data?.ball_raw ?? []}
                 club={activeClub} />
             </div>
           </motion.div>

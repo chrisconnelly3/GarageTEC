@@ -1,5 +1,6 @@
 from store import repo
-from store.models import Metric
+from store.models import Metric, Shot
+from store import db as dbmod
 from web.backend.tests.conftest import seed_player
 
 
@@ -31,3 +32,44 @@ def test_history_defaults_context_overall(client, conn):
     repo.save_metrics(conn, s1, [Metric(s1, "tempo", "overall", 3.1, "ratio", "m")])
     r = client.get("/api/history", params={"player": p.id, "metric": "tempo"})
     assert [pt["value"] for pt in r.json()["points"]] == [3.1]
+
+
+def _shot(conn, pid, *, at, **kw):
+    sess = repo.get_open_session(conn, pid)
+    sid = sess.id if sess else repo.create_session(conn, pid).id
+    return repo.save_shot(conn, Shot(captured_at=at, player_id=pid,
+                                     session_id=sid, **kw))
+
+
+def test_ball_history_shape_and_target(client, conn):
+    p = seed_player(conn)
+    _shot(conn, p.id, at="2026-06-03T00:00:01+00:00", ball_speed=150.0,
+          club="Driver")
+    _shot(conn, p.id, at="2026-06-03T00:00:02+00:00", ball_speed=160.0,
+          club="Driver")
+    r = client.get("/api/ball-history", params={"player": p.id,
+                                                "metric": "ball_speed",
+                                                "club": "Driver"})
+    assert r.status_code == 200
+    body = r.json()
+    assert body["player"] == p.id and body["metric"] == "ball_speed"
+    assert body["club"] == "Driver"
+    assert body["target"] == 167   # TrackMan Driver ball_speed
+    assert [pt["value"] for pt in body["points"]] == [150.0, 160.0]
+    assert {"shot_id", "captured_at", "value"} <= set(body["points"][0])
+
+
+def test_ball_history_null_target_without_club(client, conn):
+    p = seed_player(conn)
+    _shot(conn, p.id, at="t1", ball_speed=150.0)
+    body = client.get("/api/ball-history",
+                      params={"player": p.id, "metric": "ball_speed"}).json()
+    assert body["club"] is None and body["target"] is None
+    assert [pt["value"] for pt in body["points"]] == [150.0]
+
+
+def test_ball_history_rejects_bad_metric(client, conn):
+    p = seed_player(conn)
+    r = client.get("/api/ball-history",
+                   params={"player": p.id, "metric": "raw_json"})
+    assert r.status_code == 400

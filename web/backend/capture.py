@@ -64,10 +64,14 @@ class CaptureSupervisor:
     def __init__(self, *, conn, bus, listener_factory: Callable = _default_listener_factory,
                  port: int = PORT_DEFAULT, idle_minutes: int = 15,
                  probe_ip: Optional[str] = None, buffer_path: Optional[str] = None,
-                 restart_poll_s: float = 1.0):
+                 restart_poll_s: float = 1.0, live_capture=None):
         self.conn = conn
         self.bus = bus
         self._listener_factory = listener_factory
+        # Optional LiveCaptureSupervisor: when set, a persisted shot auto-triggers
+        # a buffered-clip capture that pairs back to this shot. Low-coupling: the
+        # live engine just needs an on_shot(player_id, session_id, shot_id) method.
+        self.live_capture = live_capture
         self.port = port
         self.probe_ip = probe_ip
         self.restart_poll_s = restart_poll_s
@@ -112,6 +116,13 @@ class CaptureSupervisor:
             "shot_id": saved.id, "player_id": saved.player_id,
             "session_id": saved.session_id, "ball_speed": saved.ball_speed,
             "carry": saved.carry, "shot_count": self._shot_count})
+        if self.live_capture is not None:
+            try:
+                self.live_capture.on_shot(player_id=saved.player_id,
+                                          session_id=saved.session_id,
+                                          shot_id=saved.id)
+            except Exception:
+                pass  # live capture is best-effort; never block R50 capture
         return saved
 
     # ---- settings ---------------------------------------------------------

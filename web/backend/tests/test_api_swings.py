@@ -86,3 +86,16 @@ def test_swing_detail_includes_ball_benchmarks_key(client, conn):
     sw = seed_ready_swing(conn, p)
     body = client.get(f"/api/swings/{sw.id}").json()
     assert "ball_benchmarks" in body and isinstance(body["ball_benchmarks"], list)
+
+
+def test_swing_detail_includes_ball_raw_key(client, conn):
+    from web.backend.tests.conftest import seed_player, seed_ready_swing
+    p = seed_player(conn)
+    sw = seed_ready_swing(conn, p)
+    body = client.get(f"/api/swings/{sw.id}").json()
+    assert "ball_raw" in body and isinstance(body["ball_raw"], list)
+    keys = [r["key"] for r in body["ball_raw"]]
+    assert keys == ["club_path", "face_to_target", "spin_axis",
+                    "back_spin", "side_spin"]
+    for r in body["ball_raw"]:
+        assert set(r) == {"key", "label", "unit", "value"}

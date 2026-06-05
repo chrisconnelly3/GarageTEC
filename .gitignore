@@ -48,3 +48,5 @@ desktop.ini
 
 # Runtime server log (dev)
 .uvicorn_8000.log
+
+.superpowers/

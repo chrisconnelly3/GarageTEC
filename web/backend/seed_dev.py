@@ -8,7 +8,7 @@ import random
 
 from store import db as dbmod
 from store import repo
-from store.models import Shot, Moment, Metric, Media, Coaching
+from store.models import Shot, Moment, Metric, Coaching
 
 PLAYER = {"name": "Alex M.", "height_in": 72.0, "handedness": "R"}
 TARGET_SWINGS = 3          # swings in the open/live session
@@ -74,7 +74,9 @@ def _add_processed_swing(conn, session_id, player_id, *, club, jitter, with_shot
             val = round(base * scale + jitter * spread, 1)
             metrics.append(Metric(sw.id, name, ctx, val, unit, method))
     repo.save_metrics(conn, sw.id, metrics)
-    repo.save_media(conn, Media(sw.id, "annotated_video", "swings/seed/annotated.mp4"))
+    # No annotated_video media: the dev seed has no real video file, so the
+    # SwingReplay shows its "No swing video yet" placeholder instead of 404-ing
+    # on a phantom path. Real captured swings persist their own annotated clip.
     if with_shot:
         shot = repo.save_shot(conn, Shot(
             captured_at=dbmod.now_iso(), player_id=player_id, session_id=session_id,

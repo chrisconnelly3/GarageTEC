@@ -68,8 +68,8 @@ def _shot_value(shot, key):
 def benchmark_ball(shot, club, ref=None):
     """Compare a shot's R50 ball metrics to the TrackMan tour average for `club`.
     `shot` is a shot dict (or None); `club` is a TRACKMAN key (or None). Returns a
-    list of {key, label, unit, value, target, delta, near} for the metrics the
-    R50 actually reports (others skipped)."""
+    list of {key, label, unit, value, target, delta, near, direction, zone} for the
+    metrics the R50 actually reports (others skipped)."""
     ref = TRACKMAN if ref is None else ref
     row = ref.get(club) if club else None
     if shot is None or row is None:
@@ -129,8 +129,8 @@ def raw_ball_fields(shot):
     """Raw informational R50/GSPro values we store but do NOT benchmark
     (TrackMan has no comparable column). Returns a list of
     {key, label, unit, value} (value may be None) in a fixed display order:
-    club_path, face_to_target, spin_axis (deg); back_spin, side_spin (rpm).
-    `shot` is a shot dict (or None)."""
+    club_path, face_to_target, spin_axis (deg); back_spin, side_spin (rpm);
+    hla (deg). `shot` is a shot dict (or None)."""
     if shot is None:
         return []
 

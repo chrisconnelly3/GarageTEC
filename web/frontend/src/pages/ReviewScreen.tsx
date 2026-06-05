@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { SwingReplay } from '../components/SwingReplay'
 import { AIInsightCard } from '../components/AIInsightCard'
+import { BenchmarkPanel } from '../components/BenchmarkPanel'
 import { BallClubStrip } from '../components/BallClubStrip'
 import { cn } from '../lib/utils'
 import { CheckCircle2, AlertCircle } from 'lucide-react'
@@ -252,12 +253,13 @@ export function ReviewScreen({ playerId, sessionId, defaultSwingId }: ReviewScre
           </div>
         </div>
 
-        {/* AI Feedback Panel */}
+        {/* AI Feedback + vs Tour Pro */}
         <div className="flex flex-col space-y-6">
           <AIInsightCard
             headline={coachContent?.headline ?? 'Detailed Swing Analysis'}
             insights={insights}
           />
+          <BenchmarkPanel benchmarks={data.benchmarks ?? []} />
         </div>
       </div>
 

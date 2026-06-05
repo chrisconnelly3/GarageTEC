@@ -24,3 +24,51 @@ def test_compare_square_position_works_in_2d():
     r = golftec.compare("shoulder_tilt_deg", "address", 12.0, has_3d=False, ref=ref)
     assert r["comparable"] is True
     assert abs(r["target"] - 10.0) < 1e-9
+
+
+# --- benchmark_metrics (vs-tour-pro panel data) -------------------------------
+from coach import golftec
+
+
+def test_benchmark_2d_square_metric_is_comparable():
+    metrics = [{"name": "shoulder_tilt_deg", "context": "address",
+                "value": 12.0, "unit": "deg", "method": "exact"}]
+    rows = golftec.benchmark_metrics(metrics)
+    assert len(rows) == 1
+    r = rows[0]
+    assert r["comparable"] is True and r["target"] == 10 and r["delta"] == 2.0
+
+
+def test_benchmark_turn_needs_3d_when_only_2d_present():
+    metrics = [{"name": "shoulder_turn_deg", "context": "top",
+                "value": 50.0, "unit": "deg", "method": "foreshortening_2d;confidence=low"}]
+    rows = golftec.benchmark_metrics(metrics)
+    assert len(rows) == 1
+    assert rows[0]["comparable"] is False and rows[0]["reason"] == "needs_3d"
+    assert rows[0]["target"] == 89 and rows[0]["delta"] is None
+
+
+def test_benchmark_turn_comparable_with_3d():
+    metrics = [{"name": "shoulder_turn_deg", "context": "top",
+                "value": 85.0, "unit": "deg", "method": "triangulated_3d;confidence=high"}]
+    rows = golftec.benchmark_metrics(metrics)
+    assert rows[0]["comparable"] is True and rows[0]["delta"] == -4.0
+
+
+def test_benchmark_dedup_prefers_comparable_3d_row():
+    # same (name, context) with a 2D row (needs_3d) + a 3D row (comparable)
+    metrics = [
+        {"name": "shoulder_tilt_deg", "context": "impact", "value": 12.0,
+         "unit": "deg", "method": "exact"},               # 2D -> needs_3d at impact
+        {"name": "shoulder_tilt_deg", "context": "impact", "value": 38.0,
+         "unit": "deg", "method": "triangulated_3d"},      # 3D -> comparable
+    ]
+    rows = golftec.benchmark_metrics(metrics)
+    assert len(rows) == 1
+    assert rows[0]["comparable"] is True and rows[0]["value"] == 38.0
+
+
+def test_benchmark_skips_metrics_without_golftec_target():
+    metrics = [{"name": "head_sway_in", "context": "impact", "value": 1.0,
+                "unit": "in", "method": "shoulder_ratio_0.24"}]
+    assert golftec.benchmark_metrics(metrics) == []

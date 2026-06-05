@@ -14,7 +14,11 @@ export interface CoachDrill { name: string; why?: string | null; how?: string | 
 export interface CoachContent { headline: string; findings: CoachFinding[]; drills: CoachDrill[]; confidence_notes?: string[]; }
 export interface Coaching { id: number; swing_id: number | null; session_id: number | null; kind: string; content: CoachContent | null; model: string | null; created_at: string; }
 
-export interface SwingDetail { swing: Swing; metrics: Metric[]; moments: Moment[]; shot: Shot | null; coaching: Coaching[]; media: Media[]; }
+export interface Benchmark {
+  name: string; context: string; value: number; unit: string | null;
+  target: number; delta: number | null; comparable: boolean; reason: string | null;
+}
+export interface SwingDetail { swing: Swing; metrics: Metric[]; benchmarks?: Benchmark[]; moments: Moment[]; shot: Shot | null; coaching: Coaching[]; media: Media[]; }
 export interface SessionDetail { session: Session; swings: Swing[]; coaching: Coaching[]; }
 export interface CaptureStatus { status: CaptureState; paused: boolean; connected: boolean; shot_count: number; active_player_id: number | null; last_error: string | null; }
 export interface HistoryPoint { swing_id: number; created_at: string; value: number; }

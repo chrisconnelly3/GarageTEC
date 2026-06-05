@@ -17,6 +17,12 @@ def test_swing_detail_aggregates_everything(client, conn):
     assert body["shot"]["ball_speed"] == 148.2
     assert body["coaching"][0]["content"]["headline"] == "Solid contact"
     assert body["media"][0]["kind"] == "annotated_video"
+    # vs-tour-pro benchmarks present for metrics with a GolfTEC target
+    assert "benchmarks" in body and isinstance(body["benchmarks"], list)
+    bnames = {b["name"] for b in body["benchmarks"]}
+    assert "shoulder_tilt_deg" in bnames
+    for b in body["benchmarks"]:
+        assert {"name", "context", "value", "target", "comparable"} <= set(b)
 
 
 def test_swing_detail_unmatched_has_null_shot(client, conn):

@@ -1,33 +1,16 @@
 import { useEffect, useState } from 'react'
 import { SwingReplay } from '../components/SwingReplay'
 import { AIInsightCard } from '../components/AIInsightCard'
-import { BenchmarkPanel } from '../components/BenchmarkPanel'
-import { BallBenchmarkPanel } from '../components/BallBenchmarkPanel'
-import { BallClubStrip } from '../components/BallClubStrip'
-import { cn } from '../lib/utils'
-import { CheckCircle2, AlertCircle } from 'lucide-react'
+import { MetricCard } from '../components/MetricCard'
+import { PhaseTimeline } from '../components/PhaseTimeline'
 import { useApi } from '../lib/useApi'
 import { getSwing, getSwings } from '../lib/api'
-import { labelFor, coachingToInsights, METRIC_IDEAL } from '../lib/format'
-import type { SwingDetail, Metric, SwingSummary } from '../lib/types'
+import { labelFor, coachingToInsights } from '../lib/format'
+import { BALL_BENCHMARK_ORDER, BALL_RAW_ORDER, BODY_CARD_ORDER } from '../lib/metricConfig'
+import type { SwingDetail, SwingSummary, Benchmark } from '../lib/types'
 
-const PHASES = [
-  'Address', 'Takeaway', 'Lead-arm', 'Top',
-  'Transition', 'Shaft par.', 'Impact', 'Follow-thru',
-]
-
-function fmtMetric(m: Metric | undefined): string {
-  if (!m || m.value == null) return '--'
-  const v = Number(m.value.toFixed(1))
-  if (m.unit === 'deg') return `${v}°`
-  if (m.unit === 'in') return `${v}"`
-  return `${v}${m.unit ?? ''}`
-}
-
-function statusFor(name: string, impactVal: number | null | undefined): string {
-  const ideal = METRIC_IDEAL[name]
-  if (!ideal || impactVal == null) return 'neutral'
-  return impactVal >= ideal[0] && impactVal <= ideal[1] ? 'good' : 'bad'
+const ZONE_TEXT: Record<string, string> = {
+  green: 'text-garage-green', yellow: 'text-[#E8B931]', red: 'text-garage-red',
 }
 
 interface ReviewScreenProps {
@@ -104,32 +87,25 @@ export function ReviewScreen({ playerId, sessionId, defaultSwingId }: ReviewScre
     )
   }
 
-  // Group metrics by name → one row per name with address/top/impact columns.
-  const byName = new Map<string, Metric[]>()
-  for (const m of data.metrics) {
-    const arr = byName.get(m.name) ?? []
-    arr.push(m)
-    byName.set(m.name, arr)
-  }
-  const rows = Array.from(byName.entries()).map(([name, ms]) => {
-    const impact = ms.find((x) => x.context === 'impact')
-    return {
-      name: labelFor(name),
-      address: fmtMetric(ms.find((x) => x.context === 'address')),
-      top: fmtMetric(ms.find((x) => x.context === 'top')),
-      impact: fmtMetric(impact),
-      status: statusFor(name, impact?.value),
-    }
-  })
+  // Benchmark lookup keyed by "name|context"; the body table colors each cell
+  // vs the tour target via the per-row `state`/`zone` from the backend.
+  const benchByKey = new Map<string, Benchmark>()
+  for (const b of data.benchmarks ?? []) benchByKey.set(`${b.name}|${b.context}`, b)
 
-  const presentPhases = new Set(
-    data.moments.map((m) => {
-      if (m.kind === 'address') return 'Address'
-      if (m.kind === 'top') return 'Top'
-      if (m.kind === 'impact') return 'Impact'
-      return m.kind
-    }),
-  )
+  const cell = (name: string, context: string) => {
+    const b = benchByKey.get(`${name}|${context}`)
+    if (!b) return <span className="text-[#4A554E]">—</span>
+    const color = b.state === 'ok' && b.zone ? ZONE_TEXT[b.zone] : 'text-[#E7EEE9]'
+    const sub = b.state === 'raw' ? 'no tour avg'
+      : b.state === 'needs_3d' ? `needs 3D · tour ${b.target}`
+        : `${b.delta != null && b.delta >= 0 ? '+' : ''}${b.delta} · tour ${b.target}`
+    return (
+      <span>
+        <span className={color}>{b.value}{b.unit === 'deg' ? '°' : b.unit === 'in' ? '"' : ''}</span>
+        <span className="block text-[9px] text-[#8B978F]">{sub}</span>
+      </span>
+    )
+  }
 
   const coachContent = data.coaching[0]?.content ?? null
   const insights = coachingToInsights(coachContent)
@@ -144,43 +120,10 @@ export function ReviewScreen({ playerId, sessionId, defaultSwingId }: ReviewScre
         </div>
 
         {/* 8-Phase Timeline */}
-        <div className="relative pt-4 pb-2 px-4">
-          <div className="absolute top-6 left-8 right-8 h-0.5 bg-[#242C27]" />
-          <div className="flex justify-between relative">
-            {PHASES.map((phase) => {
-              const isActive = activePhase === phase
-              const exists = presentPhases.has(phase)
-              return (
-                <button
-                  key={phase}
-                  onClick={() => setActivePhase(phase)}
-                  className="flex flex-col items-center space-y-3 group"
-                >
-                  <div
-                    className={cn(
-                      'w-4 h-4 rounded-full border-2 z-10 transition-all',
-                      isActive
-                        ? 'bg-garage-green border-garage-green shadow-glow-primary-sm scale-125'
-                        : exists
-                          ? 'bg-[#121714] border-garage-green/60 group-hover:border-garage-green'
-                          : 'bg-[#121714] border-[#4A554E] group-hover:border-[#8B978F]',
-                    )}
-                  />
-                  <span
-                    className={cn(
-                      'text-[10px] uppercase tracking-wider font-medium transition-colors',
-                      isActive
-                        ? 'text-garage-green'
-                        : 'text-[#8B978F] group-hover:text-[#E7EEE9]',
-                    )}
-                  >
-                    {phase}
-                  </span>
-                </button>
-              )
-            })}
-          </div>
-        </div>
+        <PhaseTimeline
+          present={new Set(data.moments.map((m) => m.kind === 'address' ? 'Address' : m.kind === 'top' ? 'Top' : m.kind === 'impact' ? 'Impact' : m.kind))}
+          active={activePhase}
+          onSeek={setActivePhase} />
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
@@ -206,47 +149,15 @@ export function ReviewScreen({ playerId, sessionId, defaultSwingId }: ReviewScre
                   <th className="pb-3 text-[11px] uppercase tracking-wider text-[#8B978F] font-semibold">
                     Impact
                   </th>
-                  <th className="pb-3 text-[11px] uppercase tracking-wider text-[#8B978F] font-semibold">
-                    Status
-                  </th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-[#242C27]/50">
-                {rows.map((m) => (
-                  <tr
-                    key={m.name}
-                    className="hover:bg-[#1A211D]/50 transition-colors"
-                  >
-                    <td className="py-4 text-sm font-medium text-[#E7EEE9]">
-                      {m.name}
-                    </td>
-                    <td className="py-4 text-sm font-mono text-[#8B978F]">
-                      {m.address}
-                    </td>
-                    <td className="py-4 text-sm font-mono text-[#8B978F]">
-                      {m.top}
-                    </td>
-                    <td
-                      className={cn(
-                        'py-4 text-sm font-mono font-semibold',
-                        m.status === 'bad'
-                          ? 'text-garage-red'
-                          : 'text-[#E7EEE9]',
-                      )}
-                    >
-                      {m.impact}
-                    </td>
-                    <td className="py-4">
-                      {m.status === 'good' && (
-                        <CheckCircle2 className="w-4 h-4 text-garage-green" />
-                      )}
-                      {m.status === 'bad' && (
-                        <AlertCircle className="w-4 h-4 text-garage-red" />
-                      )}
-                      {m.status === 'neutral' && (
-                        <div className="w-2 h-2 rounded-full bg-[#8B978F] ml-1" />
-                      )}
-                    </td>
+                {BODY_CARD_ORDER.map((name) => (
+                  <tr key={name} className="hover:bg-[#1A211D]/50 transition-colors">
+                    <td className="py-3 text-sm font-medium text-[#E7EEE9]">{labelFor(name)}</td>
+                    <td className="py-3 text-sm font-mono">{cell(name, 'address')}</td>
+                    <td className="py-3 text-sm font-mono">{cell(name, 'top')}</td>
+                    <td className="py-3 text-sm font-mono">{cell(name, 'impact')}</td>
                   </tr>
                 ))}
               </tbody>
@@ -260,22 +171,37 @@ export function ReviewScreen({ playerId, sessionId, defaultSwingId }: ReviewScre
             headline={coachContent?.headline ?? 'Detailed Swing Analysis'}
             insights={insights}
           />
-          <BenchmarkPanel benchmarks={data.benchmarks ?? []} />
         </div>
       </div>
 
-      {/* Matched Shot Panel + ball vs tour */}
-      <div className="mt-auto grid grid-cols-1 lg:grid-cols-3 gap-6">
-        <div className="lg:col-span-2">
-          <h4 className="text-[11px] uppercase tracking-wider text-[#8B978F] font-semibold mb-3 ml-2">
-            Matched R50 Data
-          </h4>
-          <BallClubStrip shot={data.shot} />
+      {/* Ball & Club · vs Tour Pro */}
+      <div className="mt-auto">
+        <div className="flex items-center gap-2 mb-3">
+          <span className="text-sm font-semibold text-[#E7EEE9]">Ball &amp; Club · vs Tour Pro</span>
+          <span className="text-[10px] uppercase tracking-wider text-[#8B978F]">
+            {data.shot?.club ? `${data.shot.club} · impact` : 'no matched shot'}
+          </span>
         </div>
-        <BallBenchmarkPanel
-          ball={data.ball_benchmarks ?? []}
-          raw={data.ball_raw ?? []}
-          club={data.shot?.club ?? null} />
+        <div className="grid grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-2">
+          {(() => {
+            const bench = new Map((data.ball_benchmarks ?? []).map((b) => [b.key, b]))
+            const raw = new Map((data.ball_raw ?? []).map((r) => [r.key, r]))
+            const cards: JSX.Element[] = []
+            for (const key of BALL_BENCHMARK_ORDER) {
+              const b = bench.get(key); if (!b) continue
+              cards.push(<MetricCard key={key} label={b.label} value={b.value} unit={b.unit}
+                target={b.target} delta={b.delta} zone={b.zone} state="ok"
+                trend={{ delta: 0, towardPro: null }} />)
+            }
+            for (const key of BALL_RAW_ORDER) {
+              const r = raw.get(key); if (!r || r.value == null) continue
+              cards.push(<MetricCard key={key} label={r.label} value={r.value} unit={r.unit}
+                target={null} delta={null} zone={null} state="raw"
+                trend={{ delta: 0, towardPro: null }} />)
+            }
+            return cards.length ? cards : <p className="text-sm text-[#8B978F] col-span-full">No matched ball data.</p>
+          })()}
+        </div>
       </div>
     </div>
   )

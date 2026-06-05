@@ -1,132 +1,108 @@
 import { ArrowDownRight, ArrowUpRight, Minus } from 'lucide-react'
 import { cn } from '../lib/utils'
 import { motion } from 'framer-motion'
-interface MetricCardProps {
-  name: string
-  value: string | number
+import type { MetricZone, MetricState } from '../lib/types'
+
+const ZONE_ACCENT: Record<MetricZone, string> = {
+  green: 'border-l-garage-green',
+  yellow: 'border-l-[#E8B931]',
+  red: 'border-l-garage-red',
+}
+const ZONE_TEXT: Record<MetricZone, string> = {
+  green: 'text-garage-green',
+  yellow: 'text-[#E8B931]',
+  red: 'text-garage-red',
+}
+
+export interface MetricCardTrend { delta: number; towardPro: boolean | null }
+
+export interface MetricCardProps {
+  label: string
+  value: number | null
   unit: string
-  delta: number // positive is up, negative is down
-  deltaGood: 'up' | 'down' | 'neutral' // which direction is good
-  idealRange: [number, number]
-  currentNum: number
+  target: number | null
+  delta: number | null
+  zone: MetricZone | null
+  state: MetricState
+  trend: MetricCardTrend
+  phase?: string          // inline phase badge (body cards)
+  offPhase?: string       // when set, card is dimmed: "— measured at <offPhase>"
   isEstimated?: boolean
   highlight?: boolean
 }
+
+function fmt(v: number, unit: string) {
+  const r = unit === 'rpm' ? Math.round(v) : Math.round(v * 10) / 10
+  return unit === 'deg' ? `${r}°` : unit === 'in' ? `${r}"` : unit ? `${r} ${unit}` : `${r}`
+}
+
 export function MetricCard({
-  name,
-  value,
-  unit,
-  delta,
-  deltaGood,
-  idealRange,
-  currentNum,
-  isEstimated,
-  highlight,
+  label, value, unit, target, delta, zone, state, trend,
+  phase, offPhase, isEstimated, highlight,
 }: MetricCardProps) {
-  const isGood =
-    deltaGood === 'up' ? delta > 0 : deltaGood === 'down' ? delta < 0 : true
-  const isNeutral = delta === 0
-  // Calculate position on ideal bar (0 to 100%)
-  const min = idealRange[0] - Math.abs(idealRange[0] * 0.5)
-  const max = idealRange[1] + Math.abs(idealRange[1] * 0.5)
-  const range = max - min
-  const position = Math.max(
-    0,
-    Math.min(100, ((currentNum - min) / range) * 100),
-  )
-  const idealStart = Math.max(0, ((idealRange[0] - min) / range) * 100)
-  const idealWidth = Math.min(
-    100,
-    ((idealRange[1] - idealRange[0]) / range) * 100,
-  )
+  // Off-phase: dimmed placeholder, grid stays stable.
+  if (offPhase || value == null) {
+    return (
+      <div className="bg-[#0E1210] border border-dashed border-[#242C27] rounded-[18px] p-5 opacity-50 flex flex-col">
+        <span className="text-[10px] uppercase tracking-[0.1em] text-[#8B978F] font-semibold">{label}</span>
+        <span className="mt-3 text-sm text-[#8B978F]">
+          {offPhase ? `— measured at ${offPhase}` : '—'}
+        </span>
+      </div>
+    )
+  }
+
+  const accent = state === 'ok' && zone ? ZONE_ACCENT[zone] : 'border-l-[#4A554E]'
+  const deltaColor = state === 'ok' && zone ? ZONE_TEXT[zone] : 'text-[#8B978F]'
+  const trendColor =
+    trend.towardPro == null ? 'text-[#8B978F]'
+      : trend.towardPro ? 'text-garage-green' : 'text-garage-red'
+
   return (
     <motion.div
-      initial={{
-        opacity: 0,
-        y: 10,
-      }}
-      animate={{
-        opacity: 1,
-        y: 0,
-      }}
+      initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }}
       className={cn(
-        'bg-[#121714] border rounded-[18px] p-5 flex flex-col justify-between relative overflow-hidden transition-all duration-500',
-        highlight
-          ? 'border-garage-green shadow-glow-primary-sm'
-          : 'border-[#242C27]',
+        'bg-[#121714] border border-[#242C27] border-l-4 rounded-[18px] p-4 flex flex-col transition-all duration-300',
+        accent, highlight && 'shadow-glow-primary-sm',
       )}
     >
-      {highlight && (
-        <div className="absolute top-0 left-0 w-full h-full bg-garage-green/5 pointer-events-none" />
-      )}
-
-      <div className="flex justify-between items-start mb-2">
-        <div className="flex items-center space-x-2">
-          <span className="text-[10px] uppercase tracking-[0.1em] text-[#8B978F] font-semibold">
-            {name}
-          </span>
-          {isEstimated && (
-            <span className="text-[9px] bg-[#1A211D] text-[#8B978F] px-1.5 py-0.5 rounded uppercase tracking-wider">
-              ~est.
-            </span>
+      <div className="flex justify-between items-center">
+        <span className="flex items-center gap-2">
+          <span className="text-[10px] uppercase tracking-[0.1em] text-[#8B978F] font-semibold">{label}</span>
+          {phase && (
+            <span className="text-[9px] uppercase tracking-wider text-[#8B978F] bg-[#1A211D] px-1.5 py-0.5 rounded">{phase}</span>
           )}
-        </div>
-
-        {!isNeutral && (
-          <div
-            className={cn(
-              'flex items-center text-xs font-medium px-1.5 py-0.5 rounded',
-              isGood
-                ? 'text-garage-green bg-garage-green/10'
-                : 'text-garage-red bg-garage-red/10',
-            )}
-          >
-            {delta > 0 ? (
-              <ArrowUpRight className="w-3 h-3 mr-0.5" />
-            ) : (
-              <ArrowDownRight className="w-3 h-3 mr-0.5" />
-            )}
-            {Math.abs(delta)}
-          </div>
-        )}
-        {isNeutral && (
-          <div className="flex items-center text-xs font-medium px-1.5 py-0.5 rounded text-[#8B978F] bg-[#1A211D]">
-            <Minus className="w-3 h-3 mr-0.5" />0
-          </div>
-        )}
-      </div>
-
-      <div className="flex items-baseline space-x-1 mb-4">
-        <span className="text-3xl font-bold tracking-tight font-mono text-[#E7EEE9]">
-          {value}
+          {isEstimated && (
+            <span className="text-[9px] text-[#8B978F]">~est</span>
+          )}
         </span>
-        <span className="text-sm text-[#8B978F] font-medium">{unit}</span>
+        {trend.delta !== 0 ? (
+          <span className={cn('flex items-center text-xs font-medium', trendColor)}>
+            {trend.delta > 0 ? <ArrowUpRight className="w-3 h-3 mr-0.5" /> : <ArrowDownRight className="w-3 h-3 mr-0.5" />}
+            {Math.abs(trend.delta)}
+          </span>
+        ) : (
+          <span className="flex items-center text-xs text-[#8B978F]"><Minus className="w-3 h-3 mr-0.5" />0</span>
+        )}
       </div>
 
-      <div className="mt-auto">
-        <div className="flex justify-between text-[10px] text-[#8B978F] mb-1.5">
-          <span>vs ideal</span>
-        </div>
-        <div className="h-1.5 w-full bg-[#1A211D] rounded-full relative overflow-hidden">
-          {/* Ideal Range Indicator */}
-          <div
-            className="absolute h-full bg-[#242C27] rounded-full"
-            style={{
-              left: `${idealStart}%`,
-              width: `${idealWidth}%`,
-            }}
-          />
-          {/* Current Value Marker */}
-          <div
-            className={cn(
-              'absolute h-full w-1.5 rounded-full shadow-[0_0_8px_rgba(132,206,57,0.8)]',
-              highlight ? 'bg-garage-green' : 'bg-[#E7EEE9]',
-            )}
-            style={{
-              left: `calc(${position}% - 3px)`,
-            }}
-          />
-        </div>
+      <div className="mt-2 flex items-baseline gap-1">
+        <span className="text-3xl font-bold font-mono tracking-tight text-[#E7EEE9]">
+          {unit === 'rpm' ? Math.round(value) : Math.round(value * 10) / 10}
+        </span>
+        <span className="text-sm text-[#8B978F]">{unit === 'deg' ? '°' : unit === 'in' ? 'in' : unit}</span>
+      </div>
+
+      <div className="mt-1 text-xs font-mono text-[#8B978F]">
+        {state === 'raw' ? (
+          <span>no tour avg</span>
+        ) : state === 'needs_3d' ? (
+          <span className="bg-[#1A211D] px-1.5 py-0.5 rounded">NEEDS 3D · tour {target}</span>
+        ) : (
+          <>Tour {target != null ? fmt(target, unit) : '—'}{' '}
+            {delta != null && <span className={deltaColor}>· {delta >= 0 ? '+' : ''}{fmt(delta, unit)}</span>}
+          </>
+        )}
       </div>
     </motion.div>
   )

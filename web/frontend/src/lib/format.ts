@@ -4,6 +4,7 @@ export const METRIC_LABEL: Record<string, string> = {
   spine_angle_deg: "Spine Angle", hand_depth_in: "Hand Depth",
   early_extension_in: "Early Ext.", hip_sway_in: "Hip Sway",
   head_sway_in: "Head Sway",
+  x_factor_deg: "X-Factor", x_factor_stretch_deg: "X-Factor Stretch",
 };
 // (min,max) ideal ranges used by MetricCard.idealRange
 export const METRIC_IDEAL: Record<string, [number, number]> = {

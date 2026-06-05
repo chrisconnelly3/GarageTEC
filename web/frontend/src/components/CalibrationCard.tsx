@@ -1,11 +1,15 @@
 // web/frontend/src/components/CalibrationCard.tsx
-import { useEffect, useState, useCallback } from "react";
+import { useEffect, useState, useCallback, useRef } from "react";
 import {
   startCalibration, stopCalibration, runCalibration,
   getActiveCalibration, getCalibrationHistory, activateCalibration,
 } from "../lib/api";
 import { useCalibrationSse } from "../lib/useCalibrationSse";
 import type { CalibrationResult, ActiveCalibration, CalibrationHistoryItem } from "../lib/types";
+
+// The coverage map is a 4x3 grid and we keep one pose per cell, so full
+// coverage = 12 poses. Auto-run calibration once the grid is fully covered.
+const COVERAGE_CELLS = 12;
 
 export function CalibrationCard() {
   const [device, setDevice] = useState("0");
@@ -19,6 +23,7 @@ export function CalibrationCard() {
   const [result, setResult] = useState<CalibrationResult | null>(null);
   const [active, setActive] = useState<ActiveCalibration | null>(null);
   const [history, setHistory] = useState<CalibrationHistoryItem[]>([]);
+  const autoRan = useRef(false);            // fire auto-run at full coverage once
 
   const refreshActive = useCallback(() => {
     getActiveCalibration().then(setActive).catch(() => {});
@@ -33,12 +38,28 @@ export function CalibrationCard() {
     refreshHistory();
   }, [refreshActive, refreshHistory]);
 
+  // Run calibration, then stop capturing (used by both the button and auto-run).
+  const runAndStop = useCallback(() => {
+    runCalibration().then(setResult).catch(() => {})
+      .finally(() => { stopCalibration().finally(() => setCapturing(false)); });
+  }, []);
+
   useCalibrationSse(capturing, {
-    calibration_status: (d) => { setGoodPoses(d.good_poses); setCoverage(d.coverage); },
+    calibration_status: (d) => {
+      setGoodPoses(d.good_poses);
+      setCoverage(d.coverage);
+      // Auto-proceed to Run once the coverage grid is full (one-shot).
+      if (!autoRan.current && d.good_poses >= COVERAGE_CELLS) {
+        autoRan.current = true;
+        runAndStop();
+      }
+    },
     calibration_done: () => { refreshActive(); refreshHistory(); },
   });
 
   const onStart = () => {
+    autoRan.current = false;
+    setResult(null);
     startCalibration({
       device_index: parseInt(device || "0", 10) || 0,
       cols: parseInt(cols || "9", 10) || 9,
@@ -48,7 +69,7 @@ export function CalibrationCard() {
     }).then(() => setCapturing(true)).catch(() => {});
   };
   const onStop = () => { stopCalibration().finally(() => setCapturing(false)); };
-  const onRun = () => { runCalibration().then(setResult).catch(() => {}); };
+  const onRun = () => { runAndStop(); };
 
   const onActivate = (id: number) => {
     activateCalibration(id)
@@ -99,8 +120,13 @@ export function CalibrationCard() {
 
       <div className="flex items-center gap-4">
         <div className="grid grid-cols-4 gap-1 flex-1">{grid}</div>
-        <div className="text-[#E7EEE9] text-sm whitespace-nowrap">
-          {goodPoses} good pose{goodPoses === 1 ? "" : "s"}
+        <div className="text-right whitespace-nowrap">
+          <div className="text-[#E7EEE9] text-sm">
+            {goodPoses} / {COVERAGE_CELLS} good poses
+          </div>
+          {capturing && (
+            <div className="text-[10px] text-[#8B978F]">auto-runs when full</div>
+          )}
         </div>
       </div>
 

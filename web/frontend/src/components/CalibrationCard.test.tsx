@@ -1,5 +1,5 @@
 // web/frontend/src/components/CalibrationCard.test.tsx
-import { render, screen, fireEvent } from "@testing-library/react";
+import { render, screen, fireEvent, waitFor, act } from "@testing-library/react";
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { CalibrationCard } from "./CalibrationCard";
 
@@ -12,7 +12,12 @@ vi.mock("../lib/api", () => ({
   getCalibrationHistory: vi.fn(async () => []),
   activateCalibration: vi.fn(async () => ({ ok: true })),
 }));
-vi.mock("../lib/useCalibrationSse", () => ({ useCalibrationSse: () => {} }));
+
+// Capture the SSE handlers so tests can simulate status events.
+const sse = vi.hoisted(() => ({ handlers: {} as any }));
+vi.mock("../lib/useCalibrationSse", () => ({
+  useCalibrationSse: (_active: boolean, handlers: any) => { sse.handlers = handlers; },
+}));
 
 describe("CalibrationCard", () => {
   beforeEach(() => vi.clearAllMocks());
@@ -36,5 +41,28 @@ describe("CalibrationCard", () => {
     render(<CalibrationCard />);
     // heading is always rendered
     expect(screen.getByText(/History/i)).toBeTruthy();
+  });
+  it("auto-runs calibration at full coverage (12 poses)", async () => {
+    const api = await import("../lib/api");
+    render(<CalibrationCard />);
+    await act(async () => {
+      fireEvent.click(screen.getByRole("button", { name: /Start Capture/i }));
+    });
+    // simulate the SSE reporting full coverage -> should auto-run once
+    await act(async () => {
+      sse.handlers.calibration_status({ good_poses: 12, coverage: [] });
+    });
+    await waitFor(() => expect(api.runCalibration).toHaveBeenCalledTimes(1));
+  });
+  it("does NOT auto-run before full coverage", async () => {
+    const api = await import("../lib/api");
+    render(<CalibrationCard />);
+    await act(async () => {
+      fireEvent.click(screen.getByRole("button", { name: /Start Capture/i }));
+    });
+    await act(async () => {
+      sse.handlers.calibration_status({ good_poses: 7, coverage: [] });
+    });
+    expect(api.runCalibration).not.toHaveBeenCalled();
   });
 });

@@ -5,23 +5,22 @@ import { cn } from '../lib/utils'
 interface SwingReplayProps {
   src?: string | null            // annotated video URL; null -> placeholder
   highlight?: boolean
-  seekTo?: number | null         // when this changes, seek the video to it (seconds)
+  seek?: { t: number } | null    // a fresh token each request, so repeat-seek to the same time re-fires
   onTime?: (t: number) => void   // playback time (seconds), for phase sync
 }
 
-export function SwingReplay({ src, highlight, seekTo, onTime }: SwingReplayProps) {
+export function SwingReplay({ src, highlight, seek, onTime }: SwingReplayProps) {
   const ref = useRef<HTMLVideoElement>(null)
   const [isPlaying, setIsPlaying] = useState(false)
   const [speed, setSpeed] = useState<'realtime' | 'slowmo'>('realtime')
   const [progress, setProgress] = useState(0)
 
-  // Controlled seek from the PhaseTimeline.
+  // Controlled seek from the PhaseTimeline. `seek` is a new object reference each
+  // request, so clicking the same phase twice still re-fires this effect.
   useEffect(() => {
     const v = ref.current
-    if (v && seekTo != null && Number.isFinite(seekTo)) {
-      v.currentTime = seekTo
-    }
-  }, [seekTo])
+    if (v && seek && Number.isFinite(seek.t)) v.currentTime = seek.t
+  }, [seek])
 
   useEffect(() => {
     const v = ref.current

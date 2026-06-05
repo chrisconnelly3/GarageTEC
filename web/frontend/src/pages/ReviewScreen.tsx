@@ -4,14 +4,17 @@ import { AIInsightCard } from '../components/AIInsightCard'
 import { MetricCard } from '../components/MetricCard'
 import { PhaseTimeline } from '../components/PhaseTimeline'
 import { useApi } from '../lib/useApi'
-import { getSwing, getSwings } from '../lib/api'
+import { getSwing, getSwings, mediaUrl } from '../lib/api'
 import { labelFor, coachingToInsights } from '../lib/format'
 import { BALL_BENCHMARK_ORDER, BALL_RAW_ORDER, BODY_CARD_ORDER } from '../lib/metricConfig'
+import { phaseAtTime } from '../lib/phase'
 import type { SwingDetail, SwingSummary, Benchmark } from '../lib/types'
 
 const ZONE_TEXT: Record<string, string> = {
   green: 'text-garage-green', yellow: 'text-[#E8B931]', red: 'text-garage-red',
 }
+
+const CAP = (s: string) => s.charAt(0).toUpperCase() + s.slice(1)
 
 interface ReviewScreenProps {
   playerId: number | null
@@ -21,6 +24,7 @@ interface ReviewScreenProps {
 
 export function ReviewScreen({ playerId, sessionId, defaultSwingId }: ReviewScreenProps) {
   const [activePhase, setActivePhase] = useState('Impact')
+  const [seek, setSeek] = useState<{ t: number } | null>(null)
   const [selectedId, setSelectedId] = useState<number | null>(defaultSwingId)
   useEffect(() => { setSelectedId(defaultSwingId) }, [defaultSwingId])
 
@@ -92,6 +96,9 @@ export function ReviewScreen({ playerId, sessionId, defaultSwingId }: ReviewScre
   const benchByKey = new Map<string, Benchmark>()
   for (const b of data.benchmarks ?? []) benchByKey.set(`${b.name}|${b.context}`, b)
 
+  const annotated = data.media?.find((m) => m.kind === 'annotated_video')
+  const videoSrc = annotated ? mediaUrl(annotated.path) : null
+
   const cell = (name: string, context: string) => {
     const b = benchByKey.get(`${name}|${context}`)
     if (!b) return <span className="text-[#4A554E]">—</span>
@@ -116,14 +123,19 @@ export function ReviewScreen({ playerId, sessionId, defaultSwingId }: ReviewScre
       {/* HERO: Video Scrubber & Timeline */}
       <div className="bg-[#121714] border border-[#242C27] rounded-[24px] p-6 flex flex-col space-y-6">
         <div className="h-[360px] rounded-[18px] overflow-hidden">
-          <SwingReplay />
+          <SwingReplay src={videoSrc} seek={seek}
+            onTime={(t) => setActivePhase(CAP(phaseAtTime(data.moments, t)))} />
         </div>
 
         {/* 8-Phase Timeline */}
         <PhaseTimeline
           present={new Set(data.moments.map((m) => m.kind === 'address' ? 'Address' : m.kind === 'top' ? 'Top' : m.kind === 'impact' ? 'Impact' : m.kind))}
           active={activePhase}
-          onSeek={setActivePhase} />
+          onSeek={(label) => {
+            setActivePhase(label)
+            const mt = data.moments.find((m) => CAP(m.kind) === label)
+            if (mt?.time_s != null) setSeek({ t: mt.time_s })
+          }} />
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">

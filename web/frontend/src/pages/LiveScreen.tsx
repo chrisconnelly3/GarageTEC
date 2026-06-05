@@ -32,7 +32,7 @@ export function LiveScreen({ playerId, sessionId, lastSwing, activeClub = null, 
   useEffect(() => { reload() }, [lastSwing]) // eslint-disable-line react-hooks/exhaustive-deps
 
   const [videoTime, setVideoTime] = useState(0)
-  const [seekTo, setSeekTo] = useState<number | null>(null)
+  const [seek, setSeek] = useState<{ t: number } | null>(null)
   const moments = data?.moments ?? []
   const currentPhase = phaseAtTime(moments, videoTime)
 
@@ -92,12 +92,12 @@ export function LiveScreen({ playerId, sessionId, lastSwing, activeClub = null, 
             <div className="flex flex-col lg:flex-row gap-6">
               <div className="flex-[2] flex flex-col">
                 <div className="h-[360px]">
-                  <SwingReplay src={videoSrc} highlight seekTo={seekTo} onTime={setVideoTime} />
+                  <SwingReplay src={videoSrc} highlight seek={seek} onTime={setVideoTime} />
                 </div>
                 <PhaseTimeline present={present} active={CAP(currentPhase)}
                   onSeek={(label) => {
                     const mt = moments.find((m) => CAP(m.kind) === label)
-                    if (mt?.time_s != null) setSeekTo(mt.time_s)
+                    if (mt?.time_s != null) setSeek({ t: mt.time_s })
                   }} />
               </div>
               <div className="flex-1">

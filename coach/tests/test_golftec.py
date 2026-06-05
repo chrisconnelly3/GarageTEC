@@ -72,3 +72,20 @@ def test_benchmark_skips_metrics_without_golftec_target():
     metrics = [{"name": "head_sway_in", "context": "impact", "value": 1.0,
                 "unit": "in", "method": "shoulder_ratio_0.24"}]
     assert golftec.benchmark_metrics(metrics) == []
+
+
+def test_supplementary_references_merged():
+    ref = golftec.load()
+    xf = ref["x_factor_deg"]["contexts"]["top"]
+    assert xf["value"] == 43 and xf["two_d_comparable_now"] is False
+    ee = ref["early_extension_in"]["contexts"]["impact"]
+    assert ee["value"] == 0 and ee["two_d_comparable_now"] is True
+    hs = ref["head_sway_in"]["contexts"]["top"]
+    assert hs["value"] == 4.5 and hs["two_d_comparable_now"] is True
+    assert ref["x_factor_stretch_deg"]["contexts"]["downswing"]["value"] == 5
+    assert ref["shoulder_tilt_deg"]["contexts"]["address"]["value"] == 10
+
+
+def test_compare_uses_supplementary_target():
+    c = golftec.compare("early_extension_in", "impact", 1.5)
+    assert c["comparable"] is True and c["target"] == 0 and c["delta"] == 1.5

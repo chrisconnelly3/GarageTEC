@@ -1,0 +1,30 @@
+{
+  "x_factor_deg": {
+    "metric": "x_factor_deg",
+    "contexts": {
+      "top": {"value": 43, "two_d_comparable_now": false,
+              "source": "derived shoulder_turn-hip_turn (41) + research (~45), midpoint 43"}
+    }
+  },
+  "x_factor_stretch_deg": {
+    "metric": "x_factor_stretch_deg",
+    "contexts": {
+      "downswing": {"value": 5, "two_d_comparable_now": false,
+                    "source": "biomechanics literature (~5 deg)"}
+    }
+  },
+  "head_sway_in": {
+    "metric": "head_sway_in",
+    "contexts": {
+      "top": {"value": 4.5, "two_d_comparable_now": true,
+              "source": "research: tour trail-side head sway ~3-6 in during backswing; 4.5 midpoint"}
+    }
+  },
+  "early_extension_in": {
+    "metric": "early_extension_in",
+    "contexts": {
+      "impact": {"value": 0, "two_d_comparable_now": true,
+                 "source": "GolfTEC pass/fail screen: pros ~0 early extension"}
+    }
+  }
+}

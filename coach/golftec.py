@@ -6,13 +6,25 @@ comparable when it is two_d_comparable_now OR a 3D value is available.
 import json
 import os
 
-_PATH = os.path.join(os.path.dirname(__file__), "norms", "pro_reference",
-                     "golftec_reference.json")
+_DIR = os.path.join(os.path.dirname(__file__), "norms", "pro_reference")
+_PATH = os.path.join(_DIR, "golftec_reference.json")
+_SUPP_PATH = os.path.join(_DIR, "supplementary_reference.json")
 
 
-def load(path=None):
+def load(path=None, supp_path=None):
+    """Authoritative GolfTEC references merged with the supplementary (non-GolfTEC,
+    source-tagged) references. GolfTEC wins on any key collision."""
     with open(path or _PATH, "r", encoding="utf-8") as f:
-        return json.load(f)
+        ref = json.load(f)
+    sp = supp_path or _SUPP_PATH
+    if os.path.exists(sp):
+        with open(sp, "r", encoding="utf-8") as f:
+            for name, entry in json.load(f).items():
+                existing = ref.get(name)
+                # Only override if GolfTEC has no real target (no "contexts" key)
+                if existing is None or "contexts" not in existing:
+                    ref[name] = entry
+    return ref
 
 
 def compare(name, context, value, has_3d=False, ref=None):

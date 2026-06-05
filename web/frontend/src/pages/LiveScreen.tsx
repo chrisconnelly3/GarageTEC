@@ -6,7 +6,7 @@ import { ClubSelector } from '../components/ClubSelector'
 import { PhaseTimeline } from '../components/PhaseTimeline'
 import { motion, AnimatePresence } from 'framer-motion'
 import { useApi } from '../lib/useApi'
-import { getLatestSwing, getHistory, mediaUrl } from '../lib/api'
+import { getLatestSwing, getHistory, getBallHistory, mediaUrl } from '../lib/api'
 import { labelFor, coachingToInsights, isEstimated } from '../lib/format'
 import { BODY_CARD_ORDER, BALL_BENCHMARK_ORDER, BALL_RAW_ORDER, METRIC_UNIT } from '../lib/metricConfig'
 import { phaseAtTime, phaseMoments } from '../lib/phase'
@@ -49,6 +49,21 @@ export function LiveScreen({ playerId, sessionId, lastSwing, activeClub = null, 
       return Object.fromEntries(entries)
     },
     [playerId, swingId, currentPhase],
+  )
+
+  const ballClub = data?.shot?.club ?? null
+  const { data: ballHistories } = useApi<Record<string, { value: number }[]>>(
+    async () => {
+      if (!playerId || !swingId || !ballClub) return {}
+      const entries = await Promise.all(
+        BALL_BENCHMARK_ORDER.map(async (key) => {
+          const h = await getBallHistory(playerId, key, ballClub).catch(() => ({ points: [] }))
+          return [key, (h.points ?? []).slice(0, -1)] as const
+        }),
+      )
+      return Object.fromEntries(entries)
+    },
+    [playerId, swingId, ballClub],
   )
 
   const annotated = data?.media?.find((m) => m.kind === 'annotated_video')
@@ -144,7 +159,7 @@ export function LiveScreen({ playerId, sessionId, lastSwing, activeClub = null, 
                     const b = bench.get(key); if (!b) continue
                     cards.push(<MetricCard key={key} label={b.label} value={b.value} unit={b.unit}
                       target={b.target} delta={b.delta} zone={b.zone} state="ok"
-                      trend={{ delta: 0, towardPro: null }} />)
+                      trend={computeTrend((ballHistories?.[key] ?? []).slice(-10), b.value, b.target, b.direction)} />)
                   }
                   for (const key of BALL_RAW_ORDER) {
                     const r = raw.get(key); if (!r || r.value == null) continue

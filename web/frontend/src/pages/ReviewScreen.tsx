@@ -4,10 +4,11 @@ import { AIInsightCard } from '../components/AIInsightCard'
 import { MetricCard } from '../components/MetricCard'
 import { PhaseTimeline } from '../components/PhaseTimeline'
 import { useApi } from '../lib/useApi'
-import { getSwing, getSwings, mediaUrl } from '../lib/api'
+import { getSwing, getSwings, getBallHistory, mediaUrl } from '../lib/api'
 import { labelFor, coachingToInsights } from '../lib/format'
 import { BALL_BENCHMARK_ORDER, BALL_RAW_ORDER, BODY_CARD_ORDER } from '../lib/metricConfig'
 import { phaseAtTime } from '../lib/phase'
+import { computeTrend } from '../lib/trend'
 import type { SwingDetail, SwingSummary, Benchmark } from '../lib/types'
 
 const ZONE_TEXT: Record<string, string> = {
@@ -37,6 +38,21 @@ export function ReviewScreen({ playerId, sessionId, defaultSwingId }: ReviewScre
   const { data, loading, error } = useApi<SwingDetail | null>(
     () => (swingId ? getSwing(swingId) : Promise.resolve(null)),
     [swingId],
+  )
+
+  const ballClub = data?.shot?.club ?? null
+  const { data: ballHistories } = useApi<Record<string, { value: number }[]>>(
+    async () => {
+      if (!playerId || !swingId || !ballClub) return {}
+      const entries = await Promise.all(
+        BALL_BENCHMARK_ORDER.map(async (key) => {
+          const h = await getBallHistory(playerId, key, ballClub).catch(() => ({ points: [] }))
+          return [key, (h.points ?? []).slice(0, -1)] as const
+        }),
+      )
+      return Object.fromEntries(entries)
+    },
+    [playerId, swingId, ballClub],
   )
 
   const picker = (swings?.length ?? 0) > 0 && (
@@ -203,7 +219,7 @@ export function ReviewScreen({ playerId, sessionId, defaultSwingId }: ReviewScre
               const b = bench.get(key); if (!b) continue
               cards.push(<MetricCard key={key} label={b.label} value={b.value} unit={b.unit}
                 target={b.target} delta={b.delta} zone={b.zone} state="ok"
-                trend={{ delta: 0, towardPro: null }} />)
+                trend={computeTrend((ballHistories?.[key] ?? []).slice(-10), b.value, b.target, b.direction)} />)
             }
             for (const key of BALL_RAW_ORDER) {
               const r = raw.get(key); if (!r || r.value == null) continue

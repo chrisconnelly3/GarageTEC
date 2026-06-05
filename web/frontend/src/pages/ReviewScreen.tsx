@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { SwingReplay } from '../components/SwingReplay'
 import { AIInsightCard } from '../components/AIInsightCard'
 import { BenchmarkPanel } from '../components/BenchmarkPanel'
+import { BallBenchmarkPanel } from '../components/BallBenchmarkPanel'
 import { BallClubStrip } from '../components/BallClubStrip'
 import { cn } from '../lib/utils'
 import { CheckCircle2, AlertCircle } from 'lucide-react'
@@ -263,12 +264,17 @@ export function ReviewScreen({ playerId, sessionId, defaultSwingId }: ReviewScre
         </div>
       </div>
 
-      {/* Matched Shot Panel */}
-      <div className="mt-auto">
-        <h4 className="text-[11px] uppercase tracking-wider text-[#8B978F] font-semibold mb-3 ml-2">
-          Matched R50 Data
-        </h4>
-        <BallClubStrip shot={data.shot} />
+      {/* Matched Shot Panel + ball vs tour */}
+      <div className="mt-auto grid grid-cols-1 lg:grid-cols-3 gap-6">
+        <div className="lg:col-span-2">
+          <h4 className="text-[11px] uppercase tracking-wider text-[#8B978F] font-semibold mb-3 ml-2">
+            Matched R50 Data
+          </h4>
+          <BallClubStrip shot={data.shot} />
+        </div>
+        <BallBenchmarkPanel
+          ball={data.ball_benchmarks ?? []}
+          club={data.shot?.club ?? null} />
       </div>
     </div>
   )

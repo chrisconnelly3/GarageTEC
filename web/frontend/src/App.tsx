@@ -94,6 +94,8 @@ export default function App() {
               sessionId={activeSessionId}
               lastSwing={lastSwing}
               lastCapture={lastCapture}
+              activeClub={capture.status?.active_club ?? null}
+              onSelectClub={capture.selectClub}
             />
           )}
           {activeTab === 'review' && (

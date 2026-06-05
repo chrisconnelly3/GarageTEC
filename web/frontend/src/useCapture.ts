@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { getCaptureStatus, pauseCapture, resumeCapture, restartCapture, setActivePlayer } from "./lib/api";
+import { getCaptureStatus, pauseCapture, resumeCapture, restartCapture, setActivePlayer, setActiveClub } from "./lib/api";
 import type { CaptureStatus, ActivePlayerIn } from "./lib/types";
 
 export default function useCapture(lastCapture: unknown) {
@@ -13,6 +13,7 @@ export default function useCapture(lastCapture: unknown) {
     resume: () => resumeCapture().then(setStatus),
     restart: () => restartCapture().then(refresh),
     selectPlayer: (p: ActivePlayerIn) => setActivePlayer(p).then(setStatus),
+    selectClub: (club: string | null) => setActiveClub(club).then(setStatus),
     refresh,
   };
 }

@@ -7,7 +7,8 @@ export interface Swing { id: number; session_id: number; player_id: number; crea
 export interface Metric { id: number; swing_id: number; name: string; context: string | null; value: number | null; unit: string | null; method: string | null; created_at: string; }
 export interface Moment { id: number; swing_id: number; kind: string; view: string | null; frame_index: number | null; time_s: number | null; }
 export interface Media { id: number; swing_id: number; kind: string; path: string; meta: unknown | null; }
-export interface Shot { id: number; swing_id: number | null; player_id: number | null; session_id: number | null; captured_at: string; device_id: string | null; shot_number: number | null; ball_speed: number | null; total_spin: number | null; spin_axis: number | null; hla: number | null; vla: number | null; carry: number | null; club_speed: number | null; attack_angle: number | null; club_path: number | null; face_to_target: number | null; }
+export interface Shot { id: number; swing_id: number | null; player_id: number | null; session_id: number | null; captured_at: string; device_id: string | null; shot_number: number | null; ball_speed: number | null; total_spin: number | null; spin_axis: number | null; hla: number | null; vla: number | null; carry: number | null; club_speed: number | null; attack_angle: number | null; club_path: number | null; face_to_target: number | null; club: string | null; }
+export interface BallBenchmark { key: string; label: string; unit: string; value: number; target: number; delta: number; near: boolean; }
 
 export interface CoachFinding { metric: string; context?: string | null; value: number; unit?: string | null; vs_baseline?: string | null; vs_ideal?: string | null; ball_effect?: string | null; severity?: "good" | "neutral" | "bad" | null; }
 export interface CoachDrill { name: string; why?: string | null; how?: string | null; }
@@ -18,9 +19,9 @@ export interface Benchmark {
   name: string; context: string; value: number; unit: string | null;
   target: number; delta: number | null; comparable: boolean; reason: string | null;
 }
-export interface SwingDetail { swing: Swing; metrics: Metric[]; benchmarks?: Benchmark[]; moments: Moment[]; shot: Shot | null; coaching: Coaching[]; media: Media[]; }
+export interface SwingDetail { swing: Swing; metrics: Metric[]; benchmarks?: Benchmark[]; ball_benchmarks?: BallBenchmark[]; moments: Moment[]; shot: Shot | null; coaching: Coaching[]; media: Media[]; }
 export interface SessionDetail { session: Session; swings: Swing[]; coaching: Coaching[]; }
-export interface CaptureStatus { status: CaptureState; paused: boolean; connected: boolean; shot_count: number; active_player_id: number | null; last_error: string | null; }
+export interface CaptureStatus { status: CaptureState; paused: boolean; connected: boolean; shot_count: number; active_player_id: number | null; active_club: string | null; last_error: string | null; }
 export interface HistoryPoint { swing_id: number; created_at: string; value: number; }
 export interface History { player: number; metric: string; context: string; points: HistoryPoint[]; }
 export interface SyncProposal { swing_id: number; shot_id: number; confidence: number; reason: string; }

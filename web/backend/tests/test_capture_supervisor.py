@@ -241,3 +241,15 @@ def test_restart_replaces_listener(conn, tmp_path):
     assert _wait(lambda: len(made) == 2 and made[1].alive)
     assert made[0].stop_calls == 1
     sup.stop()
+
+
+def test_active_club_tags_shots_and_status(conn, tmp_path):
+    sup, bus = make_supervisor(conn, tmp_path)
+    sup.set_active_player("Chris", 72.0, "R")
+    sup.set_active_club("7 Iron")
+    assert sup.status().active_club == "7 Iron"
+    saved = sup.handle_message(SHOT_MSG, source="test")
+    assert saved.club == "7 Iron"                    # shot tagged with the club
+    row = conn.execute("SELECT club FROM shot WHERE id=?", (saved.id,)).fetchone()
+    assert row["club"] == "7 Iron"                   # persisted
+    assert "active_club_changed" in [e["event"] for e in bus.drain()]

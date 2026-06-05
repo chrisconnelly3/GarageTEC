@@ -3,6 +3,8 @@ import { SwingReplay } from '../components/SwingReplay'
 import { MetricCard } from '../components/MetricCard'
 import { AIInsightCard } from '../components/AIInsightCard'
 import { BallClubStrip } from '../components/BallClubStrip'
+import { BallBenchmarkPanel } from '../components/BallBenchmarkPanel'
+import { ClubSelector } from '../components/ClubSelector'
 import { motion, AnimatePresence } from 'framer-motion'
 import { useApi } from '../lib/useApi'
 import { getLatestSwing, getHistory } from '../lib/api'
@@ -22,9 +24,11 @@ interface LiveScreenProps {
   sessionId: number | null
   lastSwing: unknown
   lastCapture: unknown
+  activeClub?: string | null
+  onSelectClub?: (club: string | null) => void
 }
 
-export function LiveScreen({ playerId, sessionId, lastSwing }: LiveScreenProps) {
+export function LiveScreen({ playerId, sessionId, lastSwing, activeClub = null, onSelectClub }: LiveScreenProps) {
   const { data, loading, error, reload } = useApi<SwingDetail | null>(
     () =>
       playerId
@@ -69,6 +73,9 @@ export function LiveScreen({ playerId, sessionId, lastSwing }: LiveScreenProps) 
         <div className="rounded-[18px] border border-garage-red/40 bg-garage-red/10 px-6 py-4 text-sm text-garage-red">
           Failed to load live data: {error}
         </div>
+      )}
+      {onSelectClub && (
+        <ClubSelector value={activeClub} onChange={onSelectClub} />
       )}
       <AnimatePresence mode="wait">
         {status === 'waiting' ? (
@@ -131,9 +138,12 @@ export function LiveScreen({ playerId, sessionId, lastSwing }: LiveScreenProps) 
               ))}
             </div>
 
-            {/* Bottom Row: Ball & Club Strip */}
-            <div className="mt-auto pt-2">
+            {/* Bottom Row: Ball & Club Strip + vs-tour comparison */}
+            <div className="mt-auto pt-2 space-y-6">
               <BallClubStrip shot={data?.shot ?? null} />
+              <BallBenchmarkPanel
+                ball={data?.ball_benchmarks ?? []}
+                club={activeClub} />
             </div>
           </motion.div>
         )}

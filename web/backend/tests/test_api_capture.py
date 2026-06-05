@@ -46,3 +46,17 @@ def test_pause_stops_persistence_end_to_end(client, conn):
 
 def test_restart_returns_ok(client):
     assert client.post("/api/capture/restart").json()["ok"] is True
+
+
+def test_clubs_list_endpoint(client):
+    clubs = client.get("/api/capture/clubs").json()
+    assert clubs[0] == "Driver" and clubs[-1] == "PW" and "7 Iron" in clubs
+
+
+def test_active_club_sets_and_reports(client):
+    r = client.post("/api/capture/active-club", json={"club": "7 Iron"})
+    assert r.status_code == 200 and r.json()["active_club"] == "7 Iron"
+    assert client.get("/api/capture/status").json()["active_club"] == "7 Iron"
+    # clearing
+    assert client.post("/api/capture/active-club",
+                       json={"club": None}).json()["active_club"] is None

@@ -237,7 +237,7 @@ _SHOT_COLS = [
     "swing_id", "player_id", "session_id", "captured_at", "device_id",
     "shot_number", "ball_speed", "total_spin", "spin_axis", "hla", "vla",
     "carry", "club_speed", "attack_angle", "club_path", "face_to_target",
-    "raw_json",
+    "club", "raw_json",
 ]
 
 
@@ -396,7 +396,8 @@ def _shot_from_row(r):
                 spin_axis=r["spin_axis"], hla=r["hla"], vla=r["vla"],
                 carry=r["carry"], club_speed=r["club_speed"],
                 attack_angle=r["attack_angle"], club_path=r["club_path"],
-                face_to_target=r["face_to_target"], raw_json=r["raw_json"])
+                face_to_target=r["face_to_target"], club=r["club"],
+                raw_json=r["raw_json"])
 
 
 def get_shot(conn, shot_id):

@@ -33,6 +33,7 @@ CREATE TABLE IF NOT EXISTS shot (
   ball_speed REAL, total_spin REAL, spin_axis REAL, hla REAL, vla REAL,
   carry REAL, club_speed REAL, attack_angle REAL, club_path REAL,
   face_to_target REAL,
+  club TEXT,
   raw_json TEXT
 );
 

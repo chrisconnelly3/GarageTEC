@@ -1,7 +1,7 @@
 from fastapi import APIRouter, Depends, HTTPException, Response
 
 from store import repo
-from coach import golftec
+from coach import golftec, ball_reference
 from web.backend.deps import get_conn
 from web.backend.serializers import (
     swing_dict, metric_dict, moment_dict, shot_dict, coaching_dict, media_dict,
@@ -12,12 +12,15 @@ router = APIRouter(prefix="/api/swings", tags=["swings"])
 
 def _swing_detail(conn, swing, shot):
     metrics = [metric_dict(m) for m in repo.get_metrics(conn, swing.id)]
+    shot_d = shot_dict(shot)
     return {
         "swing": swing_dict(swing),
         "metrics": metrics,
-        "benchmarks": golftec.benchmark_metrics(metrics),   # vs tour pro
+        "benchmarks": golftec.benchmark_metrics(metrics),   # body vs tour pro
+        "shot": shot_d,
+        "ball_benchmarks": ball_reference.benchmark_ball(   # ball vs TrackMan
+            shot_d, shot.club if shot else None),
         "moments": [moment_dict(m) for m in repo.get_moments(conn, swing.id)],
-        "shot": shot_dict(shot),
         "coaching": [coaching_dict(c)
                      for c in repo.get_coaching(conn, swing_id=swing.id)],
         "media": [media_dict(md) for md in repo.get_media(conn, swing.id)],

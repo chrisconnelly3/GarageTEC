@@ -78,3 +78,11 @@ def test_latest_swing_204_when_none(client, conn):
     p = seed_player(conn)
     r = client.get(f"/api/swings/latest?player={p.id}")
     assert r.status_code == 204
+
+
+def test_swing_detail_includes_ball_benchmarks_key(client, conn):
+    from web.backend.tests.conftest import seed_player, seed_ready_swing
+    p = seed_player(conn)
+    sw = seed_ready_swing(conn, p)
+    body = client.get(f"/api/swings/{sw.id}").json()
+    assert "ball_benchmarks" in body and isinstance(body["ball_benchmarks"], list)

@@ -15,6 +15,10 @@ class ActivePlayerIn(BaseModel):
     handedness: str
 
 
+class ActiveClubIn(BaseModel):
+    club: str | None = None
+
+
 def _status_dict(sup):
     return asdict(sup.status())
 
@@ -46,4 +50,17 @@ def restart(sup=Depends(get_supervisor), conn=Depends(get_conn)):
 @router.post("/active-player")
 def active_player(body: ActivePlayerIn, sup=Depends(get_supervisor)):
     sup.set_active_player(body.name, body.height_in, body.handedness)
+    return _status_dict(sup)
+
+
+@router.get("/clubs")
+def clubs():
+    """Club options for the Live club selector (TrackMan reference order)."""
+    from coach.ball_reference import CLUBS
+    return CLUBS
+
+
+@router.post("/active-club")
+def active_club(body: ActiveClubIn, sup=Depends(get_supervisor)):
+    sup.set_active_club(body.club)
     return _status_dict(sup)

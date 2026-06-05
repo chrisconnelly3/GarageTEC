@@ -42,6 +42,7 @@ class CaptureStatus:
     connected: bool
     shot_count: int
     active_player_id: Optional[int]
+    active_club: Optional[str]
     last_error: Optional[str]
 
 
@@ -80,6 +81,7 @@ class CaptureSupervisor:
         self._status = "stopped"
         self._connected = False
         self._shot_count = 0
+        self.active_club = None          # set via the Live club selector
         self._last_error = None
         self._listener = None
         self._run = False
@@ -96,6 +98,7 @@ class CaptureSupervisor:
             self.persister._buffer(shot)  # no one selected: don't lose it
             return None
         self.session_mgr.attribute(self.conn, shot)
+        shot.club = self.active_club     # tag with the currently-selected club
         saved = self.persister.save(self.conn, shot)
         if saved is None:
             return None  # buffered on DB failure; nothing to sync/emit yet
@@ -130,6 +133,13 @@ class CaptureSupervisor:
                          {"player_id": player.id, "name": player.name})
         return player
 
+    def set_active_club(self, club):
+        """The Live club selector sets which club is being hit; every subsequent
+        shot is tagged with it (so the 'vs tour' ball comparison is per-club)."""
+        self.active_club = club or None
+        self.bus.publish("active_club_changed", {"club": self.active_club})
+        return self.active_club
+
     # ---- status -----------------------------------------------------------
     def status(self) -> CaptureStatus:
         with self._lock:
@@ -140,6 +150,7 @@ class CaptureSupervisor:
                 paused=self._paused, connected=self._connected,
                 shot_count=self._shot_count,
                 active_player_id=ap.id if ap else None,
+                active_club=self.active_club,
                 last_error=self._last_error)
 
     # ---- pause/resume -----------------------------------------------------

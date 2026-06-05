@@ -25,9 +25,19 @@ def connect(path=None):
     return conn
 
 
+def _add_column_if_missing(conn, table, col, decl):
+    """Idempotent ALTER for columns added to existing tables (CREATE TABLE IF NOT
+    EXISTS only covers fresh DBs)."""
+    cols = {r[1] for r in conn.execute(f"PRAGMA table_info({table})")}
+    if col not in cols:
+        conn.execute(f"ALTER TABLE {table} ADD COLUMN {col} {decl}")
+
+
 def init_db(path=None, conn=None):
     conn = conn or connect(path)
     conn.executescript((Path(__file__).parent / "schema.sql").read_text())
+    # lightweight migrations for columns added to pre-existing tables
+    _add_column_if_missing(conn, "shot", "club", "TEXT")
     if conn.execute("SELECT version FROM schema_version").fetchone() is None:
         conn.execute("INSERT INTO schema_version(version) VALUES (?)",
                      (SCHEMA_VERSION,))

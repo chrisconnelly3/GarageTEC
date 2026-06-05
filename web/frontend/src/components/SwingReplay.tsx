@@ -43,7 +43,7 @@ export function SwingReplay({ highlight }: SwingReplayProps) {
             <line x1="45" y1="42" x2="40" y2="55" /> {/* Right Forearm */}
             <circle cx="50" cy="15" r="4" fill="rgba(132, 206, 57, 0.2)" />{' '}
             {/* Head */}
-            <circle cx="40" cy="55" r="1.5" fill="#A3FE41" /> {/* Hands */}
+            <circle cx="40" cy="55" r="1.5" fill="#79BC30" /> {/* Hands */}
             {/* Club */}
             <line
               x1="40"

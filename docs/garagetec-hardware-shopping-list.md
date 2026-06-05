@@ -61,24 +61,30 @@ Calibration is invalidated the instant a camera moves, so **stability > convenie
 
 ## 4. The mini-PC (runs the app + pose)
 
-The AI coach is **cloud (Claude API)** by design, so **no GPU is required.** The
-load is two camera streams + MediaPipe pose (CPU) + the FastAPI/React app. Recommend
-**Windows** (the app uses Windows camera enumeration / DirectShow and is built/
-tested on Windows).
+The AI coach is **cloud (Claude API)** by design (no local GPU), and — key point
+— the app processes each swing as a **short recorded clip a couple seconds after
+you hit**, NOT a real-time 120fps live pose stream. So MediaPipe pose just chews
+through a few hundred frames per swing on the CPU; this is **normal-laptop-class
+work, not a workstation.** You were right to question the beefy specs — here's the
+honest sizing:
 
-**Minimum / recommended:**
-| Part | Minimum | Recommended |
-|---|---|---|
-| CPU | modern 6-core (Intel i5 12th-gen+ / Ryzen 5 5600+) | 8-core i7 / Ryzen 7 (real-time 2-cam pose is CPU-heavy) |
-| RAM | 16 GB | 32 GB |
-| Storage | 500 GB NVMe SSD | 1 TB NVMe (swing videos are large) |
-| USB | 2+ USB-3 ports on separate controllers | 4× USB-3 (cameras + touchscreen + R50 dongle) |
-| GPU | none (integrated fine) | none — unless you later move the LLM local (then NVIDIA ≥8 GB VRAM, RTX 4060+) |
-| OS | Windows 11 | Windows 11 |
+| Part | Minimum (fine) | Comfortable | Overkill (skip unless…) |
+|---|---|---|---|
+| CPU | modern 4-core (i3-12xxx / Ryzen 3-5) | 6-core (i5 / Ryzen 5) — less wait on pose | 8-core — only if you later go real-time live |
+| RAM | **8 GB** | **16 GB** | 32 GB — unnecessary |
+| Storage | **256 GB** NVMe | **500 GB** | 1 TB — only if you hoard lots of swing video |
+| USB | 2 USB-3 ports (ideally separate controllers) | 4× USB-3 | — |
+| GPU | none (integrated graphics fine) | none | NVIDIA ≥8 GB only if you move the LLM *local* later |
+| OS | Windows 11 | Windows 11 | — |
 
-**Where to look:** Beelink / Minisforum / GEEKOM Ryzen 7 mini-PCs (~$350–600), or
-an Intel NUC. (A Mac mini M-series has a great CPU but the app's DirectShow camera
-path is Windows-specific — stick with Windows.)
+A swing clip is ~10–50 MB and the database is tiny, so storage fills slowly;
+faster CPU mainly just shortens the post-swing processing wait (a mid CPU does a
+swing in seconds). **A 6-core / 16 GB / 256–500 GB Windows mini-PC is the sweet
+spot** — your laptop would likely run it fine.
+
+**Where to look:** Beelink / Minisforum / GEEKOM mini-PCs (Ryzen 5/7, ~$300–500),
+or an Intel NUC. (A Mac mini M-series has a great CPU but the app's DirectShow
+camera enumeration is Windows-specific — stick with Windows.)
 
 ## 5. The display
 
@@ -130,7 +136,8 @@ showed dark/uneven light hurts pose).
    exposure, ~80° lens.
 2. **2× sturdy mounts** (wall mounts ideal) + anchoring.
 3. **2× active USB extensions** + **1× powered USB-3 hub**.
-4. **Windows mini-PC:** 8-core, 32 GB RAM, 1 TB NVMe, 4× USB-3, no GPU needed.
+4. **Windows mini-PC:** 6-core, 16 GB RAM, 256–500 GB NVMe, 2–4× USB-3, no GPU
+   needed (laptop-class — not a workstation).
 5. **24–27" capacitive touchscreen** + stand.
 6. **Flicker-free high-CRI LED lighting.**
 7. Net/mat (if needed) + same-LAN networking for the R50.

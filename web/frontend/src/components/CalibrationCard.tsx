@@ -97,7 +97,7 @@ export function CalibrationCard() {
   const grid = [];
   for (let r = 0; r < 3; r++) for (let c = 0; c < 4; c++)
     grid.push(<div key={`${c},${r}`} className={
-      "h-6 rounded " + (covered.has(`${c},${r}`) ? "bg-[#A3FE41]" : "bg-[#1A211D]")} />);
+      "h-6 rounded " + (covered.has(`${c},${r}`) ? "bg-[#79BC30]" : "bg-[#1A211D]")} />);
 
   return (
     <div className="rounded-2xl bg-[#1A211D] p-6 space-y-4">
@@ -174,7 +174,7 @@ export function CalibrationCard() {
       <div className="flex gap-3">
         {!capturing
           ? <button onClick={onStart}
-              className="px-4 py-2 rounded-lg bg-[#A3FE41] text-[#0A0D0B] font-medium">Start Capture</button>
+              className="px-4 py-2 rounded-lg bg-[#79BC30] text-[#0A0D0B] font-medium">Start Capture</button>
           : <button onClick={onStop}
               className="px-4 py-2 rounded-lg bg-[#2A332C] text-[#E7EEE9]">Stop</button>}
         <button onClick={onRun} disabled={goodPoses < minPoses}
@@ -185,7 +185,7 @@ export function CalibrationCard() {
       </div>
 
       {result && (
-        <div className={"text-sm " + (result.ok ? "text-[#A3FE41]" : "text-red-400")}>
+        <div className={"text-sm " + (result.ok ? "text-[#79BC30]" : "text-red-400")}>
           {result.ok
             ? `✓ Calibrated · ${result.n_poses} poses · reproj ${result.reprojection_error?.toFixed(2)}px`
             : `✗ ${result.error}`}
@@ -218,7 +218,7 @@ export function CalibrationCard() {
                 </span>
                 <span className="flex items-center gap-2">
                   {item.is_active ? (
-                    <span className="rounded px-2 py-0.5 bg-[#A3FE41] text-[#0A0D0B] font-medium">active</span>
+                    <span className="rounded px-2 py-0.5 bg-[#79BC30] text-[#0A0D0B] font-medium">active</span>
                   ) : (
                     <button
                       onClick={() => onActivate(item.id)}

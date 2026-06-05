@@ -8,7 +8,16 @@ export interface Metric { id: number; swing_id: number; name: string; context: s
 export interface Moment { id: number; swing_id: number; kind: string; view: string | null; frame_index: number | null; time_s: number | null; }
 export interface Media { id: number; swing_id: number; kind: string; path: string; meta: unknown | null; }
 export interface Shot { id: number; swing_id: number | null; player_id: number | null; session_id: number | null; captured_at: string; device_id: string | null; shot_number: number | null; ball_speed: number | null; total_spin: number | null; spin_axis: number | null; hla: number | null; vla: number | null; carry: number | null; club_speed: number | null; attack_angle: number | null; club_path: number | null; face_to_target: number | null; club: string | null; }
-export interface BallBenchmark { key: string; label: string; unit: string; value: number; target: number; delta: number; near: boolean; }
+export type MetricZone = "green" | "yellow" | "red";
+export type MetricState = "ok" | "needs_3d" | "raw";
+export type MetricDirection = "match" | "higher" | "lower" | "range";
+
+export interface BallBenchmark {
+  key: string; label: string; unit: string; value: number; target: number;
+  delta: number; near: boolean;
+  direction: MetricDirection | null;
+  zone: MetricZone | null;
+}
 // Raw R50/GSPro fields we surface but don't benchmark (no TrackMan column): club
 // path, face-to-target, spin axis, back/side spin. value may be null.
 export interface BallRawField { key: string; label: string; unit: string; value: number | null; }
@@ -20,7 +29,11 @@ export interface Coaching { id: number; swing_id: number | null; session_id: num
 
 export interface Benchmark {
   name: string; context: string; value: number; unit: string | null;
-  target: number; delta: number | null; comparable: boolean; reason: string | null;
+  target: number | null; delta: number | null; comparable: boolean;
+  reason: string | null;
+  direction: MetricDirection | null;
+  zone: MetricZone | null;
+  state: MetricState;
 }
 export interface SwingDetail { swing: Swing; metrics: Metric[]; benchmarks?: Benchmark[]; ball_benchmarks?: BallBenchmark[]; ball_raw?: BallRawField[]; moments: Moment[]; shot: Shot | null; coaching: Coaching[]; media: Media[]; }
 export interface SessionDetail { session: Session; swings: Swing[]; coaching: Coaching[]; }

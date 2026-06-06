@@ -4,6 +4,7 @@ from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel, field_validator
 
 from store import repo
+from web.backend.capture import NoActivePlayerError
 from web.backend.deps import get_conn, get_supervisor
 
 router = APIRouter(prefix="/api/capture", tags=["capture"])
@@ -43,6 +44,24 @@ def _status_dict(sup):
 
 @router.get("/status")
 def status(sup=Depends(get_supervisor)):
+    return _status_dict(sup)
+
+
+@router.post("/start-session")
+def start_session(sup=Depends(get_supervisor)):
+    """Open a new recording session for the active player and turn recording
+    ON. 409 if no active player (nothing to attribute shots to)."""
+    try:
+        sup.start_session()
+    except NoActivePlayerError as e:
+        raise HTTPException(status_code=409, detail=str(e))
+    return _status_dict(sup)
+
+
+@router.post("/end-session")
+def end_session(sup=Depends(get_supervisor)):
+    """End the active recording session and turn recording OFF."""
+    sup.end_session()
     return _status_dict(sup)
 
 

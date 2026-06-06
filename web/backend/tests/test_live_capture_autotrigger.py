@@ -49,6 +49,7 @@ def test_shot_triggers_live_capture_on_shot(conn, tmp_path):
     live = RecordingLive()
     sup, _ = _sup(conn, tmp_path, live=live)
     sup.set_active_player("Chris", 72.0, "R")
+    sup.start_session()
     saved = sup.handle_message(SHOT_MSG, source="t")
     assert saved is not None
     assert len(live.calls) == 1
@@ -61,6 +62,7 @@ def test_shot_triggers_live_capture_on_shot(conn, tmp_path):
 def test_no_live_capture_reference_is_safe(conn, tmp_path):
     sup, _ = _sup(conn, tmp_path, live=None)
     sup.set_active_player("Chris", 72.0, "R")
+    sup.start_session()
     saved = sup.handle_message(SHOT_MSG, source="t")  # must not raise
     assert saved is not None
 
@@ -71,6 +73,7 @@ def test_live_capture_error_never_blocks_capture(conn, tmp_path):
             raise RuntimeError("live capture exploded")
     sup, _ = _sup(conn, tmp_path, live=Boom())
     sup.set_active_player("Chris", 72.0, "R")
+    sup.start_session()
     saved = sup.handle_message(SHOT_MSG, source="t")
     assert saved is not None  # capture still succeeds
 
@@ -79,6 +82,7 @@ def test_paused_shot_does_not_trigger_live_capture(conn, tmp_path):
     live = RecordingLive()
     sup, _ = _sup(conn, tmp_path, live=live)
     sup.set_active_player("Chris", 72.0, "R")
+    sup.start_session()
     sup.pause()
     sup.handle_message(SHOT_MSG, source="t")
     assert live.calls == []

@@ -38,6 +38,7 @@ def make_supervisor(conn, tmp_path, **kw):
 def test_running_shot_persists_attributes_syncs_and_emits(conn, tmp_path):
     sup, bus = make_supervisor(conn, tmp_path)
     sup.set_active_player("Chris", 72.0, "R")
+    sup.start_session()
 
     saved = sup.handle_message(SHOT_MSG, source="test")
 
@@ -54,6 +55,7 @@ def test_running_shot_persists_attributes_syncs_and_emits(conn, tmp_path):
 def test_paused_discards_shot_no_persist_no_emit(conn, tmp_path):
     sup, bus = make_supervisor(conn, tmp_path)
     sup.set_active_player("Chris", 72.0, "R")
+    sup.start_session()
     sup.pause()
 
     out = sup.handle_message(SHOT_MSG, source="test")
@@ -69,6 +71,7 @@ def test_paused_discards_shot_no_persist_no_emit(conn, tmp_path):
 def test_resume_after_pause_persists_again(conn, tmp_path):
     sup, _ = make_supervisor(conn, tmp_path)
     sup.set_active_player("Chris", 72.0, "R")
+    sup.start_session()
     sup.pause()
     sup.handle_message(SHOT_MSG, source="t")
     sup.resume()
@@ -79,6 +82,7 @@ def test_resume_after_pause_persists_again(conn, tmp_path):
 def test_heartbeat_is_ignored_even_when_running(conn, tmp_path):
     sup, bus = make_supervisor(conn, tmp_path)
     sup.set_active_player("Chris", 72.0, "R")
+    sup.start_session()
     out = sup.handle_message(HEARTBEAT_MSG, source="t")
     assert out is None
     assert conn.execute("SELECT COUNT(*) c FROM shot").fetchone()["c"] == 0
@@ -89,7 +93,12 @@ def test_shot_with_no_active_player_is_dropped_not_orphaned(conn, tmp_path):
     """Shots arriving before a player is selected must NOT persist an
     unattributable orphan (Fix 2: player_id=None rows are invisible and
     uncorrectable; drop them cleanly with a status event)."""
-    sup, bus = make_supervisor(conn, tmp_path)  # nobody selected yet
+    sup, bus = make_supervisor(conn, tmp_path)
+    # Force the supervisor into a recording state without an active player so we
+    # exercise the no-player drop path (not the no-session gate). Normally
+    # start_session() requires a player; this directly flips the recording flag.
+    sup._recording = True
+    sup._active_session_id = 1
     out = sup.handle_message(SHOT_MSG, source="t")
     assert out is None
     assert conn.execute("SELECT COUNT(*) c FROM shot").fetchone()["c"] == 0
@@ -106,6 +115,7 @@ def test_set_active_player_attributes_to_that_player_and_emits(conn, tmp_path):
     sup, bus = make_supervisor(conn, tmp_path)
     a = sup.set_active_player("Ann", 65.0, "L")
     b = sup.set_active_player("Bob", 73.0, "R")
+    sup.start_session()
     saved = sup.handle_message(SHOT_MSG, source="t")
     assert saved.player_id == b.id and saved.player_id != a.id
     assert any(e["event"] == "active_player_changed" for e in bus.drain())
@@ -114,6 +124,7 @@ def test_set_active_player_attributes_to_that_player_and_emits(conn, tmp_path):
 def test_two_shots_same_player_share_one_session(conn, tmp_path):
     sup, _ = make_supervisor(conn, tmp_path)
     sup.set_active_player("Chris", 72.0, "R")
+    sup.start_session()
     s1 = sup.handle_message(SHOT_MSG, source="t")
     s2 = sup.handle_message(SHOT_MSG, source="t")
     assert s1.session_id == s2.session_id
@@ -126,6 +137,93 @@ def test_status_snapshot_shape(conn, tmp_path):
     assert st.paused is False
     assert st.shot_count == 0
     assert st.active_player_id is None
+    # new session-gate fields: recording is OFF until start_session()
+    assert st.session_active is False
+    assert st.active_session_id is None
+
+
+# ---- Start/End Session recording gate -------------------------------------
+
+def test_start_session_with_no_active_player_errors(conn, tmp_path):
+    sup, bus = make_supervisor(conn, tmp_path)  # nobody selected
+    with pytest.raises(ValueError):
+        sup.start_session()
+    # recording must remain off; no session created
+    assert sup.status().session_active is False
+    assert sup.status().active_session_id is None
+    assert conn.execute("SELECT COUNT(*) c FROM session").fetchone()["c"] == 0
+
+
+def test_start_session_opens_session_and_turns_recording_on(conn, tmp_path):
+    sup, bus = make_supervisor(conn, tmp_path)
+    player = sup.set_active_player("Chris", 72.0, "R")
+    st = sup.start_session()
+    assert st.session_active is True
+    assert st.active_session_id is not None
+    # a real session row exists for this player
+    row = conn.execute("SELECT player_id, ended_at FROM session WHERE id=?",
+                       (st.active_session_id,)).fetchone()
+    assert row["player_id"] == player.id
+    assert row["ended_at"] is None  # still open
+
+
+def test_shot_while_recording_persists_to_started_session(conn, tmp_path):
+    sup, _ = make_supervisor(conn, tmp_path)
+    sup.set_active_player("Chris", 72.0, "R")
+    st = sup.start_session()
+    saved = sup.handle_message(SHOT_MSG, source="t")
+    assert saved is not None
+    # the shot attaches to the explicitly-started session, not an arbitrary one
+    assert saved.session_id == st.active_session_id
+    assert conn.execute("SELECT COUNT(*) c FROM shot").fetchone()["c"] == 1
+
+
+def test_shot_while_not_recording_is_dropped_with_no_session_event(conn, tmp_path):
+    sup, bus = make_supervisor(conn, tmp_path)
+    sup.set_active_player("Chris", 72.0, "R")  # player set, but NO session
+    out = sup.handle_message(SHOT_MSG, source="t")
+    assert out is None
+    assert conn.execute("SELECT COUNT(*) c FROM shot").fetchone()["c"] == 0
+    assert sup.persister.pending_count() == 0   # NOT buffered
+    assert sup.status().session_active is False
+    dropped = [e for e in bus.drain()
+               if e["event"] == "capture_status"
+               and e["data"].get("status") == "shot_dropped_no_session"]
+    assert dropped, "expected shot_dropped_no_session status event"
+
+
+def test_end_session_turns_recording_off_and_ends_session(conn, tmp_path):
+    sup, _ = make_supervisor(conn, tmp_path)
+    sup.set_active_player("Chris", 72.0, "R")
+    st = sup.start_session()
+    sid = st.active_session_id
+    end_st = sup.end_session()
+    assert end_st.session_active is False
+    assert end_st.active_session_id is None
+    # the session is now closed in the store
+    row = conn.execute("SELECT ended_at FROM session WHERE id=?", (sid,)).fetchone()
+    assert row["ended_at"] is not None
+    # subsequent shots are dropped (recording is off)
+    out = sup.handle_message(SHOT_MSG, source="t")
+    assert out is None
+    assert conn.execute("SELECT COUNT(*) c FROM shot").fetchone()["c"] == 0
+
+
+def test_end_session_when_none_active_is_safe(conn, tmp_path):
+    sup, _ = make_supervisor(conn, tmp_path)
+    sup.set_active_player("Chris", 72.0, "R")
+    st = sup.end_session()  # nothing to end
+    assert st.session_active is False
+    assert st.active_session_id is None
+
+
+def test_start_session_emits_status_event(conn, tmp_path):
+    sup, bus = make_supervisor(conn, tmp_path)
+    sup.set_active_player("Chris", 72.0, "R")
+    sup.start_session()
+    statuses = [e["data"].get("status") for e in bus.drain()
+                if e["event"] == "capture_status"]
+    assert "session_started" in statuses
 
 
 def test_set_handedness_propagates_to_listener_on_player_switch(conn, tmp_path):
@@ -255,6 +353,7 @@ def test_restart_replaces_listener(conn, tmp_path):
 def test_active_club_tags_shots_and_status(conn, tmp_path):
     sup, bus = make_supervisor(conn, tmp_path)
     sup.set_active_player("Chris", 72.0, "R")
+    sup.start_session()
     sup.set_active_club("7 Iron")
     assert sup.status().active_club == "7 Iron"
     saved = sup.handle_message(SHOT_MSG, source="test")

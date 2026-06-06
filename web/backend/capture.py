@@ -13,6 +13,8 @@ from catcher import shotmap
 from catcher.openconnect import OpenConnectListener, PORT_DEFAULT
 from catcher.persist import ShotPersister
 from catcher.sessionmgr import SessionManager
+from store import db as dbmod
+from store import repo
 from sync.service import SyncService
 
 
@@ -44,6 +46,13 @@ class CaptureStatus:
     active_player_id: Optional[int]
     active_club: Optional[str]
     last_error: Optional[str]
+    session_active: bool             # is a recording session open + gating ON
+    active_session_id: Optional[int] # id of the session shots attribute to
+
+
+class NoActivePlayerError(ValueError):
+    """Raised by start_session() when no player is selected. The API maps this
+    to HTTP 409 (cannot start recording without someone to attribute shots to)."""
 
 
 def _default_listener_factory(**kwargs):
@@ -82,6 +91,11 @@ class CaptureSupervisor:
 
         self._lock = threading.Lock()
         self._paused = False
+        # Recording gate: the R50 listener always listens, but shots are only
+        # persisted while a session is actively recording. start_session() turns
+        # this on (and opens the session shots attribute to); end_session() off.
+        self._recording = False
+        self._active_session_id = None
         self._status = "stopped"
         self._connected = False
         self._shot_count = 0
@@ -97,6 +111,14 @@ class CaptureSupervisor:
         shot = shotmap.map_message(obj)
         if shot is None:
             return None  # heartbeat
+        if not self._recording or self._active_session_id is None:
+            # No active recording session: the listener stays connected but the
+            # shot is dropped (not persisted, not buffered). Recording is gated
+            # by an explicit Start Session; mirrors the no-player drop pattern.
+            self.bus.publish("capture_status",
+                             {"status": "shot_dropped_no_session",
+                              "detail": "no active session; shot discarded"})
+            return None
         if self._paused:
             return None  # discard: keep R50 connected, do NOT persist/analyze
         if self.session_mgr.active_player is None:
@@ -107,7 +129,12 @@ class CaptureSupervisor:
                              {"status": "shot_dropped_no_player",
                               "detail": "no active player; shot discarded"})
             return None
-        self.session_mgr.attribute(self.conn, shot)
+        # Attribute to the explicitly-started session (not an arbitrary
+        # auto-created one): stamp player + the active session directly.
+        shot.player_id = self.session_mgr.active_player.id
+        shot.session_id = self._active_session_id
+        if not shot.captured_at:
+            shot.captured_at = dbmod.now_iso()
         shot.club = self.active_club     # tag with the currently-selected club
         saved = self.persister.save(self.conn, shot)
         if saved is None:
@@ -168,7 +195,42 @@ class CaptureSupervisor:
                 shot_count=self._shot_count,
                 active_player_id=ap.id if ap else None,
                 active_club=self.active_club,
-                last_error=self._last_error)
+                last_error=self._last_error,
+                session_active=self._recording,
+                active_session_id=self._active_session_id)
+
+    # ---- session recording gate ------------------------------------------
+    def start_session(self) -> CaptureStatus:
+        """Open a NEW recording session for the active player and turn the
+        recording gate ON. While ON, incoming R50 shots are persisted and
+        attributed to this session. Requires an active player.
+
+        Raises NoActivePlayerError (a ValueError) if no player is selected."""
+        ap = self.session_mgr.active_player
+        if ap is None:
+            raise NoActivePlayerError(
+                "cannot start a session: no active player selected")
+        session = repo.create_session(self.conn, ap.id)
+        with self._lock:
+            self._active_session_id = session.id
+            self._recording = True
+        self.bus.publish("capture_status",
+                         {"status": "session_started",
+                          "session_id": session.id, "player_id": ap.id})
+        return self.status()
+
+    def end_session(self) -> CaptureStatus:
+        """End the active recording session (if any) and turn the recording
+        gate OFF. While OFF, incoming R50 shots are dropped (not persisted)."""
+        with self._lock:
+            sid = self._active_session_id
+            self._active_session_id = None
+            self._recording = False
+        if sid is not None:
+            repo.end_session(self.conn, sid)
+        self.bus.publish("capture_status",
+                         {"status": "session_ended", "session_id": sid})
+        return self.status()
 
     # ---- pause/resume -----------------------------------------------------
     def pause(self):

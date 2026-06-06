@@ -9,13 +9,15 @@ router = APIRouter(prefix="/api/history", tags=["history"])
 # Separate router for the ball-metric trend endpoint (different path prefix).
 ball_router = APIRouter(prefix="/api/ball-history", tags=["history"])
 
-# Body-metric allowlist: the set of metric names that are valid for
-# swing_history queries (not arbitrary SQL injection). Add new names here as
-# GolfTEC metrics expand.
+# Body-metric allowlist: the real metric names that are valid for swing_history
+# queries (guards against arbitrary input, not SQL injection — the query is
+# parameterized). This is the set the UI requests (frontend BODY_CARD_ORDER);
+# keep it in sync when adding/renaming body metrics.
 BODY_METRICS = {
-    "hip_sway_in", "shoulder_tilt_deg", "hip_rotation_deg",
-    "shoulder_rotation_deg", "tempo", "spine_angle_deg", "weight_transfer",
-    "wrist_angle_deg", "elbow_angle_deg", "knee_flex_deg",
+    "shoulder_tilt_deg", "hip_tilt_deg", "spine_angle_deg",
+    "shoulder_turn_deg", "hip_turn_deg",
+    "x_factor_deg", "x_factor_stretch_deg",
+    "hip_sway_in", "head_sway_in", "early_extension_in", "hand_depth_in",
 }
 
 VALID_CONTEXTS = {"address", "top", "impact", "finish", "overall"}

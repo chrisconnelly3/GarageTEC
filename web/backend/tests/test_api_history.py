@@ -29,8 +29,8 @@ def test_history_returns_ordered_points(client, conn):
 def test_history_defaults_context_overall(client, conn):
     p = seed_player(conn)
     s1 = _swing(conn, p.id)
-    repo.save_metrics(conn, s1, [Metric(s1, "tempo", "overall", 3.1, "ratio", "m")])
-    r = client.get("/api/history", params={"player": p.id, "metric": "tempo"})
+    repo.save_metrics(conn, s1, [Metric(s1, "shoulder_turn_deg", "overall", 3.1, "deg", "m")])
+    r = client.get("/api/history", params={"player": p.id, "metric": "shoulder_turn_deg"})
     assert [pt["value"] for pt in r.json()["points"]] == [3.1]
 
 

@@ -9,7 +9,7 @@ import { useApi } from '../lib/useApi'
 import { getLatestSwing, getHistory, getBallHistory, mediaUrl } from '../lib/api'
 import { labelFor, coachingToInsights, isEstimated } from '../lib/format'
 import { BODY_CARD_ORDER, BALL_BENCHMARK_ORDER, BALL_RAW_ORDER, METRIC_UNIT } from '../lib/metricConfig'
-import { phaseAtTime, phaseMoments } from '../lib/phase'
+import { phaseAtTime, phaseMoments, momentKindToLabel } from '../lib/phase'
 import { computeTrend } from '../lib/trend'
 import type { SwingDetail, Benchmark, BallBenchmark, BallRawField } from '../lib/types'
 
@@ -79,7 +79,7 @@ export function LiveScreen({ playerId, sessionId, lastSwing, activeClub = null, 
   const insights = coachingToInsights(coachContent)
   const status: 'waiting' | 'captured' = data ? 'captured' : 'waiting'
 
-  const present = new Set(phaseMoments(moments).map((m) => CAP(m.kind)))
+  const present = new Set(moments.map((m) => momentKindToLabel(m.kind)))
 
   return (
     <div className="h-full flex flex-col p-6 space-y-6 overflow-y-auto">

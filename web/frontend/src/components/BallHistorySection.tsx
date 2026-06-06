@@ -37,19 +37,23 @@ interface Props {
  *  hero chart is that club's tour target. */
 export function BallHistorySection({ playerId, timeframe }: Props) {
   const [clubs, setClubs] = useState<string[]>([])
-  const [club, setClub] = useState<string>('Driver')
+  // Initialize to null so we don't fire a fetch with a hardcoded 'Driver' before
+  // the real clubs list arrives. The useApi dep on `club` means no fetch occurs
+  // until club is non-null (guarded below).
+  const [club, setClub] = useState<string | null>(null)
   const [heroKey, setHeroKey] = useState<string>('ball_speed')
 
   useEffect(() => {
     getClubs().then((c) => {
       setClubs(c)
-      if (c.length && !c.includes(club)) setClub(c[0])
+      // Always adopt the first club from the server list on load.
+      if (c.length) setClub(c[0])
     }).catch(() => {})
   }, []) // eslint-disable-line react-hooks/exhaustive-deps
 
   const { data: histories } = useApi<Record<string, BallHistory>>(
     async () => {
-      if (!playerId) return {}
+      if (!playerId || !club) return {}
       const results = await Promise.all(
         BALL_METRICS.map((m) =>
           getBallHistory(playerId, m.key, club).catch(
@@ -108,11 +112,11 @@ export function BallHistorySection({ playerId, timeframe }: Props) {
           <div className="flex items-center gap-2">
             <label className="text-[11px] uppercase tracking-wider text-[#8B978F] font-semibold">Club</label>
             <select
-              value={club}
+              value={club ?? ''}
               onChange={(e) => setClub(e.target.value)}
               className="bg-[#121714] border border-[#242C27] rounded-full px-4 py-2 text-sm text-[#E7EEE9] focus:border-garage-green outline-none min-h-[44px]"
             >
-              {(clubs.length ? clubs : [club]).map((c) => (
+              {clubs.map((c) => (
                 <option key={c} value={c}>{c}</option>
               ))}
             </select>
@@ -133,7 +137,7 @@ export function BallHistorySection({ playerId, timeframe }: Props) {
       {/* Hero chart with tour target reference line */}
       <div className="bg-[#121714] border border-[#242C27] rounded-[24px] p-6">
         <h3 className="text-[#8B978F] text-sm font-medium mb-6 uppercase tracking-wider">
-          {heroDef.label} · {club}
+          {heroDef.label} · {club ?? '—'}
           {heroTarget != null && (
             <span className="ml-2 text-[#79BC30] normal-case tracking-normal">
               Tour avg {heroTarget}{heroDef.unit ? ` ${heroDef.unit}` : ''}

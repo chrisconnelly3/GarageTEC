@@ -1,5 +1,22 @@
 import type { Moment } from "./types";
 import { PHASES, type Phase } from "./metricConfig";
+import { PHASE_LABELS } from "../components/PhaseTimeline";
+
+/**
+ * Map a raw moment `kind` string (e.g. "takeaway", "lead-arm", "shaft par.")
+ * to the matching PHASE_LABELS entry. Falls back to capitalizing the first
+ * character when no label matches (should not happen in practice).
+ */
+export function momentKindToLabel(kind: string): string {
+  const lower = kind.toLowerCase();
+  // Exact case-insensitive match first.
+  const exact = PHASE_LABELS.find((l) => l.toLowerCase() === lower);
+  if (exact) return exact;
+  // Prefix match (e.g. "shaft par" → "Shaft par.").
+  const prefix = PHASE_LABELS.find((l) => l.toLowerCase().startsWith(lower));
+  if (prefix) return prefix;
+  return kind.charAt(0).toUpperCase() + kind.slice(1);
+}
 
 /** Keep only the card phases (address/top/impact) that have a timestamp, ordered. */
 export function phaseMoments(moments: Moment[]): Moment[] {

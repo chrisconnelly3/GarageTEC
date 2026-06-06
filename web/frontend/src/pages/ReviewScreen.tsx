@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { SwingReplay } from '../components/SwingReplay'
 import { AIInsightCard } from '../components/AIInsightCard'
 import { MetricCard } from '../components/MetricCard'
@@ -7,7 +7,7 @@ import { useApi } from '../lib/useApi'
 import { getSwing, getSwings, getBallHistory, mediaUrl } from '../lib/api'
 import { labelFor, coachingToInsights } from '../lib/format'
 import { BALL_BENCHMARK_ORDER, BALL_RAW_ORDER, BODY_CARD_ORDER } from '../lib/metricConfig'
-import { phaseAtTime } from '../lib/phase'
+import { phaseAtTime, momentKindToLabel } from '../lib/phase'
 import { computeTrend } from '../lib/trend'
 import type { SwingDetail, SwingSummary, Benchmark } from '../lib/types'
 
@@ -27,7 +27,12 @@ export function ReviewScreen({ playerId, sessionId, defaultSwingId }: ReviewScre
   const [activePhase, setActivePhase] = useState('Impact')
   const [seek, setSeek] = useState<{ t: number } | null>(null)
   const [selectedId, setSelectedId] = useState<number | null>(defaultSwingId)
-  useEffect(() => { setSelectedId(defaultSwingId) }, [defaultSwingId])
+  // Track whether the user has made an explicit manual selection; if so, don't
+  // override it when a new defaultSwingId arrives (e.g. from a live SSE event).
+  const userPickedRef = useRef(false)
+  useEffect(() => {
+    if (!userPickedRef.current) setSelectedId(defaultSwingId)
+  }, [defaultSwingId])
 
   const { data: swings } = useApi<SwingSummary[]>(
     () => (playerId ? getSwings(playerId, sessionId ?? undefined, 50) : Promise.resolve([])),
@@ -60,7 +65,7 @@ export function ReviewScreen({ playerId, sessionId, defaultSwingId }: ReviewScre
       <label className="text-[11px] uppercase tracking-wider text-[#8B978F] font-semibold">Swing</label>
       <select
         value={swingId ?? ''}
-        onChange={(e) => setSelectedId(Number(e.target.value))}
+        onChange={(e) => { userPickedRef.current = true; setSelectedId(Number(e.target.value)) }}
         className="bg-[#1A211D] border border-[#242C27] rounded-xl px-4 py-2 text-[#E7EEE9] focus:border-garage-green outline-none min-h-[44px]"
       >
         {(swings ?? []).map((s, i) => (
@@ -140,16 +145,16 @@ export function ReviewScreen({ playerId, sessionId, defaultSwingId }: ReviewScre
       <div className="bg-[#121714] border border-[#242C27] rounded-[24px] p-6 flex flex-col space-y-6">
         <div className="h-[360px] rounded-[18px] overflow-hidden">
           <SwingReplay src={videoSrc} seek={seek}
-            onTime={(t) => setActivePhase(CAP(phaseAtTime(data.moments, t)))} />
+            onTime={(t) => setActivePhase(momentKindToLabel(phaseAtTime(data.moments, t)))} />
         </div>
 
         {/* 8-Phase Timeline */}
         <PhaseTimeline
-          present={new Set(data.moments.map((m) => m.kind === 'address' ? 'Address' : m.kind === 'top' ? 'Top' : m.kind === 'impact' ? 'Impact' : m.kind))}
+          present={new Set(data.moments.map((m) => momentKindToLabel(m.kind)))}
           active={activePhase}
           onSeek={(label) => {
             setActivePhase(label)
-            const mt = data.moments.find((m) => CAP(m.kind) === label)
+            const mt = data.moments.find((m) => momentKindToLabel(m.kind) === label)
             if (mt?.time_s != null) setSeek({ t: mt.time_s })
           }} />
       </div>

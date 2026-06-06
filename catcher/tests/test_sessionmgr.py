@@ -95,3 +95,24 @@ def test_attribute_without_active_player_raises(db):
         assert False, "expected an error when no active player is set"
     except RuntimeError:
         pass
+
+
+def test_attribute_preserves_existing_captured_at(db):
+    """Fix 3: attribute() must NOT overwrite captured_at when the shot mapper
+    has already set one (used for idle-session timing)."""
+    mgr = SessionManager(db, idle_minutes=15)
+    mgr.set_active_player("Chris", 72.0, "R")
+    mapper_ts = "2026-06-03T12:00:00+00:00"
+    shot = Shot(captured_at=mapper_ts, ball_speed=110.0)
+    result = mgr.attribute(db, shot)
+    assert result.captured_at == mapper_ts, (
+        "attribute() clobbered the mapper-supplied captured_at")
+
+
+def test_attribute_sets_captured_at_when_missing(db):
+    """Fix 3: attribute() should set captured_at only when it is absent."""
+    mgr = SessionManager(db, idle_minutes=15)
+    mgr.set_active_player("Chris", 72.0, "R")
+    shot = Shot(captured_at=None, ball_speed=110.0)
+    result = mgr.attribute(db, shot)
+    assert result.captured_at is not None and result.captured_at != ""

@@ -550,7 +550,22 @@ def list_calibrations(conn):
 
 
 def set_active_calibration(conn, cal_id):
-    conn.execute("UPDATE calibration SET is_active=0")
-    conn.execute("UPDATE calibration SET is_active=1 WHERE id=?", (cal_id,))
-    conn.commit()
+    """Atomically clear the active flag and set it on cal_id.
+
+    Returns the Calibration on success, None if cal_id does not exist.
+    The existing active calibration is NEVER cleared unless the target id
+    actually exists (checked inside the same transaction)."""
+    conn.execute("BEGIN IMMEDIATE")
+    try:
+        row = conn.execute("SELECT id FROM calibration WHERE id=?",
+                           (cal_id,)).fetchone()
+        if row is None:
+            conn.execute("ROLLBACK")
+            return None
+        conn.execute("UPDATE calibration SET is_active=0")
+        conn.execute("UPDATE calibration SET is_active=1 WHERE id=?", (cal_id,))
+        conn.execute("COMMIT")
+    except Exception:
+        conn.execute("ROLLBACK")
+        raise
     return get_calibration(conn, cal_id)

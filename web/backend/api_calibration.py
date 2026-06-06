@@ -71,8 +71,11 @@ def history(conn=Depends(get_conn)):
 
 @router.post("/activate/{cal_id}")
 def activate(cal_id: int, conn=Depends(get_conn)):
+    from fastapi import HTTPException
     c = repo.set_active_calibration(conn, cal_id)
-    return {"ok": c is not None}
+    if c is None:
+        raise HTTPException(status_code=404, detail="calibration not found")
+    return {"ok": True}
 
 
 @router.get("/export")

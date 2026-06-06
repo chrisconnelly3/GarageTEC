@@ -29,9 +29,13 @@ def _swing_detail(conn, swing, shot):
     }
 
 
+_MAX_LIMIT = 200
+
+
 @router.get("")
 def list_swings(player: int | None = None, session: int | None = None,
                 limit: int = 50, conn=Depends(get_conn)):
+    limit = min(max(1, limit), _MAX_LIMIT)
     return repo.list_swing_summaries(conn, player_id=player,
                                      session_id=session, limit=limit)
 

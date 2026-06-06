@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
 
 from store import repo
@@ -44,11 +44,17 @@ def proposals(session: int, conn=Depends(get_conn)):
 
 @router.post("/apply")
 def apply(body: ApplyIn, conn=Depends(get_conn)):
+    if repo.get_swing(conn, body.swing_id) is None:
+        raise HTTPException(status_code=404, detail="swing not found")
+    if repo.get_shot(conn, body.shot_id) is None:
+        raise HTTPException(status_code=404, detail="shot not found")
     SyncService(conn).apply_match(swing_id=body.swing_id, shot_id=body.shot_id)
     return {"ok": True}
 
 
 @router.post("/unlink")
 def unlink(body: UnlinkIn, conn=Depends(get_conn)):
+    if repo.get_swing(conn, body.swing_id) is None:
+        raise HTTPException(status_code=404, detail="swing not found")
     SyncService(conn).unlink(swing_id=body.swing_id)
     return {"ok": True}

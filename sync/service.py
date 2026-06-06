@@ -100,17 +100,50 @@ class SyncService:
 
         Returns {"linked": [MatchProposal...], "proposals": [MatchProposal...]}.
         Conservative: anything below threshold is left for the UI, never forced.
+
+        Each link is wrapped in BEGIN IMMEDIATE + re-check so concurrent
+        reconcile calls cannot double-link the same swing or shot.
         """
         proposals = self.propose_matches(session_id=session_id,
                                          player_id=player_id)
         linked, rest = [], []
         for p in proposals:
             if p.confidence >= self.threshold:
-                repo.link_shot_to_swing(self.conn, p.shot_id, p.swing_id)
-                linked.append(p)
+                applied = self._link_if_free(p.shot_id, p.swing_id)
+                if applied:
+                    linked.append(p)
+                # if already linked by a concurrent caller, treat as rest
             else:
                 rest.append(p)
         return {"linked": linked, "proposals": rest}
+
+    def _link_if_free(self, shot_id, swing_id) -> bool:
+        """Link shot↔swing only when both are still unlinked.
+
+        Uses BEGIN IMMEDIATE so the read + write are serialised against other
+        writers (SQLite WAL allows only one writer at a time under IMMEDIATE).
+        Returns True when the link was applied, False when either side was
+        already linked by the time the lock was acquired."""
+        conn = self.conn
+        conn.execute("BEGIN IMMEDIATE")
+        try:
+            sw_row = conn.execute(
+                "SELECT shot_id FROM swing WHERE id=?", (swing_id,)).fetchone()
+            sh_row = conn.execute(
+                "SELECT swing_id FROM shot WHERE id=?", (shot_id,)).fetchone()
+            if sw_row is None or sh_row is None:
+                conn.execute("ROLLBACK")
+                return False
+            if sw_row["shot_id"] is not None or sh_row["swing_id"] is not None:
+                conn.execute("ROLLBACK")
+                return False
+            conn.execute("UPDATE shot  SET swing_id=? WHERE id=?", (swing_id, shot_id))
+            conn.execute("UPDATE swing SET shot_id=?  WHERE id=?", (shot_id, swing_id))
+            conn.execute("COMMIT")
+        except Exception:
+            conn.execute("ROLLBACK")
+            raise
+        return True
 
     def apply_match(self, *, swing_id, shot_id):
         """Manually link a swing to a shot (UI correction)."""

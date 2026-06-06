@@ -9,10 +9,27 @@ router = APIRouter(prefix="/api/history", tags=["history"])
 # Separate router for the ball-metric trend endpoint (different path prefix).
 ball_router = APIRouter(prefix="/api/ball-history", tags=["history"])
 
+# Body-metric allowlist: the set of metric names that are valid for
+# swing_history queries (not arbitrary SQL injection). Add new names here as
+# GolfTEC metrics expand.
+BODY_METRICS = {
+    "hip_sway_in", "shoulder_tilt_deg", "hip_rotation_deg",
+    "shoulder_rotation_deg", "tempo", "spine_angle_deg", "weight_transfer",
+    "wrist_angle_deg", "elbow_angle_deg", "knee_flex_deg",
+}
+
+VALID_CONTEXTS = {"address", "top", "impact", "finish", "overall"}
+
 
 @router.get("")
 def history(player: int, metric: str, context: str = "overall",
             conn=Depends(get_conn)):
+    if metric not in BODY_METRICS:
+        raise HTTPException(status_code=400,
+                            detail=f"unknown body metric: {metric!r}")
+    if context not in VALID_CONTEXTS:
+        raise HTTPException(status_code=400,
+                            detail=f"invalid context: {context!r}")
     rows = repo.swing_history(conn, player, metric, context=context)
     return {
         "player": player,

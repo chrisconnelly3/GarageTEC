@@ -34,15 +34,20 @@ class SessionManager:
     # ---- attribution ------------------------------------------------------
     def attribute(self, conn, shot: Shot) -> Shot:
         """Stamp shot.player_id + shot.session_id for the active player,
-        opening or resuming the player's session. Refreshes captured_at.
-        Persists nothing (persist.py saves)."""
+        opening or resuming the player's session.
+
+        Does NOT overwrite captured_at when the shot mapper has already set
+        one (non-None, non-empty); that timestamp is the R50 receive time used
+        by idle-session timing. Only sets captured_at when the field is absent
+        (None or empty string). Persists nothing (persist.py saves)."""
         if self.active_player is None:
             raise RuntimeError("no active player selected")
         pid = self.active_player.id
         session = repo.get_open_session(conn, pid) or repo.create_session(conn, pid)
         shot.player_id = pid
         shot.session_id = session.id
-        shot.captured_at = dbmod.now_iso()
+        if not shot.captured_at:
+            shot.captured_at = dbmod.now_iso()
         return shot
 
     def sweep_idle(self, conn) -> int:

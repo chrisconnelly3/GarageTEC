@@ -30,7 +30,8 @@ def shot_dict(sh):
             "spin_axis": sh.spin_axis, "hla": sh.hla, "vla": sh.vla,
             "carry": sh.carry, "club_speed": sh.club_speed,
             "attack_angle": sh.attack_angle, "club_path": sh.club_path,
-            "face_to_target": sh.face_to_target, "club": sh.club}
+            "face_to_target": sh.face_to_target, "club": sh.club,
+            "raw_json": sh.raw_json}
 
 
 def moment_dict(m):

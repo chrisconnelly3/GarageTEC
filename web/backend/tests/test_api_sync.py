@@ -42,3 +42,26 @@ def test_unlink_clears_link(client, conn):
     r = client.post("/api/sync/unlink", json={"swing_id": swing.id})
     assert r.status_code == 200 and r.json()["ok"] is True
     assert repo.get_swing(conn, swing.id).shot_id is None
+
+
+# ---- Fix 6b: 404 for nonexistent ids ---------------------------------------
+
+def test_apply_nonexistent_swing_returns_404(client, conn):
+    p = seed_player(conn)
+    sid, _, shot = _unmatched_pair(conn, p)
+    r = client.post("/api/sync/apply",
+                    json={"swing_id": 99999, "shot_id": shot.id})
+    assert r.status_code == 404
+
+
+def test_apply_nonexistent_shot_returns_404(client, conn):
+    p = seed_player(conn)
+    sid, swing, _ = _unmatched_pair(conn, p)
+    r = client.post("/api/sync/apply",
+                    json={"swing_id": swing.id, "shot_id": 99999})
+    assert r.status_code == 404
+
+
+def test_unlink_nonexistent_swing_returns_404(client, conn):
+    r = client.post("/api/sync/unlink", json={"swing_id": 99999})
+    assert r.status_code == 404

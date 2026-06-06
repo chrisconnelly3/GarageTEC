@@ -73,3 +73,28 @@ def test_ball_history_rejects_bad_metric(client, conn):
     r = client.get("/api/ball-history",
                    params={"player": p.id, "metric": "raw_json"})
     assert r.status_code == 400
+
+
+# ---- Fix 4: body-metric allowlist on /api/history --------------------------
+
+def test_history_rejects_unknown_metric(client, conn):
+    p = seed_player(conn)
+    r = client.get("/api/history",
+                   params={"player": p.id, "metric": "raw_json"})
+    assert r.status_code == 400
+
+
+def test_history_rejects_invalid_context(client, conn):
+    p = seed_player(conn)
+    r = client.get("/api/history",
+                   params={"player": p.id, "metric": "hip_sway_in",
+                           "context": "badphase"})
+    assert r.status_code == 400
+
+
+def test_history_allows_valid_metric_and_context(client, conn):
+    p = seed_player(conn)
+    r = client.get("/api/history",
+                   params={"player": p.id, "metric": "hip_sway_in",
+                           "context": "impact"})
+    assert r.status_code == 200

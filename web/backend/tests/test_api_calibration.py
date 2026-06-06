@@ -65,3 +65,61 @@ def test_preview_streams_jpeg():
     import asyncio
     resp = asyncio.run(_ac.preview(sup=fake))
     assert "multipart/x-mixed-replace" in resp.media_type
+
+
+# ---- Fix 1: activate returns 404 for bad id; previously-active cal unharmed --
+
+import sqlite3
+from store import db as dbmod, repo as _repo
+
+
+def _client_with_conn(conn):
+    app = create_app()
+    fake = _FakeSup()
+    app.dependency_overrides[deps.get_calibration_supervisor] = lambda: fake
+    app.dependency_overrides[deps.get_conn] = lambda: conn
+    return TestClient(app), fake
+
+
+def _make_cal(conn):
+    return _repo.save_calibration(conn, device_index=0, cols=9, rows=6,
+                                  square_mm=25.0, n_poses=10,
+                                  reprojection_error=0.5, calib_json='{}')
+
+
+def test_activate_nonexistent_returns_404():
+    conn = sqlite3.connect(":memory:", check_same_thread=False)
+    conn.row_factory = sqlite3.Row
+    dbmod.init_db(conn=conn)
+    client, _ = _client_with_conn(conn)
+    r = client.post("/api/calibration/activate/99999")
+    assert r.status_code == 404
+
+
+def test_activate_bad_id_does_not_clear_active():
+    conn = sqlite3.connect(":memory:", check_same_thread=False)
+    conn.row_factory = sqlite3.Row
+    dbmod.init_db(conn=conn)
+    cal = _make_cal(conn)
+    assert _repo.get_active_calibration(conn).id == cal.id  # sanity
+
+    client, _ = _client_with_conn(conn)
+    r = client.post("/api/calibration/activate/99999")
+    assert r.status_code == 404
+    # Previously-active calibration must still be active.
+    still_active = _repo.get_active_calibration(conn)
+    assert still_active is not None and still_active.id == cal.id
+
+
+def test_activate_valid_id_returns_200():
+    conn = sqlite3.connect(":memory:", check_same_thread=False)
+    conn.row_factory = sqlite3.Row
+    dbmod.init_db(conn=conn)
+    c1 = _make_cal(conn)
+    c2 = _make_cal(conn)
+    assert _repo.get_active_calibration(conn).id == c2.id
+
+    client, _ = _client_with_conn(conn)
+    r = client.post(f"/api/calibration/activate/{c1.id}")
+    assert r.status_code == 200 and r.json()["ok"] is True
+    assert _repo.get_active_calibration(conn).id == c1.id

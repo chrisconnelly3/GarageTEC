@@ -43,3 +43,19 @@ def test_shot_and_media_dicts():
     assert ser.media_dict(md) == {"id": 4, "swing_id": 5,
                                   "kind": "annotated_video",
                                   "path": "swings/1/a.mp4", "meta": None}
+
+
+def test_shot_dict_includes_raw_json():
+    """Fix 5: raw_json must be present in shot_dict so ball_reference can use
+    explicit BackSpin/SideSpin keys from the monitor payload."""
+    raw = '{"BackSpin": 2800, "SideSpin": -300}'
+    sh = Shot(captured_at="t", id=7, ball_speed=148.2, raw_json=raw)
+    d = ser.shot_dict(sh)
+    assert "raw_json" in d, "shot_dict must include raw_json"
+    assert d["raw_json"] == raw
+
+
+def test_shot_dict_raw_json_none_when_absent():
+    sh = Shot(captured_at="t", id=8, ball_speed=100.0)
+    d = ser.shot_dict(sh)
+    assert "raw_json" in d and d["raw_json"] is None

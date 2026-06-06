@@ -1,7 +1,10 @@
 import os
+import re
 import sqlite3
 from datetime import datetime, timezone
 from pathlib import Path
+
+_IDENT_RE = re.compile(r"^[A-Za-z_][A-Za-z0-9_]*$")
 
 SCHEMA_VERSION = 1
 
@@ -27,7 +30,12 @@ def connect(path=None):
 
 def _add_column_if_missing(conn, table, col, decl):
     """Idempotent ALTER for columns added to existing tables (CREATE TABLE IF NOT
-    EXISTS only covers fresh DBs)."""
+    EXISTS only covers fresh DBs).
+
+    table and col are asserted to be safe SQL identifiers (defense-in-depth;
+    all callers today pass hardcoded literals)."""
+    assert _IDENT_RE.match(table), f"unsafe table name: {table!r}"
+    assert _IDENT_RE.match(col), f"unsafe column name: {col!r}"
     cols = {r[1] for r in conn.execute(f"PRAGMA table_info({table})")}
     if col not in cols:
         conn.execute(f"ALTER TABLE {table} ADD COLUMN {col} {decl}")

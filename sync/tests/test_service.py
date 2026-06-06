@@ -179,6 +179,25 @@ def test_reconcile_session_covers_all_players_in_session(db):
     assert repo.get_swing(db, sw.id).shot_id == sh.id
 
 
+def test_link_if_free_idempotent_on_already_linked(ctx):
+    """Fix 2: _link_if_free must return False (not raise, not double-link) when
+    the swing or shot is already linked (simulates the concurrent-caller scenario)."""
+    db, pid, sid = ctx
+    sw = _swing(db, pid, sid)
+    sh = _shot(db, pid, sid, "2026-06-03T00:00:01+00:00")
+    svc = SyncService(db)
+
+    # First call: should link and return True.
+    assert svc._link_if_free(sh.id, sw.id) is True
+    assert repo.get_swing(db, sw.id).shot_id == sh.id
+
+    # Second call with same ids: swing is already linked -> must return False.
+    assert svc._link_if_free(sh.id, sw.id) is False
+
+    # The link must still be intact (not cleared).
+    assert repo.get_swing(db, sw.id).shot_id == sh.id
+
+
 def test_reconcile_all_walks_every_session(db):
     p1 = repo.get_or_create_player(db, "Chris", 72.0, "R").id
     p2 = repo.get_or_create_player(db, "Brother", 70.0, "R").id

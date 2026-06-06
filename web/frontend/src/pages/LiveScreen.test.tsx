@@ -198,8 +198,8 @@ describe("LiveScreen", () => {
       <LiveScreen playerId={1} sessionId={1} lastSwing={null} lastCapture={null} activeClub="7 Iron" />,
     );
     await screen.findByText("38");
-    // The captured wrapper is a row on lg with the media/coach left column (~44%).
-    const left = container.querySelector(".lg\\:basis-\\[44\\%\\]");
+    // The captured wrapper is a row on lg with the media/coach left column (~46%).
+    const left = container.querySelector(".lg\\:basis-\\[46\\%\\]");
     expect(left).not.toBeNull();
     // The video player, the position stepper, and the coach read live on the left.
     expect(left?.querySelector("video")).not.toBeNull();
@@ -218,7 +218,7 @@ describe("LiveScreen", () => {
     expect(metrics?.textContent).toContain("142");
     expect(metrics?.textContent).toContain("38");
     // The left media column does NOT hold the metric cards.
-    const left = container.querySelector(".lg\\:basis-\\[44\\%\\]");
+    const left = container.querySelector(".lg\\:basis-\\[46\\%\\]");
     expect(left?.querySelector('[data-testid="ball-club-section"]')).toBeNull();
   });
 

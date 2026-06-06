@@ -141,10 +141,10 @@ export function LiveScreen({ playerId, sessionId, lastSwing, activeClub = null }
         ) : (
           <motion.div key="captured" initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }}
             className="flex-1 min-h-0 flex flex-col lg:flex-row gap-3">
-            {/* LEFT (~44%): video player → position stepper → AI coach read. */}
-            <div className="flex flex-col gap-3 min-h-0 lg:basis-[44%] lg:flex-none">
+            {/* LEFT (~46%): video player → position stepper → AI coach read. */}
+            <div className="flex flex-col gap-3 min-h-0 lg:basis-[46%] lg:flex-none">
               {/* Video grows to fill leftover height above the stepper + coach. */}
-              <div className="flex-[3] min-h-0">
+              <div className="flex-[4] min-h-0">
                 <SwingReplay src={videoSrc} highlight fill seek={seek} impactTime={impactTime}
                   onDuration={setDuration}
                   onTime={setVideoTime} />
@@ -176,7 +176,7 @@ export function LiveScreen({ playerId, sessionId, lastSwing, activeClub = null }
                     </span>
                   )}
                 </div>
-                <div className="grid grid-cols-2 xl:grid-cols-3 gap-2">
+                <div className="grid grid-cols-2 xl:grid-cols-4 gap-2">
                   {ballCards.length ? ballCards : (
                     <p className="text-sm text-[#8B978F] col-span-full">
                       {activeClub
@@ -193,7 +193,7 @@ export function LiveScreen({ playerId, sessionId, lastSwing, activeClub = null }
                   <span className="text-xs font-semibold text-[#E7EEE9]">Body Mechanics · vs Tour Pro</span>
                   <span className="text-[10px] uppercase tracking-wider text-[#8B978F]">{cardPhase}</span>
                 </div>
-                <div className="grid grid-cols-2 xl:grid-cols-3 gap-2">
+                <div className="grid grid-cols-2 xl:grid-cols-4 gap-2">
                   {BODY_CARD_ORDER.map((name) => {
                     const b = benchByKey.get(`${name}|${cardPhase}`)
                     const unit = b?.unit ?? METRIC_UNIT[name] ?? ''

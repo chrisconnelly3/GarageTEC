@@ -10,19 +10,30 @@ const moments: Moment[] = [
 ];
 
 describe("LiveTimeline", () => {
-  it("positions each phase marker at time_s / duration along the track", () => {
+  it("spaces the phase markers EVENLY across the track (not by time)", () => {
     render(
       <LiveTimeline moments={moments} duration={4} currentTime={0} activeLabel="Address" onSeek={() => {}} />,
     );
-    // address @0/4 = 0%, top @1/4 = 25%, impact @2/4 = 50%.
+    // 3 markers → evenly spaced at 0%, 50%, 100% regardless of their times.
     expect(screen.getByTestId("marker-Address").getAttribute("data-pct")).toBe("0.00");
-    expect(screen.getByTestId("marker-Top").getAttribute("data-pct")).toBe("25.00");
-    expect(screen.getByTestId("marker-Impact").getAttribute("data-pct")).toBe("50.00");
+    expect(screen.getByTestId("marker-Top").getAttribute("data-pct")).toBe("50.00");
+    expect(screen.getByTestId("marker-Impact").getAttribute("data-pct")).toBe("100.00");
   });
 
-  it("places the playhead at currentTime / duration", () => {
+  it("snaps the playhead to a marker's even position when time is exactly on it", () => {
+    // currentTime=1 is exactly the 'top' marker → its even position is 50%.
     render(
-      <LiveTimeline moments={moments} duration={4} currentTime={1} activeLabel="Address" onSeek={() => {}} />,
+      <LiveTimeline moments={moments} duration={4} currentTime={1} activeLabel="Top" onSeek={() => {}} />,
+    );
+    const head = screen.getByTestId("live-playhead") as HTMLElement;
+    expect(head.style.left).toBe("50%");
+  });
+
+  it("moves the playhead at variable speed between evenly-spaced markers", () => {
+    // currentTime=0.5 is halfway (by time) between address(0) and top(1), and
+    // those sit at 0% and 50% visually → playhead interpolates to 25%.
+    render(
+      <LiveTimeline moments={moments} duration={4} currentTime={0.5} activeLabel="Address" onSeek={() => {}} />,
     );
     const head = screen.getByTestId("live-playhead") as HTMLElement;
     expect(head.style.left).toBe("25%");

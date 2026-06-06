@@ -180,12 +180,27 @@ export function BallHistorySection({ playerId, timeframe }: Props) {
           const max = Math.max(...t.sparkline, 1)
           const min = Math.min(...t.sparkline, 0)
           const dp = t.def.decimals
+          // Benchmarked cards (have a tour target + a good/bad direction) carry a
+          // tinted full border + faint wash so they pop above the neutral "raw"
+          // (no tour avg) cards — same in-card zone language as MetricCard, no stripe.
+          const benchmarked = t.deltaVsTour != null && t.def.good !== 'neutral'
+          const cardZone = benchmarked
+            ? t.isGood
+              ? 'border-garage-green/40 bg-garage-green/[0.08]'
+              : 'border-garage-red/40 bg-garage-red/[0.08]'
+            : 'border-[#242C27]'
           return (
             <div key={t.def.key}
-                 className="bg-[#121714] border border-[#242C27] rounded-[18px] p-5 relative overflow-hidden">
-              <div className="flex justify-between items-start mb-3">
-                <span className="text-[11px] uppercase tracking-wider text-[#8B978F] font-semibold">
-                  {t.def.label}
+                 className={cn('bg-[#121714] border rounded-[18px] p-4 relative overflow-hidden', cardZone)}>
+              <div className="flex justify-between items-start mb-3 gap-2">
+                <span className="flex items-center gap-2 min-w-0">
+                  {benchmarked && (
+                    <span className={cn('shrink-0 w-1.5 h-1.5 rounded-full',
+                      t.isGood ? 'bg-garage-green' : 'bg-garage-red')} />
+                  )}
+                  <span className="text-[10px] uppercase tracking-[0.1em] text-[#8B978F] font-semibold truncate">
+                    {t.def.label}
+                  </span>
                 </span>
                 {t.isPB && (
                   <div className="bg-garage-amber/10 text-garage-amber p-1 rounded-full" title="Personal Best">
@@ -195,7 +210,7 @@ export function BallHistorySection({ playerId, timeframe }: Props) {
               </div>
               <div className="flex items-end justify-between">
                 <div className="flex flex-col">
-                  <span className="text-2xl font-bold font-mono text-[#E7EEE9] mb-1">
+                  <span className="text-3xl font-bold font-mono tracking-tight text-[#E7EEE9] mb-1">
                     {t.value == null ? '--' : t.value.toFixed(dp)}
                   </span>
                   {t.deltaVsTour == null ? (

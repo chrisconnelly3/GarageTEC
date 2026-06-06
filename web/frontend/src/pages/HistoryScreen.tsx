@@ -238,10 +238,10 @@ export function HistoryScreen({ playerId }: HistoryScreenProps) {
               initial={{ opacity: 0, y: 10 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ delay: i * 0.1 }}
-              className="bg-[#121714] border border-[#242C27] rounded-[18px] p-5 relative overflow-hidden"
+              className="bg-[#121714] border border-[#242C27] rounded-[18px] p-4 relative overflow-hidden"
             >
-              <div className="flex justify-between items-start mb-3">
-                <span className="text-[11px] uppercase tracking-wider text-[#8B978F] font-semibold">
+              <div className="flex justify-between items-start mb-3 gap-2">
+                <span className="text-[10px] uppercase tracking-[0.1em] text-[#8B978F] font-semibold truncate min-w-0">
                   {metric.name}
                 </span>
                 {metric.isPB && (
@@ -256,7 +256,7 @@ export function HistoryScreen({ playerId }: HistoryScreenProps) {
 
               <div className="flex items-end justify-between">
                 <div className="flex flex-col">
-                  <span className="text-2xl font-bold font-mono text-[#E7EEE9] mb-1">
+                  <span className="text-3xl font-bold font-mono tracking-tight text-[#E7EEE9] mb-1">
                     {metric.value}
                   </span>
                   {!isNeutral ? (

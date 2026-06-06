@@ -21,7 +21,7 @@ METRIC_SPEC = [
     ("hip_tilt_deg", "deg", "exact", 12.0, 2.0),
     ("shoulder_turn_deg", "deg", "exact", 95.0, 5.0),
     ("hip_turn_deg", "deg", "exact", 48.0, 4.0),
-    ("spine_angle_deg", "foreshortening_2d;confidence=low", "foreshortening_2d", 42.0, 2.0),
+    ("spine_angle_deg", "deg", "foreshortening_2d;confidence=low", 42.0, 2.0),
     ("hand_depth_in", "in", "exact", 14.0, 1.5),
     ("early_extension_in", "in", "exact", 1.8, 0.6),
     ("hip_sway_in", "in", "ratio", 2.5, 0.8),

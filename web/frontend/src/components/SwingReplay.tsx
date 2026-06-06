@@ -1,9 +1,11 @@
 import { useEffect, useRef, useState } from 'react'
-import { Play, Pause, Maximize2 } from 'lucide-react'
+import { Play, Pause, Maximize2, PersonStanding } from 'lucide-react'
 import { cn } from '../lib/utils'
+import { PoseOverlay, type PoseData } from './PoseOverlay'
 
 interface SwingReplayProps {
   src?: string | null            // annotated video URL; null -> placeholder
+  poseSrc?: string | null        // per-frame pose JSON URL; enables the skeleton toggle
   highlight?: boolean
   seek?: { t: number } | null    // a fresh token each request, so repeat-seek to the same time re-fires
   impactTime?: number | null     // auto-seek here on load so the replay opens on impact
@@ -12,7 +14,7 @@ interface SwingReplayProps {
   fill?: boolean                 // Live: the player fills its parent column (no fixed aspect) and lets object-contain center the real frame
 }
 
-export function SwingReplay({ src, highlight, seek, impactTime, onTime, onDuration, fill }: SwingReplayProps) {
+export function SwingReplay({ src, poseSrc, highlight, seek, impactTime, onTime, onDuration, fill }: SwingReplayProps) {
   const containerRef = useRef<HTMLDivElement>(null)
   const ref = useRef<HTMLVideoElement>(null)
   const [isPlaying, setIsPlaying] = useState(false)
@@ -20,6 +22,20 @@ export function SwingReplay({ src, highlight, seek, impactTime, onTime, onDurati
   const [speed, setSpeed] = useState<'slowmo' | 'realtime'>('slowmo')
   const [progress, setProgress] = useState(0)
   const [isFullscreen, setIsFullscreen] = useState(false)
+  // Skeleton (exoskeleton) overlay — OFF by default.
+  const [showSkeleton, setShowSkeleton] = useState(false)
+  const [pose, setPose] = useState<PoseData | null>(null)
+
+  // Lazy-load the pose JSON when a source is provided.
+  useEffect(() => {
+    if (!poseSrc) { setPose(null); return }
+    let alive = true
+    fetch(poseSrc)
+      .then((r) => (r.ok ? r.json() : null))
+      .then((d) => { if (alive) setPose(d) })
+      .catch(() => { if (alive) setPose(null) })
+    return () => { alive = false }
+  }, [poseSrc])
 
   // Controlled seek from the PhaseTimeline. `seek` is a new object reference each
   // request, so clicking the same phase twice still re-fires this effect.
@@ -105,17 +121,34 @@ export function SwingReplay({ src, highlight, seek, impactTime, onTime, onDurati
           <div className="text-[#8B978F] text-sm">No swing video yet.</div>
         )}
 
+        {/* Toggleable pose skeleton drawn over the video. */}
+        {src && <PoseOverlay videoRef={ref} pose={pose} enabled={showSkeleton} />}
+
         {/* Large center play overlay when paused (hidden while playing). */}
         {src && !isPlaying && (
           <button onClick={toggle} aria-label="Play"
-            className="absolute inset-0 flex items-center justify-center group focus-visible:outline-none">
+            className="absolute inset-0 z-20 flex items-center justify-center group focus-visible:outline-none">
             <span className="w-16 h-16 rounded-full bg-garage-green/90 text-[#0A0D0B] flex items-center justify-center shadow-glow-primary transition-transform group-hover:scale-105 group-focus-visible:ring-2 group-focus-visible:ring-garage-green">
               <Play className="w-8 h-8 fill-current ml-1" />
             </span>
           </button>
         )}
 
-        <div className="absolute top-4 right-4 flex space-x-2">
+        <div className="absolute top-4 right-4 z-20 flex space-x-2">
+          {pose && (
+            <button onClick={() => setShowSkeleton((v) => !v)}
+              aria-label="Toggle skeleton overlay" aria-pressed={showSkeleton}
+              title={showSkeleton ? 'Hide skeleton' : 'Show skeleton'}
+              className={cn(
+                'flex items-center gap-1.5 backdrop-blur rounded-full px-3 py-1 border text-xs font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-garage-green/60',
+                showSkeleton
+                  ? 'bg-garage-green text-[#0A0D0B] border-garage-green'
+                  : 'bg-[#0A0D0B]/80 text-[#8B978F] border-[#242C27] hover:text-[#E7EEE9]',
+              )}>
+              <PersonStanding className="w-4 h-4" />
+              Skeleton
+            </button>
+          )}
           <div className="bg-[#0A0D0B]/80 backdrop-blur rounded-full p-1 border border-[#242C27] flex">
             {(['slowmo', 'realtime'] as const).map((s) => (
               <button key={s} onClick={() => setSpeed(s)}

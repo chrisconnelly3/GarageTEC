@@ -101,18 +101,24 @@ export function LiveTimeline({ moments, currentTime, activeLabel, onSeek }: Live
         })}
       </div>
 
-      {/* Labels row, evenly spaced under their markers. */}
+      {/* Labels row, evenly spaced under their markers. The first/last labels are
+          edge-anchored (left/right aligned) so they don't overflow the track;
+          the rest are centered under their marker. */}
       <div className="relative h-4 mt-0.5">
         {markers.map((m, i) => {
           const isActive = m.label === activeLabel
+          const isFirst = i === 0
+          const isLast = i === n - 1
+          const style = isFirst ? { left: 0 } : isLast ? { right: 0 } : { left: `${vx(i)}%` }
+          const xform = isFirst || isLast ? '' : '-translate-x-1/2'
           return (
             <button
               key={m.label + m.time}
               type="button"
               onClick={() => onSeek(m.time, m.label)}
-              style={{ left: `${vx(i)}%` }}
+              style={style}
               tabIndex={-1}
-              className="absolute -translate-x-1/2 focus-visible:outline-none"
+              className={cn('absolute focus-visible:outline-none', xform)}
             >
               <span className={cn(
                 'text-[9px] uppercase tracking-wider font-medium whitespace-nowrap transition-colors',

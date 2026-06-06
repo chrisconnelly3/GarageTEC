@@ -66,10 +66,10 @@ export function MetricCard({
     return (
       <div className={cn(
         'bg-[#0E1210] border border-dashed border-[#242C27] rounded-[18px] opacity-50 flex flex-col',
-        compact ? 'p-2.5' : 'p-5',
+        compact ? 'p-3.5' : 'p-5',
       )}>
-        <span className="text-[10px] uppercase tracking-[0.1em] text-[#8B978F] font-semibold truncate">{label}</span>
-        <span className={cn('text-sm text-[#8B978F]', compact ? 'mt-1' : 'mt-3')}>
+        <span className="text-[11px] uppercase tracking-[0.1em] text-[#8B978F] font-semibold truncate">{label}</span>
+        <span className={cn('text-sm text-[#8B978F]', compact ? 'mt-1.5' : 'mt-3')}>
           {offPhase ? `— measured at ${offPhase}` : '—'}
         </span>
       </div>
@@ -90,18 +90,18 @@ export function MetricCard({
       initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }}
       className={cn(
         'bg-[#121714] border rounded-[18px] flex flex-col transition-all duration-300',
-        compact ? 'p-2.5' : 'p-4',
+        compact ? 'p-3.5' : 'p-4',
         zoneBorder, zoneWash, highlight && 'shadow-glow-primary-sm',
       )}
     >
       <div className="flex justify-between items-center gap-2">
         <span className="flex items-center gap-2 min-w-0">
           {zoned && (
-            <span className={cn('shrink-0 rounded-full', compact ? 'w-1 h-1' : 'w-1.5 h-1.5', ZONE_DOT[zone])} />
+            <span className={cn('shrink-0 rounded-full w-1.5 h-1.5', ZONE_DOT[zone])} />
           )}
           <span className={cn(
             'uppercase tracking-[0.1em] text-[#8B978F] font-semibold truncate',
-            compact ? 'text-[9px]' : 'text-[10px]',
+            compact ? 'text-[11px]' : 'text-[10px]',
           )}>{label}</span>
           {phase && !compact && (
             <span className="shrink-0 text-[9px] uppercase tracking-wider text-[#8B978F] bg-[#1A211D] px-1.5 py-0.5 rounded">{phase}</span>
@@ -111,26 +111,26 @@ export function MetricCard({
           )}
         </span>
         {trend.delta !== 0 ? (
-          <span className={cn('shrink-0 flex items-center font-medium', compact ? 'text-[11px]' : 'text-xs', trendColor)}>
+          <span className={cn('shrink-0 flex items-center font-medium', compact ? 'text-sm' : 'text-xs', trendColor)}>
             {trend.delta > 0 ? <ArrowUpRight className="w-3 h-3 mr-0.5" /> : <ArrowDownRight className="w-3 h-3 mr-0.5" />}
             {Math.abs(trend.delta)}
           </span>
         ) : (
-          <span className={cn('shrink-0 flex items-center text-[#8B978F]', compact ? 'text-[11px]' : 'text-xs')}><Minus className="w-3 h-3 mr-0.5" />0</span>
+          <span className={cn('shrink-0 flex items-center text-[#8B978F]', compact ? 'text-sm' : 'text-xs')}><Minus className="w-3 h-3 mr-0.5" />0</span>
         )}
       </div>
 
-      <div className={cn('flex items-baseline gap-1 min-w-0', compact ? 'mt-1' : 'mt-2')}>
+      <div className={cn('flex items-baseline gap-1 min-w-0', compact ? 'mt-1.5' : 'mt-2')}>
         <span className={cn(
           'font-bold font-mono tracking-tight text-[#E7EEE9]',
-          compact ? 'text-xl' : 'text-3xl',
+          compact ? 'text-[28px] leading-none' : 'text-3xl',
         )}>
           {unit === 'rpm' ? Math.round(value) : Math.round(value * 10) / 10}
         </span>
-        {suffix && <span className={cn('text-[#8B978F]', compact ? 'text-xs' : 'text-sm')}>{suffix}</span>}
+        {suffix && <span className={cn('text-[#8B978F]', compact ? 'text-sm' : 'text-sm')}>{suffix}</span>}
       </div>
 
-      <div className={cn('font-mono text-[#8B978F]', compact ? 'mt-0.5 text-[10px] leading-tight' : 'mt-1 text-xs')}>
+      <div className={cn('font-mono text-[#8B978F]', compact ? 'mt-1 text-[11px] leading-tight' : 'mt-1 text-xs')}>
         {state === 'raw' ? (
           <span>no tour avg</span>
         ) : state === 'needs_3d' ? (

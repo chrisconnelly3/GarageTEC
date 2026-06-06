@@ -85,6 +85,8 @@ export function LiveScreen({ playerId, sessionId, lastSwing, activeClub = null }
 
   const annotated = data?.media?.find((m) => m.kind === 'annotated_video')
   const videoSrc = annotated ? mediaUrl(annotated.path) : null
+  const poseMedia = data?.media?.find((m) => m.kind === 'pose_overlay')
+  const poseSrc = poseMedia ? mediaUrl(poseMedia.path) : null
 
   // Open the replay on the impact frame (matches the impact-default cards).
   const impactTime = moments.find((m) => m.kind === 'impact')?.time_s ?? null
@@ -145,7 +147,7 @@ export function LiveScreen({ playerId, sessionId, lastSwing, activeClub = null }
             <div className="flex flex-col gap-3 min-h-0 lg:basis-[46%] lg:flex-none">
               {/* Video grows to fill leftover height above the stepper + coach. */}
               <div className="flex-[4] min-h-0">
-                <SwingReplay src={videoSrc} highlight fill seek={seek} impactTime={impactTime}
+                <SwingReplay src={videoSrc} poseSrc={poseSrc} highlight fill seek={seek} impactTime={impactTime}
                   onDuration={setDuration}
                   onTime={setVideoTime} />
               </div>

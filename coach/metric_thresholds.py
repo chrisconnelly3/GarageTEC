@@ -9,15 +9,18 @@ All numbers are first-pass and intentionally easy to tune here.
 """
 
 # metric_key -> (direction, green_boundary, yellow_boundary)
+# Boundaries are intentionally STRICT: green means genuinely tour-tight, yellow
+# is "close, keep working", red is a real miss. Tuned so a typical amateur swing
+# shows a realistic mix rather than mostly green.
 THRESHOLDS = {
     # --- body ---
-    "shoulder_tilt_deg":     ("match",  3,    6),
-    "hip_tilt_deg":          ("match",  3,    6),
-    "spine_angle_deg":       ("match",  3,    6),
-    "shoulder_turn_deg":     ("match",  5,    12),
-    "hip_turn_deg":          ("match",  5,    10),
-    "x_factor_deg":          ("match",  5,    10),
-    "x_factor_stretch_deg":  ("match",  2,    4),
+    "shoulder_tilt_deg":     ("match",  1.5,  3),
+    "hip_tilt_deg":          ("match",  1.5,  3),
+    "spine_angle_deg":       ("match",  1.5,  3),
+    "shoulder_turn_deg":     ("match",  3,    7),
+    "hip_turn_deg":          ("match",  3,    7),
+    "x_factor_deg":          ("match",  3,    7),
+    "x_factor_stretch_deg":  ("match",  1,    2),
     # DIRECTIONAL SWAY — sign convention + handedness MUST be verified in the
     # real bay (see docs/bay-verification-checklist.md). A good real swing must
     # read GREEN for both RH and LH players.
@@ -31,17 +34,17 @@ THRESHOLDS = {
     # |value - target| ~= 2x the magnitude -> red, as intended.
     #   head @ top: good load is TRAIL-side -> NEGATIVE target (-4.5).
     #   hip @ top/impact: pros shift TOWARD target -> POSITIVE targets (3.9/1.6).
-    "hip_sway_in":           ("match",  0.8,  1.8),
-    "head_sway_in":          ("match",  1.5,  3),
-    "early_extension_in":    ("lower",  1,    2),
+    "hip_sway_in":           ("match",  0.5,  1.2),
+    "head_sway_in":          ("match",  1,    2),
+    "early_extension_in":    ("lower",  0.5,  1.2),
     # --- ball (keys match ball_reference benchmark keys) ---
-    "ball_speed":            ("higher", 2.5,  5),
-    "club_speed":            ("higher", 2.5,  5),
-    "smash":                 ("higher", 0.03, 0.05),
-    "carry":                 ("higher", 5,    10),
-    "launch":                ("match",  1,    2),
-    "spin":                  ("match",  250,  500),
-    "attack_angle":          ("match",  0.75, 1.5),
+    "ball_speed":            ("higher", 1.5,  3.5),
+    "club_speed":            ("higher", 1.5,  3.5),
+    "smash":                 ("higher", 0.02, 0.04),
+    "carry":                 ("higher", 3,    7),
+    "launch":                ("match",  0.7,  1.5),
+    "spin":                  ("match",  200,  400),
+    "attack_angle":          ("match",  0.5,  1),
 }
 
 

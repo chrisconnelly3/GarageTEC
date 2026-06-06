@@ -119,6 +119,8 @@ export function ReviewScreen({ playerId, sessionId, defaultSwingId }: ReviewScre
 
   const annotated = data.media?.find((m) => m.kind === 'annotated_video')
   const videoSrc = annotated ? mediaUrl(annotated.path) : null
+  const poseMedia = data.media?.find((m) => m.kind === 'pose_overlay')
+  const poseSrc = poseMedia ? mediaUrl(poseMedia.path) : null
 
   const cell = (name: string, context: string) => {
     const b = benchByKey.get(`${name}|${context}`)
@@ -144,7 +146,7 @@ export function ReviewScreen({ playerId, sessionId, defaultSwingId }: ReviewScre
       {/* HERO: Video Scrubber & Timeline */}
       <div className="bg-[#121714] border border-[#242C27] rounded-[24px] p-6 flex flex-col space-y-6">
         <div className="h-[360px] rounded-[18px] overflow-hidden">
-          <SwingReplay src={videoSrc} seek={seek}
+          <SwingReplay src={videoSrc} poseSrc={poseSrc} seek={seek}
             onTime={(t) => setActivePhase(momentKindToLabel(phaseAtTime(data.moments, t)))} />
         </div>
 

@@ -53,11 +53,11 @@ describe("MetricCard", () => {
       target={36} delta={2} zone="green" state="ok" compact
       trend={{ delta: 1.2, towardPro: true }} />);
     const card = container.firstElementChild as HTMLElement;
-    // Dense padding (p-2.5) and smaller value (text-xl), not the full p-4/text-3xl.
-    expect(card.className).toContain("p-2.5");
-    expect(card.className).not.toContain("p-4");
+    // Compact padding (p-3.5, denser than the full p-4) with a large, glanceable
+    // value (text-[28px]) — readable at a distance but not the full text-3xl.
+    expect(card.className).toContain("p-3.5");
     const value = screen.getByText("38");
-    expect(value.className).toContain("text-xl");
+    expect(value.className).toContain("text-[28px]");
     expect(value.className).not.toContain("text-3xl");
     expect(screen.getByText(/Tour 36/)).toBeInTheDocument();
   });

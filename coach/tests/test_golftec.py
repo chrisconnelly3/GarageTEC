@@ -101,12 +101,12 @@ def test_compare_uses_supplementary_target():
 
 def test_benchmark_row_has_zone_and_state_for_comparable():
     metrics = [{"name": "shoulder_tilt_deg", "context": "address",
-                "value": 12.0, "unit": "deg", "method": "exact"}]
+                "value": 11.0, "unit": "deg", "method": "exact"}]
     row = golftec.benchmark_metrics(metrics)[0]
     assert row["state"] == "ok"
     assert row["direction"] == "match"
-    assert row["zone"] == "green"        # |12-10|=2 <= 3
-    assert row["target"] == 10 and row["delta"] == 2.0
+    assert row["zone"] == "green"        # |11-10|=1 <= 1.5
+    assert row["target"] == 10 and row["delta"] == 1.0
 
 
 def test_benchmark_needs_3d_has_no_zone():
@@ -161,9 +161,10 @@ def test_hip_sway_over_slide_is_red():
     assert r["comparable"] is True and r["zone"] == "red"
 
 
-def test_hip_sway_no_shift_at_impact_is_yellow():
-    # Stayed centered (0") when tour shifts 1.6" -> yellow (too little).
-    r = _row("hip_sway_in", "impact", 0.0)
+def test_hip_sway_partial_shift_at_impact_is_yellow():
+    # Only partly bumped (0.7") when tour shifts 1.6" -> yellow (too little).
+    # |0.7-1.6|=0.9 falls in the (0.5, 1.2] yellow band.
+    r = _row("hip_sway_in", "impact", 0.7)
     assert r["comparable"] is True and r["zone"] == "yellow"
 
 

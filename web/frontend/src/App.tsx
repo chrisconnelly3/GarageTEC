@@ -97,7 +97,7 @@ export default function App() {
       <img
         src="/garagetec-logo.png"
         alt="GarageTEC"
-        className="fixed top-2 left-1/2 -translate-x-1/2 z-30 h-16 w-auto max-w-[340px] object-contain pointer-events-none select-none"
+        className="fixed top-1.5 left-1/2 -translate-x-1/2 z-30 h-[68px] w-auto max-w-[440px] object-contain pointer-events-none select-none"
       />
 
       <Sidebar activeTab={activeTab} setActiveTab={setActiveTab} />

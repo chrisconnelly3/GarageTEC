@@ -32,6 +32,8 @@ random.seed(7)
 
 REPO_VIDEO = "smooth_swing.mov"                 # at repo root
 MEDIA_REL = "swings/smooth_swing.mov"            # served at /media/swings/smooth_swing.mov
+REPO_POSE = "smooth_swing.pose.json"            # per-frame skeleton at repo root
+POSE_REL = "swings/smooth_swing.pose.json"       # served at /media/swings/smooth_swing.pose.json
 
 # Per-(metric, phase) demo plan: (name, context, base_value, method, unit).
 # Values are chosen relative to the tour targets to yield a realistic mix of
@@ -118,16 +120,19 @@ def _shot_for(club, player_id, session_id, captured_at, jitter):
                                     "CarryDistance": t["carry"]},
                       "ClubData": {"Speed": t["club_speed"],
                                    "AngleOfAttack": t["attack_angle"]}})
+    # Believable "good amateur chasing tour" offsets so the stoplight actually
+    # discriminates (not all-green): a touch slow, a little short, spin too high,
+    # launch a hair high. Club speed + attack stay close (green).
     return Shot(
         captured_at=captured_at, player_id=player_id, session_id=session_id,
-        ball_speed=round(t["ball_speed"] + jitter * 1.5, 1),     # slightly hot -> green
-        total_spin=int(t["spin"] + jitter * 120),
+        ball_speed=round(t["ball_speed"] - 3.0 + jitter * 1.2, 1),   # ~3 slow -> yellow
+        total_spin=int(t["spin"] + 480 + jitter * 120),             # spinny -> red
         spin_axis=spin_axis,
         hla=round(random.uniform(-1.5, 1.5), 1),
-        vla=round(t["launch"] + jitter * 0.5, 1),
-        carry=round(t["carry"] + jitter * 3, 1),
-        club_speed=round(t["club_speed"] + jitter * 0.8, 1),
-        attack_angle=round(t["attack_angle"] + jitter * 0.4, 1),
+        vla=round(t["launch"] + 1.3 + jitter * 0.4, 1),             # a hair high -> yellow
+        carry=round(t["carry"] - 6.0 + jitter * 2, 1),              # ~6 short -> yellow
+        club_speed=round(t["club_speed"] - 1.0 + jitter * 0.8, 1),  # close -> green
+        attack_angle=round(t["attack_angle"] + jitter * 0.4, 1),    # on tour -> green
         club_path=round(random.uniform(-2.0, 2.0), 1),
         face_to_target=round(random.uniform(-1.5, 1.5), 1),
         club=club, raw_json=raw)
@@ -143,6 +148,8 @@ def _add_swing(conn, *, session_id, player_id, club, created_at, moments,
     repo.save_metrics(conn, sw.id, _metrics_for(sw.id, jitter))
     if with_video:
         repo.save_media(conn, Media(sw.id, "annotated_video", MEDIA_REL))
+        # Per-frame pose skeleton for the toggleable exoskeleton overlay.
+        repo.save_media(conn, Media(sw.id, "pose_overlay", POSE_REL))
     if with_shot:
         shot = repo.save_shot(conn, _shot_for(club, player_id, session_id,
                                               created_at, jitter))
@@ -185,15 +192,17 @@ def _moments_factory(dur, fps):
     #
     # kind strings must map (via momentKindToLabel) to the stepper's PHASE_LABELS:
     # Address, Takeaway, Lead-arm, Top, Transition, Shaft par., Impact, Follow-thru.
+    # Times verified frame-by-frame against smooth_swing.mov (lead-wrist height
+    # trajectory + visual check). The clip is slow, so the swing window is wide.
     positions = [
-        ("address",     1.80),
-        ("takeaway",    2.10),
-        ("lead-arm",    2.40),
-        ("top",         2.70),
-        ("transition",  2.95),
-        ("shaft par.",  3.15),
-        ("impact",      3.40),
-        ("follow-thru", 3.90),
+        ("address",     1.95),
+        ("takeaway",    2.75),
+        ("lead-arm",    3.65),
+        ("top",         4.57),
+        ("transition",  4.85),
+        ("shaft par.",  5.15),
+        ("impact",      5.42),
+        ("follow-thru", 5.85),
     ]
 
     def make(swing_id):
@@ -205,7 +214,24 @@ def _moments_factory(dur, fps):
     return make
 
 
+def _wipe(conn):
+    """Clear all demo domain rows so each reseed is deterministic (the seed is a
+    full reset, not an append). Schema/settings are preserved."""
+    conn.execute("PRAGMA foreign_keys=OFF")
+    for table in ("coaching", "media", "metric", "moment", "pose_3d_frame",
+                  "pose_frame", "shot", "calibration", "swing", "session",
+                  "player"):
+        try:
+            conn.execute(f"DELETE FROM {table}")
+            conn.execute(f"DELETE FROM sqlite_sequence WHERE name='{table}'")
+        except Exception:  # noqa: BLE001 - table/sequence may not exist
+            pass
+    conn.execute("PRAGMA foreign_keys=ON")
+    conn.commit()
+
+
 def seed(conn, media_root):
+    _wipe(conn)
     # Copy the real swing video into the served media dir.
     dur, fps, _ = 2.0, 30.0, 0
     src = None
@@ -217,6 +243,12 @@ def seed(conn, media_root):
         src = str(dest)
         dur, fps, _ = _video_geometry(src)
         print(f"video: {REPO_VIDEO} -> {dest} ({dur:.2f}s @ {fps:.0f}fps)")
+        # Copy the per-frame pose skeleton next to it (drives the overlay).
+        if os.path.exists(REPO_POSE):
+            shutil.copyfile(REPO_POSE, media_root / "swings" / "smooth_swing.pose.json")
+            print(f"pose:  {REPO_POSE} -> served at /media/{POSE_REL}")
+        else:
+            print(f"WARNING: {REPO_POSE} not found; overlay will be unavailable.")
     else:
         print(f"WARNING: {REPO_VIDEO} not found; swings will show the placeholder.")
     moments = _moments_factory(dur, fps)

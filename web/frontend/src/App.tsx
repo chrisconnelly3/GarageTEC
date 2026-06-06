@@ -91,6 +91,15 @@ export default function App() {
 
   return (
     <div className="flex h-screen w-full bg-[#0A0D0B] text-[#E7EEE9] overflow-hidden font-sans selection:bg-garage-green/30 selection:text-garage-green">
+      {/* Brand logo — dead-center of the viewport, vertically centered in the
+          80px header. Rendered here (not inside Topbar) so the header's
+          backdrop-filter doesn't become its fixed-positioning containing block. */}
+      <img
+        src="/garagetec-logo.png"
+        alt="GarageTEC"
+        className="fixed top-4 left-1/2 -translate-x-1/2 z-30 h-12 w-auto max-w-[240px] object-contain pointer-events-none select-none"
+      />
+
       <Sidebar activeTab={activeTab} setActiveTab={setActiveTab} />
 
       <div className="flex-1 flex flex-col min-w-0">

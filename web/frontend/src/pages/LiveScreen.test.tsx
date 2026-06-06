@@ -193,53 +193,45 @@ describe("LiveScreen", () => {
     expect(outer.className).not.toContain("overflow-y-auto");
   });
 
-  it("lays the captured view out as two columns (video left, cards right)", async () => {
+  it("lays the captured view out as two columns (video+stepper+coach left, metrics right)", async () => {
     const { container } = render(
       <LiveScreen playerId={1} sessionId={1} lastSwing={null} lastCapture={null} activeClub="7 Iron" />,
     );
     await screen.findByText("38");
-    // The captured wrapper is a row on lg with a wide left column (basis ~62%).
-    const left = container.querySelector(".lg\\:basis-\\[62\\%\\]");
+    // The captured wrapper is a row on lg with the media/coach left column (~44%).
+    const left = container.querySelector(".lg\\:basis-\\[44\\%\\]");
     expect(left).not.toBeNull();
-    // The video player and the unified timeline both live in that left column.
+    // The video player, the position stepper, and the coach read live on the left.
     expect(left?.querySelector("video")).not.toBeNull();
     expect(left?.querySelector('[data-testid="live-timeline"]')).not.toBeNull();
+    expect(left?.textContent).toContain("AI Coach Read");
   });
 
-  it("ball cards render in the left column (ball-club-strip), NOT the right column", async () => {
+  it("ALL metric cards (ball + body) render in the right metrics column", async () => {
     const { container } = render(
       <LiveScreen playerId={1} sessionId={1} lastSwing={null} lastCapture={null} activeClub="7 Iron" />,
     );
     await screen.findByText("142"); // ball speed value
-    const left = container.querySelector(".lg\\:basis-\\[62\\%\\]");
-    const strip = left?.querySelector('[data-testid="ball-club-strip"]');
-    expect(strip).not.toBeNull();
-    // Ball Speed value should be inside the strip.
-    expect(strip?.textContent).toContain("142");
+    const metrics = container.querySelector('[data-testid="metrics-column"]');
+    expect(metrics).not.toBeNull();
+    // Both the ball value (142) and the body value (38) live in the right column.
+    expect(metrics?.textContent).toContain("142");
+    expect(metrics?.textContent).toContain("38");
+    // The left media column does NOT hold the metric cards.
+    const left = container.querySelector(".lg\\:basis-\\[44\\%\\]");
+    expect(left?.querySelector('[data-testid="ball-club-section"]')).toBeNull();
   });
 
-  it("body cards render in the right column (flex-1), NOT the ball strip", async () => {
+  it("right metrics column scrolls internally (all ball + body cards live there)", async () => {
     const { container } = render(
       <LiveScreen playerId={1} sessionId={1} lastSwing={null} lastCapture={null} activeClub="7 Iron" />,
     );
     await screen.findByText("38");
-    const left = container.querySelector(".lg\\:basis-\\[62\\%\\]");
-    const strip = left?.querySelector('[data-testid="ball-club-strip"]');
-    // Body card value (38) should NOT be inside the ball strip.
-    expect(strip?.textContent).not.toContain("38");
-  });
-
-  it("right column has no overflow-y-auto (body cards + coach fit without scroll)", async () => {
-    const { container } = render(
-      <LiveScreen playerId={1} sessionId={1} lastSwing={null} lastCapture={null} activeClub="7 Iron" />,
-    );
-    await screen.findByText("38");
-    // Right column is flex-1 (not lg:basis-[62%]). It must not have overflow-y-auto.
-    const left = container.querySelector(".lg\\:basis-\\[62\\%\\]");
-    // The sibling after the left column is the right column.
-    const right = left?.nextElementSibling as HTMLElement | null;
-    expect(right).not.toBeNull();
-    expect(right?.className).not.toContain("overflow-y-auto");
+    // All metrics share one column, so it is the single scroll region (the page
+    // itself never scrolls — the outer container stays overflow-hidden).
+    const metrics = container.querySelector('[data-testid="metrics-column"]') as HTMLElement | null;
+    expect(metrics).not.toBeNull();
+    expect(metrics?.className).toContain("overflow-y-auto");
   });
 
   it("renders the unified LiveTimeline (not the evenly-spaced PhaseTimeline) on Live", async () => {

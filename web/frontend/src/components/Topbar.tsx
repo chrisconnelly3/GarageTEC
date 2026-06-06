@@ -35,13 +35,10 @@ export function Topbar({
   const noPlayer = activePlayerId == null
   return (
     <header className="h-20 border-b border-[#242C27] bg-[#0A0D0B]/80 backdrop-blur-md flex items-center justify-between px-6 sticky top-0 z-10 gap-4">
+      {/* The GarageTEC logo is rendered at the app-shell level (App.tsx) so it can
+          sit dead-center of the viewport without the header's backdrop-filter
+          turning it into the fixed-positioning containing block. */}
       <div className="flex items-center gap-4 min-w-0">
-        <img
-          src="/garagetec-logo.png"
-          alt="GarageTEC"
-          className="h-9 w-auto max-w-[160px] object-contain flex-shrink-0"
-        />
-
         <div className="flex items-center gap-2">
           <label className="text-[11px] uppercase tracking-widest text-[#8B978F] font-semibold">
             Who's Hitting

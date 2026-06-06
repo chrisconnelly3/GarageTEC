@@ -179,15 +179,29 @@ def _add_swing(conn, *, session_id, player_id, club, created_at, moments,
 def _moments_factory(dur, fps):
     # Calibrated to smooth_swing.mov's actual swing window (the clip has lead-in
     # and follow-through padding, so address is not at t=0). Real captured swings
-    # get detected moment times from the pipeline.
-    a, t, i = min(1.8, dur), min(2.7, dur), min(3.4, dur)
+    # get detected moment times from the pipeline. We emit ALL eight swing
+    # positions so the Live position stepper shows every one at its real time;
+    # body metrics still only exist at address/top/impact.
+    #
+    # kind strings must map (via momentKindToLabel) to the stepper's PHASE_LABELS:
+    # Address, Takeaway, Lead-arm, Top, Transition, Shaft par., Impact, Follow-thru.
+    positions = [
+        ("address",     1.80),
+        ("takeaway",    2.10),
+        ("lead-arm",    2.40),
+        ("top",         2.70),
+        ("transition",  2.95),
+        ("shaft par.",  3.15),
+        ("impact",      3.40),
+        ("follow-thru", 3.90),
+    ]
 
     def make(swing_id):
-        return [
-            Moment(swing_id, "address", "face_on", int(a * fps), a),
-            Moment(swing_id, "top", "face_on", int(t * fps), t),
-            Moment(swing_id, "impact", "face_on", int(i * fps), i),
-        ]
+        out = []
+        for kind, t in positions:
+            ts = min(t, dur)
+            out.append(Moment(swing_id, kind, "face_on", int(ts * fps), ts))
+        return out
     return make
 
 

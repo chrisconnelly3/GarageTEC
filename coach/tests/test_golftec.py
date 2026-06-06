@@ -88,7 +88,8 @@ def test_supplementary_references_merged():
     ee = ref["early_extension_in"]["contexts"]["impact"]
     assert ee["value"] == 0 and ee["two_d_comparable_now"] is True
     hs = ref["head_sway_in"]["contexts"]["top"]
-    assert hs["value"] == 4.5 and hs["two_d_comparable_now"] is True
+    # DIRECTIONAL: signed target is negative (good trail-side load reads -).
+    assert hs["value"] == -4.5 and hs["two_d_comparable_now"] is True
     assert ref["x_factor_stretch_deg"]["contexts"]["downswing"]["value"] == 5
     assert ref["shoulder_tilt_deg"]["contexts"]["address"]["value"] == 10
 
@@ -123,3 +124,50 @@ def test_benchmark_emits_raw_row_for_unreferenced_metric():
     assert row["state"] == "raw"
     assert row["target"] is None and row["zone"] is None and row["delta"] is None
     assert row["value"] == 9.2
+
+
+# --- DIRECTIONAL SWAY end-to-end (target lookup + zone, the real UI path) -----
+# These lock the COACHING INTENT so a future sign flip in sway.py or the refs
+# is caught: a good real swing must read GREEN, a wrong-direction one RED.
+# sway.py reports "positive = toward target" (sign self-normalizes handedness).
+
+def _row(name, context, value):
+    metrics = [{"name": name, "context": context, "value": value,
+                "unit": "in", "method": "shoulder_ratio_0.24"}]
+    return golftec.benchmark_metrics(metrics)[0]
+
+
+def test_head_sway_good_trailside_load_is_green():
+    # Good backswing: head loaded ~4.5" TRAIL-side at top -> negative -> green.
+    r = _row("head_sway_in", "top", -4.5)
+    assert r["comparable"] is True and r["zone"] == "green" and r["state"] == "ok"
+
+
+def test_head_sway_sliding_opposite_way_is_red():
+    # Head slides 4.5" TOWARD target at top (reverse pivot) -> positive -> red.
+    r = _row("head_sway_in", "top", 4.5)
+    assert r["comparable"] is True and r["zone"] == "red"
+
+
+def test_hip_sway_proper_shift_at_impact_is_green():
+    # Pelvis bumped ~1.6" toward target at impact -> matches tour -> green.
+    r = _row("hip_sway_in", "impact", 1.6)
+    assert r["comparable"] is True and r["zone"] == "green"
+
+
+def test_hip_sway_over_slide_is_red():
+    # Big slide toward target at impact (3.8") -> over-slide -> red.
+    r = _row("hip_sway_in", "impact", 3.8)
+    assert r["comparable"] is True and r["zone"] == "red"
+
+
+def test_hip_sway_no_shift_at_impact_is_yellow():
+    # Stayed centered (0") when tour shifts 1.6" -> yellow (too little).
+    r = _row("hip_sway_in", "impact", 0.0)
+    assert r["comparable"] is True and r["zone"] == "yellow"
+
+
+def test_hip_sway_wrong_direction_is_red():
+    # Slid AWAY from target at impact (-1.0") -> red.
+    r = _row("hip_sway_in", "impact", -1.0)
+    assert r["comparable"] is True and r["zone"] == "red"

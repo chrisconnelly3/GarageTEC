@@ -98,24 +98,37 @@ def validate(obj, context):
     if not isinstance(obj["confidence_notes"], list):
         errors.append("confidence_notes must be a list")
 
-    # Index real metrics by name -> set of allowed (rounded) values.
-    by_name = {}
+    # Index real metrics by (name, context) -> set of allowed (rounded) values.
+    # Keying by NAME ALONE would let a finding cite a value that only exists in a
+    # DIFFERENT phase (e.g. hip_sway_in @ top vs @ impact), so the grounding key
+    # is the (metric, context) pair the metric was actually measured in.
+    by_key = {}
     for m in _iter_context_metrics(context):
-        by_name.setdefault(m["name"], set()).add(
+        key = (m["name"], m.get("context"))
+        by_key.setdefault(key, set()).add(
             round(m["value"], 6) if m.get("value") is not None else None)
+    known_names = {name for (name, _ctx) in by_key}
 
     for i, f in enumerate(obj["findings"]):
         if not isinstance(f, dict):
             errors.append(f"finding {i} is not an object")
             continue
         name = f.get("metric")
-        if name not in by_name:
+        if name not in known_names:
             errors.append(f"finding {i} cites unknown metric: {name!r}")
             continue
-        val = f.get("value")
-        if val is None or round(float(val), 6) not in by_name[name]:
+        key = (name, f.get("context"))
+        allowed = by_key.get(key)
+        if allowed is None:
             errors.append(
-                f"finding {i} value {val!r} does not match metric {name!r}")
+                f"finding {i} cites metric {name!r} in unknown context "
+                f"{f.get('context')!r}")
+            continue
+        val = f.get("value")
+        if val is None or round(float(val), 6) not in allowed:
+            errors.append(
+                f"finding {i} value {val!r} does not match metric {name!r} "
+                f"in context {f.get('context')!r}")
         if not (f.get("vs_baseline") or f.get("vs_ideal")):
             errors.append(
                 f"finding {i} has no comparison (vs_baseline/vs_ideal)")

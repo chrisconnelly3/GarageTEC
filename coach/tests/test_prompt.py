@@ -81,6 +81,37 @@ def test_validate_rejects_finding_without_any_comparison():
     assert any("comparison" in e for e in errors)
 
 
+def test_validate_rejects_value_from_wrong_context():
+    # Grounding has two phases of the same metric with different values; a
+    # finding may not cite a value that only belongs to the OTHER phase.
+    ctx = _ctx()
+    ctx["metrics"] = [
+        {"name": "hip_sway_in", "context": "top", "value": 3.9, "unit": "in"},
+        {"name": "hip_sway_in", "context": "impact", "value": 1.6, "unit": "in"},
+    ]
+    bad = _valid_output()
+    # cite impact but with the TOP value (3.9) -> must be rejected
+    bad["findings"][0]["context"] = "impact"
+    bad["findings"][0]["value"] = 3.9
+    ok, errors = prompt.validate(bad, ctx)
+    assert ok is False
+    assert any("does not match" in e for e in errors)
+    # the correctly-keyed value passes
+    good = _valid_output()
+    good["findings"][0]["context"] = "impact"
+    good["findings"][0]["value"] = 1.6
+    ok2, errors2 = prompt.validate(good, ctx)
+    assert ok2 is True and errors2 == []
+
+
+def test_validate_rejects_finding_in_unknown_context():
+    bad = _valid_output()
+    bad["findings"][0]["context"] = "finish"  # metric exists, not at finish
+    ok, errors = prompt.validate(bad, _ctx())
+    assert ok is False
+    assert any("unknown context" in e for e in errors)
+
+
 def test_validate_rejects_non_dict():
     ok, errors = prompt.validate(["not", "a", "dict"], _ctx())
     assert ok is False

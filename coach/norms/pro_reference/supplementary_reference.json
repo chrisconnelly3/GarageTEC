@@ -16,8 +16,8 @@
   "head_sway_in": {
     "metric": "head_sway_in",
     "contexts": {
-      "top": {"value": 4.5, "two_d_comparable_now": true,
-              "source": "research: tour trail-side head sway ~3-6 in during backswing; 4.5 midpoint"}
+      "top": {"value": -4.5, "two_d_comparable_now": true,
+              "source": "research: tour trail-side head sway ~3-6 in during backswing; 4.5 midpoint. SIGN: metrics/defs/sway.py reports 'positive = toward target', so a good TRAIL-SIDE load at top is NEGATIVE (-4.5). 'match' mode vs this signed target is directional: good-direction load -> green, opposite slide -> red."}
     }
   },
   "early_extension_in": {

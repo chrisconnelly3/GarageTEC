@@ -126,8 +126,10 @@ def live_capture_bus() -> CaptureEventBus:
 def get_live_capture_supervisor() -> LiveCaptureSupervisor:
     global _live_capture_supervisor
     if _live_capture_supervisor is None:
+        db_path = dbmod.default_db_path()
         _live_capture_supervisor = LiveCaptureSupervisor(
-            conn=_listener_conn(), bus=live_capture_bus())
+            conn=_listener_conn(), bus=live_capture_bus(),
+            db_path=db_path)
     return _live_capture_supervisor
 
 

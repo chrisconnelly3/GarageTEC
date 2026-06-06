@@ -1,18 +1,36 @@
 from dataclasses import asdict
 
-from fastapi import APIRouter, Depends
-from pydantic import BaseModel
+from fastapi import APIRouter, Depends, HTTPException
+from pydantic import BaseModel, field_validator
 
 from store import repo
 from web.backend.deps import get_conn, get_supervisor
 
 router = APIRouter(prefix="/api/capture", tags=["capture"])
 
+_HEIGHT_MIN = 36.0   # 3 ft – smallest plausible golfer
+_HEIGHT_MAX = 96.0   # 8 ft – largest plausible golfer
+
 
 class ActivePlayerIn(BaseModel):
     name: str
     height_in: float
     handedness: str
+
+    @field_validator("handedness")
+    @classmethod
+    def _validate_handedness(cls, v: str) -> str:
+        if v not in {"R", "L"}:
+            raise ValueError("handedness must be 'R' or 'L'")
+        return v
+
+    @field_validator("height_in")
+    @classmethod
+    def _validate_height(cls, v: float) -> float:
+        if not (_HEIGHT_MIN <= v <= _HEIGHT_MAX):
+            raise ValueError(
+                f"height_in must be between {_HEIGHT_MIN} and {_HEIGHT_MAX}")
+        return v
 
 
 class ActiveClubIn(BaseModel):

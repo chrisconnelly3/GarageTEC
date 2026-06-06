@@ -184,3 +184,73 @@ def test_on_shot_noop_when_not_started_and_no_buffer(conn, monkeypatch):
     import time
     time.sleep(0.1)
     assert called["n"] == 0  # nothing buffered -> no pipeline run
+
+
+# ---- Fix 1: capture_now opens its OWN connection per call ----------------
+
+def test_capture_now_uses_fresh_connection_per_call_not_self_conn(
+        tmp_path, monkeypatch):
+    """capture_now must open a NEW db connection (via db_path) rather than
+    reusing self.conn.  This ensures daemon threads never hit SQLite's
+    'objects created in a thread can only be used in that same thread' error
+    even when self.conn was created without check_same_thread=False.
+
+    Verified by: creating self.conn with check_same_thread=True (the default)
+    on the main thread, then running capture_now on a background thread and
+    asserting it succeeds (no ProgrammingError) by checking the fake
+    process_video was called with a DIFFERENT connection object.
+    """
+    import threading
+    import sqlite3
+    from store import db as dbmod
+
+    # Set up a real on-disk db so fresh connections work.
+    db_file = str(tmp_path / "test.db")
+    # Self.conn with check_same_thread=True (default — would crash on bg thread)
+    main_conn = sqlite3.connect(db_file, check_same_thread=True)
+    main_conn.row_factory = sqlite3.Row
+    main_conn.execute("PRAGMA foreign_keys=ON;")
+    dbmod.init_db(conn=main_conn)
+
+    bus = CaptureEventBus()
+    sup = LiveCaptureSupervisor(conn=main_conn, bus=bus,
+                                source_factory=lambda: FakeSource(),
+                                db_path=db_file,
+                                post_shot_delay_s=0.0)
+
+    # Seed the buffer.
+    for i in range(5):
+        sup._buffer.push(np.zeros((48, 64, 3), np.uint8), time_s=i / 20.0)
+
+    recorded = {}
+
+    def fake_process_video(conn_arg, video_path, *, player_id, session_id,
+                           on_swing=None, **kw):
+        recorded["conn_id"] = id(conn_arg)
+        recorded["main_conn_id"] = id(main_conn)
+
+        class R:
+            swing_id = 9999
+        if on_swing:
+            on_swing(R())
+        return [R()]
+
+    monkeypatch.setattr("web.backend.live_capture.process_video",
+                        fake_process_video)
+
+    error_holder = []
+
+    def bg():
+        try:
+            sup.capture_now(player_id=1, session_id=1, shot_id=1)
+        except Exception as exc:
+            error_holder.append(exc)
+
+    t = threading.Thread(target=bg)
+    t.start()
+    t.join(timeout=5.0)
+    assert not t.is_alive(), "background thread timed out"
+    assert not error_holder, f"capture_now raised on bg thread: {error_holder}"
+    # The connection passed to process_video must NOT be self.conn.
+    assert recorded.get("conn_id") != recorded.get("main_conn_id"), (
+        "capture_now must use a fresh per-call connection, not self.conn")

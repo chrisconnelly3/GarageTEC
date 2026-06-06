@@ -60,3 +60,33 @@ def test_active_club_sets_and_reports(client):
     # clearing
     assert client.post("/api/capture/active-club",
                        json={"club": None}).json()["active_club"] is None
+
+
+# ---- Fix 4: active-player input validation --------------------------------
+
+def test_active_player_invalid_handedness_returns_422(client):
+    r = client.post("/api/capture/active-player",
+                    json={"name": "Chris", "height_in": 72.0,
+                          "handedness": "X"})
+    assert r.status_code == 422
+
+
+def test_active_player_height_too_low_returns_422(client):
+    r = client.post("/api/capture/active-player",
+                    json={"name": "Chris", "height_in": 20.0,
+                          "handedness": "R"})
+    assert r.status_code == 422
+
+
+def test_active_player_height_too_high_returns_422(client):
+    r = client.post("/api/capture/active-player",
+                    json={"name": "Chris", "height_in": 200.0,
+                          "handedness": "R"})
+    assert r.status_code == 422
+
+
+def test_active_player_left_handed_valid(client):
+    r = client.post("/api/capture/active-player",
+                    json={"name": "Lefty", "height_in": 68.0,
+                          "handedness": "L"})
+    assert r.status_code == 200

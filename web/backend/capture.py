@@ -89,6 +89,7 @@ class CaptureSupervisor:
         self._last_error = None
         self._listener = None
         self._run = False
+        self._restarting = False         # guard against double-spawn in restart()
         self._supervisor_thread = None
 
     # ---- core (directly tested, no socket) -------------------------------
@@ -99,7 +100,12 @@ class CaptureSupervisor:
         if self._paused:
             return None  # discard: keep R50 connected, do NOT persist/analyze
         if self.session_mgr.active_player is None:
-            self.persister._buffer(shot)  # no one selected: don't lose it
+            # No player selected: dropping shot rather than persisting an
+            # unattributable orphan (player_id=None rows are invisible to all
+            # scoped queries and can never be corrected).
+            self.bus.publish("capture_status",
+                             {"status": "shot_dropped_no_player",
+                              "detail": "no active player; shot discarded"})
             return None
         self.session_mgr.attribute(self.conn, shot)
         shot.club = self.active_club     # tag with the currently-selected club
@@ -196,9 +202,15 @@ class CaptureSupervisor:
         self._connected = False
 
     def restart(self):
-        if self._listener is not None:
-            self._listener.stop()
-        self._spawn_listener()
+        with self._lock:
+            self._restarting = True
+        try:
+            if self._listener is not None:
+                self._listener.stop()
+            self._spawn_listener()
+        finally:
+            with self._lock:
+                self._restarting = False
 
     def _spawn_listener(self):
         self._listener = self._listener_factory(
@@ -219,7 +231,9 @@ class CaptureSupervisor:
     def _supervise(self):
         import time
         while self._run:
-            if self._listener is not None and not self._listener_alive():
+            with self._lock:
+                restarting = self._restarting
+            if not restarting and self._listener is not None and not self._listener_alive():
                 self._last_error = "listener thread died; restarting"
                 self.bus.publish("capture_status",
                                  {"status": "restarting"})

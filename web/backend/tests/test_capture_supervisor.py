@@ -85,12 +85,21 @@ def test_heartbeat_is_ignored_even_when_running(conn, tmp_path):
     assert [e for e in bus.drain() if e["event"] == "shot_received"] == []
 
 
-def test_shot_with_no_active_player_is_buffered_not_lost(conn, tmp_path):
-    sup, _ = make_supervisor(conn, tmp_path)  # nobody selected yet
+def test_shot_with_no_active_player_is_dropped_not_orphaned(conn, tmp_path):
+    """Shots arriving before a player is selected must NOT persist an
+    unattributable orphan (Fix 2: player_id=None rows are invisible and
+    uncorrectable; drop them cleanly with a status event)."""
+    sup, bus = make_supervisor(conn, tmp_path)  # nobody selected yet
     out = sup.handle_message(SHOT_MSG, source="t")
     assert out is None
     assert conn.execute("SELECT COUNT(*) c FROM shot").fetchone()["c"] == 0
-    assert sup.persister.pending_count() == 1  # buffered, not discarded
+    assert sup.persister.pending_count() == 0   # NOT buffered to disk
+    # a status event must announce the drop
+    events = bus.drain()
+    dropped = [e for e in events
+               if e["event"] == "capture_status"
+               and e["data"].get("status") == "shot_dropped_no_player"]
+    assert dropped, "expected shot_dropped_no_player status event"
 
 
 def test_set_active_player_attributes_to_that_player_and_emits(conn, tmp_path):
@@ -253,3 +262,37 @@ def test_active_club_tags_shots_and_status(conn, tmp_path):
     row = conn.execute("SELECT club FROM shot WHERE id=?", (saved.id,)).fetchone()
     assert row["club"] == "7 Iron"                   # persisted
     assert "active_club_changed" in [e["event"] for e in bus.drain()]
+
+
+# ---- Fix 3: restart() must not double-spawn under supervise race ----------
+
+def test_restart_does_not_double_spawn_under_supervise_race(conn, tmp_path):
+    """restart() sets _restarting while it works; _supervise must skip
+    re-spawn while that flag is set, so we never bind port 921 twice."""
+    import time
+    made = []
+    sup = CaptureSupervisor(
+        conn=conn, bus=CaptureEventBus(),
+        listener_factory=lambda **kw: made.append(FakeListener(**kw)) or made[-1],
+        buffer_path=str(tmp_path / "p.jsonl"),
+        restart_poll_s=0.005)   # very fast supervise loop
+    sup.start()
+    assert _wait(lambda: len(made) == 1 and made[0].alive)
+
+    # Simulate the listener dying while restart() is executing:
+    # hold _restarting=True manually and check _supervise doesn't spawn.
+    with sup._lock:
+        sup._restarting = True
+    made[0].die()
+    time.sleep(0.05)  # let supervise loop run several times
+    count_while_restarting = len(made)
+    with sup._lock:
+        sup._restarting = False
+
+    # The supervise loop must NOT have spawned while restarting was set.
+    assert count_while_restarting == 1, (
+        f"expected no extra spawn while _restarting=True, got {count_while_restarting}")
+
+    # After flag cleared, a dead listener SHOULD be restarted normally.
+    assert _wait(lambda: len(made) == 2 and made[1].alive)
+    sup.stop()

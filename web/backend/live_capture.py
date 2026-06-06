@@ -17,6 +17,7 @@ import threading
 import time
 from typing import Callable, Optional
 
+from store import db as dbmod
 from vision import constants as C
 from vision.frames import LiveCameraSource, DualCameraSource
 from vision.live_buffer import RollingFrameBuffer
@@ -41,8 +42,10 @@ class LiveCaptureSupervisor:
                  window_s: float = DEFAULT_WINDOW_S,
                  post_shot_delay_s: float = DEFAULT_POST_SHOT_DELAY_S,
                  source_factory: Optional[Callable] = None,
-                 split: float = C.DEFAULT_SPLIT):
+                 split: float = C.DEFAULT_SPLIT,
+                 db_path: Optional[str] = None):
         self.conn = conn
+        self._db_path = db_path  # explicit path; falls back to default_db_path()
         self.bus = bus
         self.fps = fps
         self.window_s = window_s
@@ -166,12 +169,19 @@ class LiveCaptureSupervisor:
     def capture_now(self, *, player_id, session_id, shot_id=None):
         """Flush the rolling buffer to a temp mp4, run process_video on it, emit a
         live_swing_captured event per persisted swing, then clean up the temp
-        file. Returns the list of swing ids produced (empty on no-op/error)."""
+        file. Returns the list of swing ids produced (empty on no-op/error).
+
+        Opens a FRESH db connection for every call so it is safe to run from any
+        daemon thread (SQLite forbids sharing a connection across threads when
+        check_same_thread is True, which is the default for store.db.connect()).
+        """
         if len(self._buffer) == 0:
             return []
         fd, path = tempfile.mkstemp(suffix=".mp4", prefix="live_swing_")
         os.close(fd)
         swing_ids = []
+        # Per-capture connection: thread-safe, closed in finally.
+        cap_conn = dbmod.connect(self._db_path)
         try:
             written = self._buffer.flush_to_video(path)
             if written is None:
@@ -185,13 +195,17 @@ class LiveCaptureSupervisor:
                     "swing_id": sid, "shot_id": shot_id,
                     "player_id": player_id, "session_id": session_id})
 
-            process_video(self.conn, path, player_id=player_id,
+            process_video(cap_conn, path, player_id=player_id,
                           session_id=session_id, on_swing=_on_swing)
         except Exception as e:
             self._last_error = str(e)
             self._publish_status()
             return []
         finally:
+            try:
+                cap_conn.close()
+            except Exception:
+                pass
             try:
                 if os.path.exists(path):
                     os.remove(path)

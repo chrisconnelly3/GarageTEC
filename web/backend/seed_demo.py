@@ -177,7 +177,10 @@ def _add_swing(conn, *, session_id, player_id, club, created_at, moments,
 
 
 def _moments_factory(dur, fps):
-    a, t, i = 0.0, round(dur * 0.45, 3), round(dur * 0.62, 3)
+    # Calibrated to smooth_swing.mov's actual swing window (the clip has lead-in
+    # and follow-through padding, so address is not at t=0). Real captured swings
+    # get detected moment times from the pipeline.
+    a, t, i = min(1.8, dur), min(2.7, dur), min(3.4, dur)
 
     def make(swing_id):
         return [
@@ -285,12 +288,31 @@ def seed(conn, media_root):
                           n_poses=26, reprojection_error=0.42, calib_json="{}")
     conn.commit()
 
+    # ---- Real PGA-coach output for Alex's latest matched swing ---------------
+    # When ANTHROPIC_API_KEY is configured, generate genuine coaching for the
+    # swing the Live screen opens on, so the demo shows the real agent (not the
+    # mock). Best-effort: any failure (no key, API/validation error) is ignored
+    # and the mock coaching stands in.
+    import os
+    if os.environ.get("ANTHROPIC_API_KEY"):
+        try:
+            from coach import coach as _coach, backend as _backend
+            ss = repo.list_swing_summaries(conn, player_id=alex.id, limit=12)
+            sid = next((s["id"] for s in ss if s.get("has_shot")), None)
+            if sid is not None:
+                _coach.coach_swing(conn, _backend.make_backend("cloud"), sid)
+                print(f"real coaching generated for swing {sid}")
+        except Exception as e:   # noqa: BLE001 - demo convenience, never fatal
+            print(f"real coaching skipped: {e}")
+
     n_players = len(repo.list_players(conn)) if hasattr(repo, "list_players") else 3
     print(f"Demo seeded: players~{n_players}, Alex open_session={open_sess.id}. "
           f"Live/Review/History/Sync/Connect are populated.")
 
 
 def main():
+    from web.backend.app import _load_dotenv  # picks up ANTHROPIC_API_KEY from .env
+    _load_dotenv()
     conn = dbmod.connect()
     dbmod.init_db(conn=conn)
     from web.backend.deps import media_root

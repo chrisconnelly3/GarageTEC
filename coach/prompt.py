@@ -137,28 +137,42 @@ def validate(obj, context):
             round(m["value"], 6) if m.get("value") is not None else None)
     known_names = {name for (name, _ctx) in by_key}
 
+    # The matched launch-monitor shot is ALSO a grounded source: the coach is
+    # told to tie findings to the ball result, so a finding may cite a ball/club
+    # field (e.g. club_speed, attack_angle, carry) by name. Its value must match
+    # the real shot value (anti-hallucination preserved). Ball facts carry no
+    # per-metric baseline/ideal, so they are exempt from the comparison rule.
+    shot = context.get("shot") or {}
+    shot_vals = {k: round(float(v), 6) for k, v in shot.items()
+                 if k != "id" and isinstance(v, (int, float))}
+
     for i, f in enumerate(obj["findings"]):
         if not isinstance(f, dict):
             errors.append(f"finding {i} is not an object")
             continue
         name = f.get("metric")
-        if name not in known_names:
-            errors.append(f"finding {i} cites unknown metric: {name!r}")
-            continue
-        key = (name, f.get("context"))
-        allowed = by_key.get(key)
-        if allowed is None:
-            errors.append(
-                f"finding {i} cites metric {name!r} in unknown context "
-                f"{f.get('context')!r}")
-            continue
         val = f.get("value")
-        if val is None or round(float(val), 6) not in allowed:
-            errors.append(
-                f"finding {i} value {val!r} does not match metric {name!r} "
-                f"in context {f.get('context')!r}")
-        if not (f.get("vs_baseline") or f.get("vs_ideal")):
-            errors.append(
-                f"finding {i} has no comparison (vs_baseline/vs_ideal)")
+        if name in known_names:
+            key = (name, f.get("context"))
+            allowed = by_key.get(key)
+            if allowed is None:
+                errors.append(
+                    f"finding {i} cites metric {name!r} in unknown context "
+                    f"{f.get('context')!r}")
+                continue
+            if val is None or round(float(val), 6) not in allowed:
+                errors.append(
+                    f"finding {i} value {val!r} does not match metric {name!r} "
+                    f"in context {f.get('context')!r}")
+            if not (f.get("vs_baseline") or f.get("vs_ideal")):
+                errors.append(
+                    f"finding {i} has no comparison (vs_baseline/vs_ideal)")
+        elif name in shot_vals:
+            if val is None or round(float(val), 6) != shot_vals[name]:
+                errors.append(
+                    f"finding {i} value {val!r} does not match shot field "
+                    f"{name!r} ({shot_vals[name]})")
+        else:
+            errors.append(f"finding {i} cites unknown metric: {name!r}")
 
     return (len(errors) == 0), errors

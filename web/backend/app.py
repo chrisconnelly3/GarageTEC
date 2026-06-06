@@ -1,9 +1,33 @@
 """GarageTEC Screen backend: REST + SSE + media + static frontend."""
+import os
 from contextlib import asynccontextmanager
 from pathlib import Path
 
 from fastapi import FastAPI
 from fastapi.staticfiles import StaticFiles
+
+
+def _load_dotenv() -> None:
+    """Load KEY=VALUE pairs from a repo-root .env into the environment (without
+    overriding existing vars). Lets the AI coach pick up ANTHROPIC_API_KEY for
+    local dev without committing the secret. No external dependency."""
+    env_path = Path(__file__).resolve().parents[2] / ".env"
+    if not env_path.exists():
+        return
+    for line in env_path.read_text(encoding="utf-8").splitlines():
+        line = line.strip()
+        if not line or line.startswith("#") or "=" not in line:
+            continue
+        key, value = line.split("=", 1)
+        key = key.strip()
+        # Set when absent OR currently blank (some shells export an empty
+        # ANTHROPIC_API_KEY, which setdefault would wrongly preserve). A real
+        # non-empty value already in the environment still wins.
+        if not os.environ.get(key):
+            os.environ[key] = value.strip()
+
+
+_load_dotenv()
 
 from web.backend import (
     api_players, api_sessions, api_swings, api_history, api_sync, api_capture,

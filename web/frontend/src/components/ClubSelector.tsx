@@ -15,7 +15,7 @@ export function ClubSelector({ value, onChange }:
       <select
         value={value ?? ""}
         onChange={(e) => onChange(e.target.value || null)}
-        className="bg-[#1A211D] border border-[#242C27] rounded-xl px-4 py-2 text-[#E7EEE9] focus:border-garage-green outline-none min-h-[44px]"
+        className="bg-[#1A211D] border border-[#242C27] rounded-xl px-4 py-2 text-[#E7EEE9] outline-none min-h-[44px] focus-visible:ring-2 focus-visible:ring-garage-green/60 focus-visible:border-garage-green"
       >
         <option value="">Select club…</option>
         {clubs.map((c) => <option key={c} value={c}>{c}</option>)}

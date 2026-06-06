@@ -72,7 +72,7 @@ export function SwingReplay({ src, highlight, seek, onTime }: SwingReplayProps) 
 
       <div className="h-16 bg-[#121714] border-t border-[#242C27] px-6 flex items-center space-x-4">
         <button onClick={toggle} disabled={!src}
-          className="w-10 h-10 rounded-full bg-garage-green text-[#0A0D0B] flex items-center justify-center disabled:opacity-40 flex-shrink-0">
+          className="w-10 h-10 rounded-full bg-garage-green text-[#0A0D0B] flex items-center justify-center disabled:opacity-40 flex-shrink-0 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-garage-green/60 focus-visible:ring-offset-2 focus-visible:ring-offset-[#121714]">
           {isPlaying ? <Pause className="w-5 h-5 fill-current" /> : <Play className="w-5 h-5 fill-current ml-0.5" />}
         </button>
         <div className="flex-1 h-2 bg-[#1A211D] rounded-full relative">

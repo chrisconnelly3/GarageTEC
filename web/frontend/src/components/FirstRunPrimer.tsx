@@ -34,7 +34,7 @@ export function FirstRunPrimer({ onDismiss }: FirstRunPrimerProps) {
       <button
         onClick={onDismiss}
         aria-label="Dismiss"
-        className="shrink-0 text-[#8B978F] hover:text-[#E7EEE9] transition-colors p-1 rounded-full hover:bg-[#242C27] min-w-[36px] min-h-[36px] flex items-center justify-center"
+        className="shrink-0 text-[#8B978F] hover:text-[#E7EEE9] transition-colors p-1 rounded-full hover:bg-[#242C27] min-w-[36px] min-h-[36px] flex items-center justify-center focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-garage-green/60"
       >
         <X className="w-4 h-4" />
       </button>

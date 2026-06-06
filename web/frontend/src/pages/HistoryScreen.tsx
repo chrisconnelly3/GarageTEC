@@ -45,6 +45,20 @@ const shortDate = (iso: string) => {
     : d.toLocaleDateString(undefined, { month: 'short', day: 'numeric' })
 }
 
+const timeOfDay = (iso: string) => {
+  const d = new Date(iso)
+  return Number.isNaN(d.getTime())
+    ? iso
+    : d.toLocaleTimeString(undefined, { hour: 'numeric', minute: '2-digit' })
+}
+
+/** Returns true when every ISO string falls on the same calendar date (YYYY-MM-DD). */
+const allSameDay = (isos: string[]): boolean => {
+  if (isos.length < 2) return false
+  const day0 = isos[0].slice(0, 10)
+  return isos.every((s) => s.slice(0, 10) === day0)
+}
+
 interface TrendVM {
   name: string
   value: string
@@ -108,8 +122,10 @@ export function HistoryScreen({ playerId }: HistoryScreenProps) {
   )
 
   const heroPoints = withinTimeframe(hero?.points ?? [], timeframe)
+  const heroIsos = heroPoints.map((p) => p.created_at)
+  const useTimeAxis = allSameDay(heroIsos)
   const chartData = heroPoints.map((p) => ({
-    date: shortDate(p.created_at),
+    date: useTimeAxis ? timeOfDay(p.created_at) : shortDate(p.created_at),
     value: p.value,
   }))
 
@@ -128,7 +144,7 @@ export function HistoryScreen({ playerId }: HistoryScreenProps) {
                 data-testid="metric-select"
                 value={heroMetric}
                 onChange={(e) => setHeroMetric(e.target.value)}
-                className="appearance-none bg-transparent text-sm text-[#E7EEE9] pr-5 cursor-pointer focus:outline-none"
+                className="appearance-none bg-transparent text-sm text-[#E7EEE9] pr-5 cursor-pointer outline-none focus-visible:ring-1 focus-visible:ring-garage-green/60"
               >
                 {HERO_METRIC_OPTIONS.map((m) => (
                   <option key={m} value={m}>{labelFor(m)}</option>
@@ -143,7 +159,7 @@ export function HistoryScreen({ playerId }: HistoryScreenProps) {
                 data-testid="context-select"
                 value={heroContext}
                 onChange={(e) => setHeroContext(e.target.value)}
-                className="appearance-none bg-transparent text-sm text-[#E7EEE9] pr-5 cursor-pointer focus:outline-none"
+                className="appearance-none bg-transparent text-sm text-[#E7EEE9] pr-5 cursor-pointer outline-none focus-visible:ring-1 focus-visible:ring-garage-green/60"
               >
                 {CONTEXT_OPTIONS.map((c) => (
                   <option key={c.value} value={c.value}>{c.label}</option>
@@ -160,7 +176,7 @@ export function HistoryScreen({ playerId }: HistoryScreenProps) {
               key={tf}
               onClick={() => setTimeframe(tf)}
               className={cn(
-                'px-5 py-2 rounded-full text-sm font-medium transition-all min-h-[44px]',
+                'px-5 py-2 rounded-full text-sm font-medium transition-all min-h-[44px] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-garage-green/60',
                 timeframe === tf
                   ? 'bg-[#242C27] text-[#E7EEE9]'
                   : 'text-[#8B978F] hover:text-[#E7EEE9]',
@@ -242,7 +258,7 @@ export function HistoryScreen({ playerId }: HistoryScreenProps) {
                     strokeWidth: 3,
                   }}
                   style={{
-                    filter: 'drop-shadow(0px 0px 12px rgba(132,206,57,0.4))',
+                    filter: 'drop-shadow(0px 0px 8px rgba(121,188,48,0.25))',
                   }}
                 />
               </LineChart>

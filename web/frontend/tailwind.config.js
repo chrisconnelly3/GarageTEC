@@ -48,12 +48,12 @@ export default {
         "destructive-foreground": "var(--destructive-foreground)",
       },
       boxShadow: {
-        "glow-primary": "0 0 24px rgba(132, 206, 57, 0.35)",
-        "glow-primary-sm": "0 0 12px rgba(132, 206, 57, 0.25)",
+        "glow-primary": "0 0 20px rgba(121, 188, 48, 0.25)",
+        "glow-primary-sm": "0 0 8px rgba(121, 188, 48, 0.20)",
       },
       fontFamily: {
-        heading: ["Inter", "sans-serif"],
-        sans: ["Inter", "sans-serif"],
+        heading: ['system-ui', '-apple-system', '"Segoe UI"', 'Roboto', 'sans-serif'],
+        sans: ['system-ui', '-apple-system', '"Segoe UI"', 'Roboto', 'sans-serif'],
         mono: ["JetBrains Mono", "monospace"],
       },
     },

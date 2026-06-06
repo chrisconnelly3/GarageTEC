@@ -64,12 +64,15 @@ export function Sidebar({ activeTab, setActiveTab }: SidebarProps) {
               key={item.id}
               onClick={() => setActiveTab(item.id)}
               className={cn(
-                'w-full flex items-center space-x-3 px-4 py-3.5 rounded-full transition-all duration-200 text-left min-h-[44px]',
+                'w-full flex items-center space-x-3 px-4 py-3.5 rounded-xl transition-all duration-200 text-left min-h-[44px] relative focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-garage-green/60',
                 isActive
-                  ? 'bg-garage-green/10 text-garage-green shadow-glow-primary-sm'
+                  ? 'bg-garage-green/10 text-garage-green'
                   : 'text-[#8B978F] hover:bg-[#1A211D] hover:text-[#E7EEE9]',
               )}
             >
+              {isActive && (
+                <span className="absolute left-0 top-1/2 -translate-y-1/2 w-0.5 h-5 bg-garage-green rounded-full" />
+              )}
               <Icon className="w-5 h-5" strokeWidth={isActive ? 2.5 : 2} />
               <span className="font-medium text-[15px]">{item.label}</span>
             </button>
@@ -81,12 +84,15 @@ export function Sidebar({ activeTab, setActiveTab }: SidebarProps) {
         <button
           onClick={() => setActiveTab('connect')}
           className={cn(
-            'w-full flex items-center space-x-3 px-4 py-3.5 rounded-full transition-all duration-200 text-left min-h-[44px]',
+            'w-full flex items-center space-x-3 px-4 py-3.5 rounded-xl transition-all duration-200 text-left min-h-[44px] relative focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-garage-green/60',
             activeTab === 'connect'
-              ? 'bg-garage-green/10 text-garage-green shadow-glow-primary-sm'
+              ? 'bg-garage-green/10 text-garage-green'
               : 'text-[#8B978F] hover:bg-[#1A211D] hover:text-[#E7EEE9]',
           )}
         >
+          {activeTab === 'connect' && (
+            <span className="absolute left-0 top-1/2 -translate-y-1/2 w-0.5 h-5 bg-garage-green rounded-full" />
+          )}
           <Settings
             className="w-5 h-5"
             strokeWidth={activeTab === 'connect' ? 2.5 : 2}

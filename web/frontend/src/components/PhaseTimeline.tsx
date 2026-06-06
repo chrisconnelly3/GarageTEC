@@ -24,7 +24,7 @@ export function PhaseTimeline({ present, active, onSeek }: PhaseTimelineProps) {
               key={phase}
               onClick={() => exists && onSeek(phase)}
               disabled={!exists}
-              className="flex flex-col items-center space-y-3 group disabled:cursor-default"
+              className="flex flex-col items-center space-y-3 group disabled:cursor-default focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-garage-green/60 rounded"
             >
               <div className={cn(
                 'w-4 h-4 rounded-full border-2 z-10 transition-all',

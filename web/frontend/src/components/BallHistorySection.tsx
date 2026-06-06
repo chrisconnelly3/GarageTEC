@@ -17,6 +17,19 @@ const shortDate = (iso: string) => {
     : d.toLocaleDateString(undefined, { month: 'short', day: 'numeric' })
 }
 
+const timeOfDay = (iso: string) => {
+  const d = new Date(iso)
+  return Number.isNaN(d.getTime())
+    ? iso
+    : d.toLocaleTimeString(undefined, { hour: 'numeric', minute: '2-digit' })
+}
+
+const allSameDay = (isos: string[]): boolean => {
+  if (isos.length < 2) return false
+  const day0 = isos[0].slice(0, 10)
+  return isos.every((s) => s.slice(0, 10) === day0)
+}
+
 interface BallTrendVM {
   def: BallMetricDef
   value: number | null
@@ -100,7 +113,12 @@ export function BallHistorySection({ playerId, timeframe }: Props) {
   const heroDef = BALL_METRICS.find((m) => m.key === heroKey) ?? BALL_METRICS[0]
   const heroHist = histories?.[heroKey]
   const heroPts = filtered(heroHist)
-  const chartData = heroPts.map((p) => ({ date: shortDate(p.created_at), value: p.value }))
+  const heroIsos = heroPts.map((p) => p.created_at)
+  const useTimeAxis = allSameDay(heroIsos)
+  const chartData = heroPts.map((p) => ({
+    date: useTimeAxis ? timeOfDay(p.created_at) : shortDate(p.created_at),
+    value: p.value,
+  }))
   const heroTarget = heroHist?.target ?? null
 
   return (
@@ -167,7 +185,8 @@ export function BallHistorySection({ playerId, timeframe }: Props) {
                 )}
                 <Line type="monotone" dataKey="value" stroke="#79BC30" strokeWidth={4}
                       dot={{ fill: '#0A0D0B', stroke: '#79BC30', strokeWidth: 2, r: 5 }}
-                      activeDot={{ r: 7, fill: '#79BC30', stroke: '#0A0D0B', strokeWidth: 3 }} />
+                      activeDot={{ r: 7, fill: '#79BC30', stroke: '#0A0D0B', strokeWidth: 3 }}
+                      style={{ filter: 'drop-shadow(0px 0px 8px rgba(121,188,48,0.25))' }} />
               </LineChart>
             </ResponsiveContainer>
           </div>

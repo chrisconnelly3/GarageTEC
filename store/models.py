@@ -57,6 +57,7 @@ class Shot:
     face_to_target: Optional[float] = None
     club: Optional[str] = None          # set by the app (R50 doesn't report it)
     raw_json: Optional[str] = None
+    dedupe_key: Optional[str] = None
     id: Optional[int] = None
 
 

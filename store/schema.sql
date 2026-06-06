@@ -34,7 +34,8 @@ CREATE TABLE IF NOT EXISTS shot (
   carry REAL, club_speed REAL, attack_angle REAL, club_path REAL,
   face_to_target REAL,
   club TEXT,
-  raw_json TEXT
+  raw_json TEXT,
+  dedupe_key TEXT
 );
 
 CREATE TABLE IF NOT EXISTS pose_frame (

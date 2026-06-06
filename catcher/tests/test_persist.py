@@ -76,3 +76,25 @@ def test_replay_drains_buffer_into_recovered_store(db, tmp_buffer):
 def test_replay_with_empty_buffer_is_noop(db, tmp_buffer):
     p = ShotPersister(buffer_path=tmp_buffer)
     assert p.replay(db) == 0
+
+
+def test_crash_replay_via_persister_no_duplicate(db, tmp_buffer):
+    """Crash scenario: shot saved to DB, then same shot replayed from buffer.
+    The idempotent save_shot means replay is a safe no-op — one row, not two."""
+    pid, sid = _player_session(db)
+    p = ShotPersister(buffer_path=tmp_buffer)
+    shot = _shot(pid, sid, 155.0)
+
+    # Normal save succeeds — shot is in the DB.
+    saved = p.save(db, shot)
+    assert saved is not None and saved.id is not None
+
+    # Simulate crash: manually buffer the same shot (as if crash before removal).
+    p._buffer(shot)
+    assert p.pending_count() == 1
+
+    # Replay: idempotent save_shot returns existing row, no new row inserted.
+    replayed = p.replay(db)
+    assert replayed == 1  # replay reports it as "replayed" (no error)
+    assert db.execute("SELECT COUNT(*) c FROM shot").fetchone()["c"] == 1
+    assert p.pending_count() == 0

@@ -46,6 +46,11 @@ def init_db(path=None, conn=None):
     conn.executescript((Path(__file__).parent / "schema.sql").read_text())
     # lightweight migrations for columns added to pre-existing tables
     _add_column_if_missing(conn, "shot", "club", "TEXT")
+    _add_column_if_missing(conn, "shot", "dedupe_key", "TEXT")
+    conn.execute(
+        "CREATE UNIQUE INDEX IF NOT EXISTS ix_shot_dedupe "
+        "ON shot(dedupe_key) WHERE dedupe_key IS NOT NULL"
+    )
     if conn.execute("SELECT version FROM schema_version").fetchone() is None:
         conn.execute("INSERT INTO schema_version(version) VALUES (?)",
                      (SCHEMA_VERSION,))

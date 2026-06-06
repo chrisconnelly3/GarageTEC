@@ -93,3 +93,89 @@ def test_shot_history_rejects_unknown_metric(db):
         repo.shot_history(db, pid, "raw_json; DROP TABLE shot")
     with pytest.raises(ValueError):
         repo.shot_history(db, pid, "club")
+
+
+# ---- dedupe / idempotent save_shot ----------------------------------------
+
+def test_save_shot_twice_same_content_one_row(db):
+    """Saving the same shot twice yields exactly one DB row; second call returns
+    the same id."""
+    pid, sid = _ctx(db)
+    s = Shot(captured_at="2026-06-05T10:00:00+00:00", player_id=pid,
+             session_id=sid, ball_speed=155.0,
+             raw_json=json.dumps({"DeviceID": "R50", "ShotNumber": 1}))
+    first = repo.save_shot(db, s)
+    assert first.id is not None
+    # reset id so save_shot sees it as "new"
+    s2 = Shot(captured_at="2026-06-05T10:00:00+00:00", player_id=pid,
+              session_id=sid, ball_speed=155.0,
+              raw_json=json.dumps({"DeviceID": "R50", "ShotNumber": 1}))
+    second = repo.save_shot(db, s2)
+    assert second.id == first.id
+    count = db.execute("SELECT COUNT(*) c FROM shot").fetchone()["c"]
+    assert count == 1
+
+
+def test_save_shot_different_content_two_rows(db):
+    """Two shots with different raw_json → two distinct rows."""
+    pid, sid = _ctx(db)
+    s1 = Shot(captured_at="2026-06-05T10:00:00+00:00", player_id=pid,
+              session_id=sid, ball_speed=155.0,
+              raw_json=json.dumps({"ShotNumber": 1}))
+    s2 = Shot(captured_at="2026-06-05T10:00:01+00:00", player_id=pid,
+              session_id=sid, ball_speed=160.0,
+              raw_json=json.dumps({"ShotNumber": 2}))
+    r1 = repo.save_shot(db, s1)
+    r2 = repo.save_shot(db, s2)
+    assert r1.id != r2.id
+    count = db.execute("SELECT COUNT(*) c FROM shot").fetchone()["c"]
+    assert count == 2
+
+
+def test_save_shot_raw_json_dedupe(db):
+    """Identical raw_json dedupes; different raw_json does not."""
+    pid, sid = _ctx(db)
+    rj_a = json.dumps({"BallData": {"Speed": 148.0}, "ShotNumber": 7})
+    rj_b = json.dumps({"BallData": {"Speed": 149.0}, "ShotNumber": 8})
+    a1 = repo.save_shot(db, Shot(captured_at="t", player_id=pid, session_id=sid,
+                                 raw_json=rj_a))
+    a2 = repo.save_shot(db, Shot(captured_at="t", player_id=pid, session_id=sid,
+                                 raw_json=rj_a))
+    b1 = repo.save_shot(db, Shot(captured_at="t", player_id=pid, session_id=sid,
+                                 raw_json=rj_b))
+    assert a1.id == a2.id          # same raw_json → same row
+    assert b1.id != a1.id          # different raw_json → new row
+    assert db.execute("SELECT COUNT(*) c FROM shot").fetchone()["c"] == 2
+
+
+def test_save_shot_no_raw_json_gets_null_dedupe_key(db):
+    """Shots without raw_json get dedupe_key=None and are always inserted fresh.
+    The partial UNIQUE index only fires for non-NULL keys, so two synthetic shots
+    with identical numeric fields still create two rows (they are distinct events)."""
+    pid, sid = _ctx(db)
+    kwargs = dict(captured_at="2026-06-05T10:00:00+00:00", player_id=pid,
+                  session_id=sid, ball_speed=142.0)
+    r1 = repo.save_shot(db, Shot(**kwargs))
+    r2 = repo.save_shot(db, Shot(**kwargs))
+    assert r1.id != r2.id          # two different rows
+    assert r1.dedupe_key is None   # no key assigned
+    assert r2.dedupe_key is None
+    assert db.execute("SELECT COUNT(*) c FROM shot").fetchone()["c"] == 2
+
+
+def test_crash_replay_no_duplicate(db):
+    """Simulated crash-replay: first save succeeds (shot in DB), then the same
+    shot is saved again (as replay would do) → no duplicate, same id returned."""
+    pid, sid = _ctx(db)
+    s = Shot(captured_at="2026-06-05T10:00:00+00:00", player_id=pid,
+             session_id=sid, ball_speed=161.5,
+             raw_json=json.dumps({"DeviceID": "R50", "ShotNumber": 99}))
+    original = repo.save_shot(db, s)
+    assert original.id is not None
+    # simulate replay: reconstruct shot from buffer (no id)
+    replayed = repo.save_shot(db, Shot(
+        captured_at="2026-06-05T10:00:00+00:00", player_id=pid, session_id=sid,
+        ball_speed=161.5,
+        raw_json=json.dumps({"DeviceID": "R50", "ShotNumber": 99})))
+    assert replayed.id == original.id
+    assert db.execute("SELECT COUNT(*) c FROM shot").fetchone()["c"] == 1

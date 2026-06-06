@@ -1,4 +1,6 @@
+import hashlib
 import json
+import sqlite3
 from datetime import datetime, timedelta, timezone
 from store import db as dbmod
 from store.models import (
@@ -237,18 +239,43 @@ _SHOT_COLS = [
     "swing_id", "player_id", "session_id", "captured_at", "device_id",
     "shot_number", "ball_speed", "total_spin", "spin_axis", "hla", "vla",
     "carry", "club_speed", "attack_angle", "club_path", "face_to_target",
-    "club", "raw_json",
+    "club", "raw_json", "dedupe_key",
 ]
 
 
-def save_shot(conn, shot: Shot):
+def _dedupe_key(shot: Shot) -> str | None:
+    """Deterministic content-derived SHA-1 key for duplicate detection.
+
+    Returns a hex digest when raw_json is present (all real GSPro shots),
+    or None for synthetic/seed shots that lack raw_json.  The partial UNIQUE
+    index on shot(dedupe_key) only enforces uniqueness for non-NULL keys, so
+    synthetic shots (None key) are always inserted fresh."""
+    if not shot.raw_json:
+        return None
+    return hashlib.sha1(shot.raw_json.encode()).hexdigest()
+
+
+def save_shot(conn, shot: Shot) -> Shot:
+    """Insert shot, setting dedupe_key. Idempotent: if the same shot (same
+    dedupe_key) is already in the DB, return the existing row unchanged."""
+    shot.dedupe_key = _dedupe_key(shot)
     vals = [getattr(shot, c) for c in _SHOT_COLS]
     placeholders = ",".join("?" * len(_SHOT_COLS))
-    cur = conn.execute(
-        f"INSERT INTO shot({','.join(_SHOT_COLS)}) VALUES ({placeholders})", vals)
-    conn.commit()
-    shot.id = cur.lastrowid
-    return shot
+    try:
+        cur = conn.execute(
+            f"INSERT INTO shot({','.join(_SHOT_COLS)}) VALUES ({placeholders})", vals)
+        conn.commit()
+        shot.id = cur.lastrowid
+        return shot
+    except sqlite3.IntegrityError:
+        # Unique index violation: shot already persisted (crash-replay scenario).
+        # Fetch and return the existing row so callers get a valid id.
+        conn.rollback()
+        existing = conn.execute(
+            "SELECT * FROM shot WHERE dedupe_key=?", (shot.dedupe_key,)).fetchone()
+        if existing is not None:
+            return _shot_from_row(existing)
+        raise  # unexpected integrity error — re-raise
 
 
 def link_shot_to_swing(conn, shot_id, swing_id):
@@ -447,7 +474,7 @@ def _shot_from_row(r):
                 carry=r["carry"], club_speed=r["club_speed"],
                 attack_angle=r["attack_angle"], club_path=r["club_path"],
                 face_to_target=r["face_to_target"], club=r["club"],
-                raw_json=r["raw_json"])
+                raw_json=r["raw_json"], dedupe_key=r["dedupe_key"])
 
 
 def get_shot(conn, shot_id):

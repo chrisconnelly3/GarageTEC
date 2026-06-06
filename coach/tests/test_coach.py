@@ -12,6 +12,9 @@ def _valid_for(ctx):
     m = ctx["metrics"][0]
     return {
         "headline": "Hips slide toward target at impact.",
+        "summary": ("Your hips are drifting toward the target through impact, "
+                    "running ahead of your own norm and nudging the start line "
+                    "left. Brace that lead side and the strike tidies up."),
         "findings": [{
             "metric": m["name"], "context": m["context"], "value": m["value"],
             "unit": m["unit"], "vs_baseline": "above your norm",
@@ -35,6 +38,8 @@ def test_coach_swing_persists_valid_coaching(db, seeded):
     assert len(rows) == 1
     stored = json.loads(rows[0].content_json)
     assert stored["findings"][0]["metric"] == ctx["metrics"][0]["name"]
+    # The expert `summary` narrative round-trips through persistence.
+    assert "summary" in stored and stored["summary"]
     # The backend was called with the system prompt + a user prompt of real nums.
     assert len(backend.calls) == 1
     assert "hip_sway_in" in backend.calls[0][1]

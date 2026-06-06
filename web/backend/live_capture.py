@@ -191,6 +191,13 @@ class LiveCaptureSupervisor:
                 sid = getattr(result, "swing_id", None)
                 swing_ids.append(sid)
                 self._swing_count += 1
+                # Best-effort real coaching: only when an API key is present.
+                # Uses the SAME per-capture connection (cap_conn) so we never
+                # share a conn across threads. Any failure (no key installed,
+                # API/network error, validation reject) must NEVER break capture
+                # -- the swing is already persisted; coaching is additive.
+                if sid is not None and os.environ.get("ANTHROPIC_API_KEY"):
+                    self._coach_swing(cap_conn, sid)
                 self.bus.publish("live_swing_captured", {
                     "swing_id": sid, "shot_id": shot_id,
                     "player_id": player_id, "session_id": session_id})
@@ -212,6 +219,25 @@ class LiveCaptureSupervisor:
             except Exception:
                 pass
         return swing_ids
+
+    # ---- coaching (best-effort, key-gated) --------------------------------
+    def _coach_swing(self, conn, swing_id):
+        """Generate + persist grounded AI coaching for a freshly captured swing.
+
+        Strictly best-effort: the swing is already persisted before this runs,
+        so a missing/invalid ANTHROPIC_API_KEY, a network/API failure, or a
+        validation rejection must never propagate. Errors are logged to
+        ``_last_error`` (surfaced via status) and swallowed. Imports are local
+        so the optional `anthropic` dependency is only touched when a key is set.
+        """
+        try:
+            from coach.backend import make_backend
+            from coach.coach import coach_swing
+            backend = make_backend("cloud")
+            coach_swing(conn, backend, swing_id)
+        except Exception as e:
+            self._last_error = f"coaching skipped: {e}"
+            self._publish_status()
 
     # ---- status -----------------------------------------------------------
     def _source_kind(self):

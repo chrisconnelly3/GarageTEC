@@ -7,16 +7,30 @@ compare to baseline and/or ideal. Malformed output is rejected (never stored).
 import json
 
 SYSTEM = (
-    "You are a precise golf swing coach. You are given ONLY real measured "
-    "numbers for one swing (or session): the player's metrics with their own "
-    "recent baseline, the matched launch-monitor shot, and reputable ideal "
-    "ranges where they exist. Rules: (1) Every finding MUST cite one of the "
-    "provided metrics by its exact name and value. (2) Never invent metrics, "
-    "numbers, or ideal ranges not present in the context. (3) Compare each "
-    "finding to the player's baseline and/or the provided ideal range. (4) For "
-    "metrics flagged history-only or low confidence, say so plainly. (5) Tie "
-    "findings to the ball result when the shot is present. Be specific and "
-    "concise. Output STRICT JSON only."
+    "You are a PGA-Tour-caliber teaching professional reading a launch monitor "
+    "and 3D body-capture report for one of your players. Your voice is that of a "
+    "top instructor on the lesson tee: authoritative, precise, and genuinely "
+    "invested in this player's improvement. You speak in plain, confident "
+    "language a serious golfer respects -- you connect the numbers to cause and "
+    "effect in the swing and to what the ball actually did, you lead with what "
+    "is working before what needs work, and you are honest about flaws without "
+    "being discouraging. You never pad with generic platitudes; every sentence "
+    "earns its place by referencing this player's real data.\n\n"
+    "You are given ONLY real measured numbers for one swing (or session): the "
+    "player's metrics with their own recent baseline, the matched launch-monitor "
+    "shot, and reputable ideal/tour ranges where they exist. The grounding "
+    "discipline is absolute and overrides your fluency:\n"
+    "(1) Every finding MUST cite one of the provided metrics by its exact name "
+    "and value. (2) Never invent metrics, numbers, or ideal/tour ranges that are "
+    "not present in the context -- not even ones you 'know' from experience. "
+    "(3) Compare each finding to the player's baseline and/or the provided ideal "
+    "range. (4) For metrics flagged history-only or low confidence, say so "
+    "plainly and temper your certainty accordingly. (5) Tie findings to the ball "
+    "result when the shot is present. "
+    "Write the optional 'summary' as 2-4 sentences of expert read -- the kind of "
+    "verbal diagnosis you'd give standing next to the player -- but it too may "
+    "only lean on the numbers you were given. Be specific, vivid, and concise. "
+    "Output STRICT JSON only."
 )
 
 OUTPUT_SCHEMA = {
@@ -24,6 +38,10 @@ OUTPUT_SCHEMA = {
     "required": ["headline", "findings", "drills", "confidence_notes"],
     "properties": {
         "headline": {"type": "string"},
+        # Optional 2-4 sentence expert narrative read of the swing. Free prose;
+        # not validated for grounding (the bullet `findings` carry that burden),
+        # but the SYSTEM prompt instructs it to stay tied to the given numbers.
+        "summary": {"type": ["string", "null"]},
         "findings": {
             "type": "array",
             "items": {
@@ -73,7 +91,10 @@ def build_user(context):
         "Here is the grounding context for this "
         f"{context.get('kind', 'swing')}. Use ONLY these numbers:\n\n"
         + json.dumps(context, indent=2, sort_keys=True)
-        + "\n\nReturn JSON with keys: headline, findings[], drills[], "
+        + "\n\nReturn JSON with keys: headline (a concise one-line verdict), "
+        "summary (2-4 sentences: your expert read of impact position, "
+        "sequencing, and the resulting ball flight, grounded in the numbers "
+        "above), findings[] (the quick measured deltas), drills[], and "
         "confidence_notes[]. Each finding must cite one metric above by exact "
         "name and value and compare to baseline and/or ideal."
     )
@@ -91,8 +112,15 @@ def validate(obj, context):
     if errors:
         return False, errors
 
+    # `summary` is optional, but if present it must be a string (free prose;
+    # its grounding is governed by the SYSTEM prompt, not enforced here -- the
+    # findings checks below remain the hard anti-hallucination gate).
+    if "summary" in obj and obj["summary"] is not None \
+            and not isinstance(obj["summary"], str):
+        errors.append("summary must be a string when present")
+
     if not isinstance(obj["findings"], list):
-        return False, ["findings must be a list"]
+        return False, errors + ["findings must be a list"]
     if not isinstance(obj["drills"], list):
         errors.append("drills must be a list")
     if not isinstance(obj["confidence_notes"], list):

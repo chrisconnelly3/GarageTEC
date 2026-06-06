@@ -146,6 +146,69 @@ def test_capture_now_swallows_pipeline_errors(conn, monkeypatch):
                e["data"].get("last_error") for e in bus.drain())
 
 
+# ---- coaching is key-gated and never breaks capture ---------------------
+
+def test_capture_now_skips_coaching_when_no_api_key(conn, monkeypatch):
+    """With ANTHROPIC_API_KEY unset, capture must still succeed: the swing is
+    persisted/emitted and NO coaching is attempted (the seed mock stands in)."""
+    monkeypatch.delenv("ANTHROPIC_API_KEY", raising=False)
+    sup, bus = _sup(conn, fps=20.0, window_s=2.0)
+    for i in range(5):
+        sup._buffer.push(np.zeros((48, 64, 3), np.uint8), time_s=i / 20.0)
+
+    coach_calls = {"n": 0}
+    monkeypatch.setattr(sup, "_coach_swing",
+                        lambda *a, **k: coach_calls.__setitem__("n",
+                                                                coach_calls["n"] + 1))
+
+    def fake_process_video(conn_arg, video_path, *, player_id, session_id,
+                           on_swing=None, **kw):
+        class R:
+            swing_id = 77
+        if on_swing:
+            on_swing(R())
+        return [R()]
+
+    monkeypatch.setattr("web.backend.live_capture.process_video",
+                        fake_process_video)
+
+    result = sup.capture_now(player_id=1, session_id=1, shot_id=1)
+    assert result == [77]                       # swing persisted/emitted
+    assert coach_calls["n"] == 0                # coaching skipped (no key)
+    captured = [e for e in bus.drain() if e["event"] == "live_swing_captured"]
+    assert captured and captured[0]["data"]["swing_id"] == 77
+
+
+def test_capture_now_coaching_failure_never_breaks_capture(conn, monkeypatch):
+    """Even WITH a key, a coaching error must be swallowed: capture still
+    persists/emits the swing (coaching is purely additive)."""
+    monkeypatch.setenv("ANTHROPIC_API_KEY", "test-key")
+    sup, bus = _sup(conn, fps=20.0, window_s=2.0)
+    for i in range(5):
+        sup._buffer.push(np.zeros((48, 64, 3), np.uint8), time_s=i / 20.0)
+
+    def boom_coach(*a, **k):
+        raise RuntimeError("api down")
+    # Patch the underlying coach_swing so _coach_swing's try/except is exercised.
+    monkeypatch.setattr("coach.coach.coach_swing", boom_coach)
+
+    def fake_process_video(conn_arg, video_path, *, player_id, session_id,
+                           on_swing=None, **kw):
+        class R:
+            swing_id = 88
+        if on_swing:
+            on_swing(R())
+        return [R()]
+
+    monkeypatch.setattr("web.backend.live_capture.process_video",
+                        fake_process_video)
+
+    result = sup.capture_now(player_id=1, session_id=1, shot_id=1)
+    assert result == [88]                       # swing still persisted/emitted
+    captured = [e for e in bus.drain() if e["event"] == "live_swing_captured"]
+    assert captured and captured[0]["data"]["swing_id"] == 88
+
+
 # ---- auto-trigger from a shot -------------------------------------------
 
 def test_on_shot_triggers_capture_with_delay_zero(conn, monkeypatch):

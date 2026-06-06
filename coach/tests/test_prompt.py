@@ -48,6 +48,44 @@ def test_validate_accepts_canonical_output():
     assert errors == []
 
 
+def test_schema_declares_optional_summary():
+    schema = prompt.OUTPUT_SCHEMA
+    assert "summary" in schema["properties"]
+    assert "summary" not in schema["required"]
+
+
+def test_build_user_asks_for_summary():
+    user = prompt.build_user(_ctx())
+    assert "summary" in user
+
+
+def test_validate_accepts_output_with_summary():
+    out = _valid_output()
+    out["summary"] = ("Strong strike: your hip sway at impact runs a touch "
+                      "ahead of your norm, which fits the slight pull you saw.")
+    ok, errors = prompt.validate(out, _ctx())
+    assert ok is True
+    assert errors == []
+
+
+def test_validate_rejects_non_string_summary():
+    out = _valid_output()
+    out["summary"] = 123  # must be a string when present
+    ok, errors = prompt.validate(out, _ctx())
+    assert ok is False
+    assert any("summary" in e for e in errors)
+
+
+def test_summary_does_not_relax_findings_grounding():
+    # A rich summary must NOT excuse an ungrounded finding.
+    bad = _valid_output()
+    bad["summary"] = "A beautifully sequenced move from the ground up."
+    bad["findings"][0]["metric"] = "made_up_metric"
+    ok, errors = prompt.validate(bad, _ctx())
+    assert ok is False
+    assert any("made_up_metric" in e for e in errors)
+
+
 def test_validate_rejects_missing_top_level_key():
     bad = _valid_output()
     del bad["drills"]

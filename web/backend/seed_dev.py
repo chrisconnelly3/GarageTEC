@@ -32,6 +32,16 @@ METRIC_SPEC = [
 def _coaching_content():
     return {
         "headline": "Good power, but sliding hips are causing inconsistency.",
+        "summary": (
+            "You're generating real speed here -- a 95 deg shoulder turn at the "
+            "top is a full, athletic coil that's adding about 3 mph of club "
+            "speed over your baseline, and that shows up in the ball. The "
+            "trouble is what happens lower down: your hips are sliding 2.5 in "
+            "toward the target at impact, 0.4 in more than your recent average "
+            "and outside the 0-2 in window we want, which shoves your low point "
+            "ahead of the ball and starts shots to the right. Quiet that lateral "
+            "slide and turn into a braced lead leg instead, and you'll keep the "
+            "power while tightening up your start direction and contact."),
         "findings": [
             {"metric": "hip_sway_in", "context": "impact", "value": 2.5,
              "unit": "in", "vs_baseline": "+0.4 in vs your recent average",

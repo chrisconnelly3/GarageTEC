@@ -44,3 +44,16 @@ understanding of the metric code, not real footage.
   motion; sanity-check 3D metrics against feel and consider the sync caveat in the 3D spec.
 - **Replay → phase sync:** confirm the Live phase-jumper seeks the real annotated video and
   the body cards update across address → top → impact as expected.
+- **Skeleton (exoskeleton) overlay alignment:** the toggle draws a per-frame pose skeleton
+  over the swing video from a `<video>.pose.json` sidecar (normalized 0..1 coords). It was
+  built/verified against the rotated two-view demo clip (`extract_pose.py` splits the frame
+  into left/right halves and runs MediaPipe per half, mapping x into [0,0.5]/[0.5,1]).
+  Confirm with the REAL two-camera composite: (a) the skeleton lands on the golfer in BOTH
+  views, (b) the left/right split matches the real composite layout (not stacked/rotated
+  differently), and (c) the overlay stays aligned through object-contain letterboxing at the
+  bay's actual aspect ratio. The real capture pipeline should emit the same sidecar shape.
+- **Stepper phase times:** Live position-stepper times come from the capture pipeline's
+  detected moments on real swings (the demo's were hand-calibrated to `smooth_swing.mov`).
+  Confirm the highlighted step tracks the real video through all 8 positions. Note:
+  `extract_pose.py`'s built-in `detect_phases` heuristic is demo-only and unreliable
+  (top-of-backswing vs finish ambiguity) — do not rely on it for real captures.

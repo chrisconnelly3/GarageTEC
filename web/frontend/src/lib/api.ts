@@ -73,6 +73,8 @@ export const setActivePlayer = (p: ActivePlayerIn) =>
 export const getClubs = () => getJSON<string[]>("/api/capture/clubs");
 export const setActiveClub = (club: string | null) =>
   postJSON<CaptureStatus>("/api/capture/active-club", { club });
+export const startSession = () => postJSON<CaptureStatus>("/api/capture/start-session", {});
+export const endSession = () => postJSON<CaptureStatus>("/api/capture/end-session", {});
 
 export const getSettings = () => getJSON<Settings>("/api/settings");
 export const putSettings = (s: Partial<Settings>) => putJSON<Settings>("/api/settings", s);

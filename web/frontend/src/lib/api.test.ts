@@ -1,6 +1,40 @@
-import { describe, it, expect } from "vitest";
-import { buildHistoryUrl } from "./api";
+import { describe, it, expect, vi, afterEach } from "vitest";
+import { buildHistoryUrl, startSession, endSession } from "./api";
 import { deltaVsBaseline, isEstimated, labelFor, heightToFtIn, METRIC_IDEAL, withinTimeframe, timeframeCutoff } from "./format";
+
+describe("session endpoints", () => {
+  afterEach(() => { vi.restoreAllMocks(); });
+
+  it("startSession POSTs to /api/capture/start-session and returns status", async () => {
+    const status = { session_active: true, active_session_id: 5 };
+    const fetchMock = vi.fn().mockResolvedValue({
+      ok: true, status: 200, json: () => Promise.resolve(status),
+    });
+    vi.stubGlobal("fetch", fetchMock);
+    await expect(startSession()).resolves.toEqual(status);
+    expect(fetchMock).toHaveBeenCalledWith(
+      "/api/capture/start-session",
+      expect.objectContaining({ method: "POST" }),
+    );
+  });
+
+  it("startSession rejects with a 409-prefixed error when no player is active", async () => {
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue({ ok: false, status: 409 }));
+    await expect(startSession()).rejects.toThrow(/^409/);
+  });
+
+  it("endSession POSTs to /api/capture/end-session", async () => {
+    const fetchMock = vi.fn().mockResolvedValue({
+      ok: true, status: 200, json: () => Promise.resolve({ session_active: false }),
+    });
+    vi.stubGlobal("fetch", fetchMock);
+    await endSession();
+    expect(fetchMock).toHaveBeenCalledWith(
+      "/api/capture/end-session",
+      expect.objectContaining({ method: "POST" }),
+    );
+  });
+});
 
 describe("api/format helpers", () => {
   it("buildHistoryUrl defaults context to impact (NOT overall)", () => {

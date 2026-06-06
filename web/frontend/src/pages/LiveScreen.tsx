@@ -2,19 +2,15 @@ import { useEffect, useMemo, useState } from 'react'
 import { SwingReplay } from '../components/SwingReplay'
 import { MetricCard } from '../components/MetricCard'
 import { AIInsightCard } from '../components/AIInsightCard'
-import { ClubSelector } from '../components/ClubSelector'
 import { PhaseTimeline } from '../components/PhaseTimeline'
-import { FirstRunPrimer } from '../components/FirstRunPrimer'
 import { motion, AnimatePresence } from 'framer-motion'
 import { useApi } from '../lib/useApi'
 import { getLatestSwing, getHistory, getBallHistory, mediaUrl } from '../lib/api'
 import { labelFor, coachingToInsights, isEstimated } from '../lib/format'
 import { BODY_CARD_ORDER, BALL_BENCHMARK_ORDER, BALL_RAW_ORDER, METRIC_UNIT } from '../lib/metricConfig'
-import { phaseAtTime, phaseMoments, momentKindToLabel } from '../lib/phase'
+import { phaseAtTime, momentKindToLabel } from '../lib/phase'
 import { computeTrend } from '../lib/trend'
 import type { SwingDetail, Benchmark, BallBenchmark, BallRawField } from '../lib/types'
-
-const PRIMER_KEY = 'garagetec-live-primer-v1'
 
 const CAP = (s: string) => s.charAt(0).toUpperCase() + s.slice(1)
 
@@ -24,10 +20,9 @@ interface LiveScreenProps {
   lastSwing: unknown
   lastCapture: unknown
   activeClub?: string | null
-  onSelectClub?: (club: string | null) => void
 }
 
-export function LiveScreen({ playerId, sessionId, lastSwing, activeClub = null, onSelectClub }: LiveScreenProps) {
+export function LiveScreen({ playerId, sessionId, lastSwing, activeClub = null }: LiveScreenProps) {
   const { data, error, reload } = useApi<SwingDetail | null>(
     () => (playerId ? getLatestSwing(playerId, sessionId ?? undefined) : Promise.resolve(null)),
     [playerId, sessionId],
@@ -73,12 +68,11 @@ export function LiveScreen({ playerId, sessionId, lastSwing, activeClub = null, 
     [playerId, swingId, ballClub],
   )
 
-  const [showPrimer, setShowPrimer] = useState(
-    () => typeof window !== 'undefined' && !localStorage.getItem(PRIMER_KEY),
-  )
-
   const annotated = data?.media?.find((m) => m.kind === 'annotated_video')
   const videoSrc = annotated ? mediaUrl(annotated.path) : null
+
+  // Open the replay on the impact frame (matches the impact-default cards).
+  const impactTime = moments.find((m) => m.kind === 'impact')?.time_s ?? null
 
   const benchByKey = useMemo(() => {
     const map = new Map<string, Benchmark>()
@@ -93,13 +87,12 @@ export function LiveScreen({ playerId, sessionId, lastSwing, activeClub = null, 
   const present = new Set(moments.map((m) => momentKindToLabel(m.kind)))
 
   return (
-    <div className="h-full flex flex-col p-6 space-y-6 overflow-y-auto">
+    <div className="h-full flex flex-col p-4 gap-3 overflow-hidden">
       {error && (
-        <div className="rounded-[18px] border border-garage-red/40 bg-garage-red/10 px-6 py-4 text-sm text-garage-red">
+        <div className="flex-shrink-0 rounded-[18px] border border-garage-red/40 bg-garage-red/10 px-6 py-3 text-sm text-garage-red">
           Failed to load live data: {error}
         </div>
       )}
-      {onSelectClub && <ClubSelector value={activeClub} onChange={onSelectClub} />}
 
       <AnimatePresence mode="wait">
         {status === 'waiting' ? (
@@ -114,21 +107,16 @@ export function LiveScreen({ playerId, sessionId, lastSwing, activeClub = null, 
           </motion.div>
         ) : (
           <motion.div key="captured" initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }}
-            className="flex-1 flex flex-col space-y-6">
-            {showPrimer && (
-              <FirstRunPrimer onDismiss={() => {
-                localStorage.setItem(PRIMER_KEY, '1')
-                setShowPrimer(false)
-              }} />
-            )}
-            <div className="flex flex-col lg:flex-row gap-6">
+            className="flex-1 min-h-0 flex flex-col gap-3">
+            {/* Top band: replay + phase jumper beside the AI coach. The replay is
+                32:9 (short) so this band stays compact and leaves room below. */}
+            <div className="flex flex-col lg:flex-row gap-3 flex-shrink-0">
               <div className="flex-[2] flex flex-col">
-                <div className="h-[360px]">
-                  <SwingReplay src={videoSrc} highlight seek={seek} onTime={(t) => {
+                <SwingReplay src={videoSrc} highlight seek={seek} impactTime={impactTime}
+                  onTime={(t) => {
                     setVideoTime(t)
                     if (t > 0) setManualPhase(null) // real playback takes over
                   }} />
-                </div>
                 <PhaseTimeline present={present} active={CAP(currentPhase)}
                   onSeek={(label) => {
                     // Always update the phase card immediately (works without video too)
@@ -137,44 +125,44 @@ export function LiveScreen({ playerId, sessionId, lastSwing, activeClub = null, 
                     if (mt?.time_s != null) setSeek({ t: mt.time_s })
                   }} />
               </div>
-              <div className="flex-1">
+              <div className="flex-1 min-h-0 max-h-[280px]">
                 <AIInsightCard headline={coachContent?.headline ?? 'No coaching available yet.'}
-                  insights={insights} highlight />
+                  summary={coachContent?.summary} insights={insights} highlight />
               </div>
             </div>
 
-            <div>
-              <div className="flex items-center gap-2 mb-3">
-                <span className="text-sm font-semibold text-[#E7EEE9]">Body Mechanics · vs Tour Pro</span>
+            <div className="flex-shrink-0">
+              <div className="flex items-center gap-2 mb-1.5">
+                <span className="text-xs font-semibold text-[#E7EEE9]">Body Mechanics · vs Tour Pro</span>
                 <span className="text-[10px] uppercase tracking-wider text-[#8B978F]">{currentPhase}</span>
               </div>
-              <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-3">
+              <div className="grid grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-2">
                 {BODY_CARD_ORDER.map((name) => {
                   const b = benchByKey.get(`${name}|${currentPhase}`)
                   const unit = b?.unit ?? METRIC_UNIT[name] ?? ''
                   if (!b) {
                     return <MetricCard key={name} label={labelFor(name)} value={null} unit={unit}
                       target={null} delta={null} zone={null} state="raw" offPhase={currentPhase}
-                      trend={{ delta: 0, towardPro: null }} />
+                      trend={{ delta: 0, towardPro: null }} compact />
                   }
                   const trend = computeTrend(histories?.[name] ?? [], b.value, b.target, b.direction)
                   return <MetricCard key={name} label={labelFor(name)} phase={currentPhase}
                     value={b.value} unit={b.unit ?? unit} target={b.target} delta={b.delta}
-                    zone={b.zone} state={b.state} trend={trend} isEstimated={isEstimated(null)} />
+                    zone={b.zone} state={b.state} trend={trend} isEstimated={isEstimated(null)} compact />
                 })}
               </div>
             </div>
 
-            <div>
-              <div className="flex items-center gap-2 mb-3">
-                <span className="text-sm font-semibold text-[#E7EEE9]">Ball &amp; Club · vs Tour Pro</span>
+            <div className="flex-shrink-0">
+              <div className="flex items-center gap-2 mb-1.5">
+                <span className="text-xs font-semibold text-[#E7EEE9]">Ball &amp; Club · vs Tour Pro</span>
                 {activeClub && (
                   <span className="text-[10px] uppercase tracking-wider text-[#8B978F]">
                     {activeClub} · impact
                   </span>
                 )}
               </div>
-              <div className="grid grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-2">
+              <div className="grid grid-cols-4 md:grid-cols-6 lg:grid-cols-8 gap-1.5">
                 {(() => {
                   const bench = new Map((data?.ball_benchmarks ?? []).map((b: BallBenchmark) => [b.key, b]))
                   const raw = new Map((data?.ball_raw ?? []).map((r: BallRawField) => [r.key, r]))
@@ -182,13 +170,13 @@ export function LiveScreen({ playerId, sessionId, lastSwing, activeClub = null, 
                   for (const key of BALL_BENCHMARK_ORDER) {
                     const b = bench.get(key); if (!b) continue
                     cards.push(<MetricCard key={key} label={b.label} value={b.value} unit={b.unit}
-                      target={b.target} delta={b.delta} zone={b.zone} state="ok"
+                      target={b.target} delta={b.delta} zone={b.zone} state="ok" compact
                       trend={computeTrend((ballHistories?.[key] ?? []).slice(-10), b.value, b.target, b.direction)} />)
                   }
                   for (const key of BALL_RAW_ORDER) {
                     const r = raw.get(key); if (!r || r.value == null) continue
                     cards.push(<MetricCard key={key} label={r.label} value={r.value} unit={r.unit}
-                      target={null} delta={null} zone={null} state="raw"
+                      target={null} delta={null} zone={null} state="raw" compact
                       trend={{ delta: 0, towardPro: null }} />)
                   }
                   if (cards.length) return cards

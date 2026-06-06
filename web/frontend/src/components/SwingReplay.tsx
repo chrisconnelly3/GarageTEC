@@ -6,14 +6,17 @@ interface SwingReplayProps {
   src?: string | null            // annotated video URL; null -> placeholder
   highlight?: boolean
   seek?: { t: number } | null    // a fresh token each request, so repeat-seek to the same time re-fires
+  impactTime?: number | null     // auto-seek here on load so the replay opens on impact
   onTime?: (t: number) => void   // playback time (seconds), for phase sync
 }
 
-export function SwingReplay({ src, highlight, seek, onTime }: SwingReplayProps) {
+export function SwingReplay({ src, highlight, seek, impactTime, onTime }: SwingReplayProps) {
+  const containerRef = useRef<HTMLDivElement>(null)
   const ref = useRef<HTMLVideoElement>(null)
   const [isPlaying, setIsPlaying] = useState(false)
   const [speed, setSpeed] = useState<'realtime' | 'slowmo'>('realtime')
   const [progress, setProgress] = useState(0)
+  const [isFullscreen, setIsFullscreen] = useState(false)
 
   // Controlled seek from the PhaseTimeline. `seek` is a new object reference each
   // request, so clicking the same phase twice still re-fires this effect.
@@ -22,16 +25,46 @@ export function SwingReplay({ src, highlight, seek, onTime }: SwingReplayProps) 
     if (v && seek && Number.isFinite(seek.t)) v.currentTime = seek.t
   }, [seek])
 
+  // Auto-seek to the impact frame when the source or impact time changes, and
+  // again once metadata is loaded (currentTime is only honored after that).
+  useEffect(() => {
+    const v = ref.current
+    if (v && impactTime != null && Number.isFinite(impactTime) && v.readyState >= 1) {
+      v.currentTime = impactTime
+    }
+  }, [impactTime, src])
+
   useEffect(() => {
     const v = ref.current
     if (v) v.playbackRate = speed === 'slowmo' ? 0.25 : 1
   }, [speed])
+
+  useEffect(() => {
+    const onFsChange = () => setIsFullscreen(!!document.fullscreenElement)
+    document.addEventListener('fullscreenchange', onFsChange)
+    return () => document.removeEventListener('fullscreenchange', onFsChange)
+  }, [])
+
+  const onLoadedMetadata = () => {
+    const v = ref.current
+    if (v && impactTime != null && Number.isFinite(impactTime)) {
+      v.currentTime = impactTime
+    }
+  }
 
   const toggle = () => {
     const v = ref.current
     if (!v) return
     if (v.paused) { v.play(); setIsPlaying(true) }
     else { v.pause(); setIsPlaying(false) }
+  }
+
+  const toggleFullscreen = () => {
+    if (document.fullscreenElement) {
+      document.exitFullscreen?.()
+    } else {
+      containerRef.current?.requestFullscreen?.()
+    }
   }
 
   const onTimeUpdate = () => {
@@ -42,18 +75,32 @@ export function SwingReplay({ src, highlight, seek, onTime }: SwingReplayProps) 
   }
 
   return (
-    <div className={cn(
-      'relative w-full h-full bg-[#0A0D0B] rounded-[18px] overflow-hidden border flex flex-col',
+    <div ref={containerRef} className={cn(
+      'relative w-full bg-[#0A0D0B] rounded-[18px] overflow-hidden border flex flex-col',
       highlight ? 'border-garage-green shadow-glow-primary' : 'border-[#242C27]',
     )}>
-      <div className="flex-1 relative bg-gradient-to-b from-[#121714] to-[#0A0D0B] flex items-center justify-center">
+      {/* 32:9 — two side-by-side 16:9 USB cameras. Width-driven, short height. */}
+      <div className="relative aspect-[32/9] bg-gradient-to-b from-[#121714] to-[#0A0D0B] flex items-center justify-center">
         {src ? (
           <video ref={ref} src={src} onTimeUpdate={onTimeUpdate}
+            onLoadedMetadata={onLoadedMetadata}
+            onPlay={() => setIsPlaying(true)} onPause={() => setIsPlaying(false)}
             onEnded={() => setIsPlaying(false)} playsInline
             className="w-full h-full object-contain" />
         ) : (
           <div className="text-[#8B978F] text-sm">No swing video yet.</div>
         )}
+
+        {/* Large center play overlay when paused (hidden while playing). */}
+        {src && !isPlaying && (
+          <button onClick={toggle} aria-label="Play"
+            className="absolute inset-0 flex items-center justify-center group focus-visible:outline-none">
+            <span className="w-16 h-16 rounded-full bg-garage-green/90 text-[#0A0D0B] flex items-center justify-center shadow-glow-primary transition-transform group-hover:scale-105 group-focus-visible:ring-2 group-focus-visible:ring-garage-green">
+              <Play className="w-8 h-8 fill-current ml-1" />
+            </span>
+          </button>
+        )}
+
         <div className="absolute top-4 right-4 flex space-x-2">
           <div className="bg-[#0A0D0B]/80 backdrop-blur rounded-full p-1 border border-[#242C27] flex">
             {(['realtime', 'slowmo'] as const).map((s) => (
@@ -64,16 +111,18 @@ export function SwingReplay({ src, highlight, seek, onTime }: SwingReplayProps) 
               </button>
             ))}
           </div>
-          <button className="bg-[#0A0D0B]/80 backdrop-blur rounded-full p-2 border border-[#242C27] text-[#8B978F]">
+          <button onClick={toggleFullscreen}
+            aria-label={isFullscreen ? 'Exit fullscreen' : 'Fullscreen'}
+            className="bg-[#0A0D0B]/80 backdrop-blur rounded-full p-2 border border-[#242C27] text-[#8B978F] hover:text-[#E7EEE9] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-garage-green/60">
             <Maximize2 className="w-4 h-4" />
           </button>
         </div>
       </div>
 
-      <div className="h-16 bg-[#121714] border-t border-[#242C27] px-6 flex items-center space-x-4">
-        <button onClick={toggle} disabled={!src}
-          className="w-10 h-10 rounded-full bg-garage-green text-[#0A0D0B] flex items-center justify-center disabled:opacity-40 flex-shrink-0 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-garage-green/60 focus-visible:ring-offset-2 focus-visible:ring-offset-[#121714]">
-          {isPlaying ? <Pause className="w-5 h-5 fill-current" /> : <Play className="w-5 h-5 fill-current ml-0.5" />}
+      <div className="h-12 bg-[#121714] border-t border-[#242C27] px-4 flex items-center space-x-4">
+        <button onClick={toggle} disabled={!src} aria-label={isPlaying ? 'Pause' : 'Play'}
+          className="w-9 h-9 rounded-full bg-garage-green text-[#0A0D0B] flex items-center justify-center disabled:opacity-40 flex-shrink-0 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-garage-green/60 focus-visible:ring-offset-2 focus-visible:ring-offset-[#121714]">
+          {isPlaying ? <Pause className="w-4 h-4 fill-current" /> : <Play className="w-4 h-4 fill-current ml-0.5" />}
         </button>
         <div className="flex-1 h-2 bg-[#1A211D] rounded-full relative">
           <div className="absolute top-0 left-0 h-full bg-garage-green rounded-full shadow-glow-primary-sm"

@@ -46,15 +46,7 @@ export function Sidebar({ activeTab, setActiveTab }: SidebarProps) {
     },
   ]
   return (
-    <div className="w-64 h-screen bg-[#0A0D0B] border-r border-[#242C27] flex flex-col pt-6 pb-8 px-4 flex-shrink-0">
-      <div className="mb-10 px-1">
-        <img
-          src="/garagetec-logo.png"
-          alt="GarageTEC"
-          className="w-full max-w-[200px] object-contain"
-        />
-      </div>
-
+    <div className="w-16 h-screen bg-[#0A0D0B] border-r border-[#242C27] flex flex-col pt-6 pb-8 px-2 flex-shrink-0">
       <nav className="flex-1 space-y-2">
         {navItems.map((item) => {
           const Icon = item.icon
@@ -63,8 +55,11 @@ export function Sidebar({ activeTab, setActiveTab }: SidebarProps) {
             <button
               key={item.id}
               onClick={() => setActiveTab(item.id)}
+              title={item.label}
+              aria-label={item.label}
+              aria-current={isActive ? 'page' : undefined}
               className={cn(
-                'w-full flex items-center space-x-3 px-4 py-3.5 rounded-xl transition-all duration-200 text-left min-h-[44px] relative focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-garage-green/60',
+                'w-full flex items-center justify-center py-3.5 rounded-xl transition-all duration-200 min-h-[44px] relative focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-garage-green/60',
                 isActive
                   ? 'bg-garage-green/10 text-garage-green'
                   : 'text-[#8B978F] hover:bg-[#1A211D] hover:text-[#E7EEE9]',
@@ -74,7 +69,6 @@ export function Sidebar({ activeTab, setActiveTab }: SidebarProps) {
                 <span className="absolute left-0 top-1/2 -translate-y-1/2 w-0.5 h-5 bg-garage-green rounded-full" />
               )}
               <Icon className="w-5 h-5" strokeWidth={isActive ? 2.5 : 2} />
-              <span className="font-medium text-[15px]">{item.label}</span>
             </button>
           )
         })}
@@ -83,8 +77,11 @@ export function Sidebar({ activeTab, setActiveTab }: SidebarProps) {
       <div className="pt-4 border-t border-[#242C27]">
         <button
           onClick={() => setActiveTab('connect')}
+          title="Connect / Settings"
+          aria-label="Connect / Settings"
+          aria-current={activeTab === 'connect' ? 'page' : undefined}
           className={cn(
-            'w-full flex items-center space-x-3 px-4 py-3.5 rounded-xl transition-all duration-200 text-left min-h-[44px] relative focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-garage-green/60',
+            'w-full flex items-center justify-center py-3.5 rounded-xl transition-all duration-200 min-h-[44px] relative focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-garage-green/60',
             activeTab === 'connect'
               ? 'bg-garage-green/10 text-garage-green'
               : 'text-[#8B978F] hover:bg-[#1A211D] hover:text-[#E7EEE9]',
@@ -97,7 +94,6 @@ export function Sidebar({ activeTab, setActiveTab }: SidebarProps) {
             className="w-5 h-5"
             strokeWidth={activeTab === 'connect' ? 2.5 : 2}
           />
-          <span className="font-medium text-[15px]">Connect / Settings</span>
         </button>
       </div>
     </div>

@@ -18,11 +18,13 @@ interface Insight {
 }
 interface AIInsightCardProps {
   headline: string
+  summary?: string | null
   insights: Insight[]
   highlight?: boolean
 }
 export function AIInsightCard({
   headline,
+  summary,
   insights,
   highlight,
 }: AIInsightCardProps) {
@@ -65,24 +67,32 @@ export function AIInsightCard({
         scale: 1,
       }}
       className={cn(
-        'bg-[#1A211D] border rounded-[18px] p-6 flex flex-col relative overflow-hidden',
+        'bg-[#1A211D] border rounded-[18px] p-6 h-full flex flex-col relative overflow-hidden',
         highlight
           ? 'border-garage-green/50 shadow-glow-primary-sm'
           : 'border-[#242C27]',
       )}
     >
-      <div className="flex items-center space-x-2 mb-4">
+      <div className="flex items-center space-x-2 mb-4 flex-shrink-0">
         <div className="w-2 h-2 rounded-full bg-garage-green shadow-glow-primary-sm animate-pulse" />
         <span className="text-[11px] uppercase tracking-[0.15em] text-garage-green font-bold">
           AI Coach Read
         </span>
       </div>
 
-      <h3 className="text-xl font-semibold text-[#E7EEE9] mb-6 leading-tight">
+      {/* Page never scrolls; this card scrolls internally when the note is long. */}
+      <div className="flex-1 min-h-0 overflow-y-auto pr-1">
+      <h3 className="text-xl font-semibold text-[#E7EEE9] leading-tight">
         {headline}
       </h3>
 
-      <div className="space-y-4 flex-1">
+      {summary && (
+        <p className="mt-3 text-sm text-[#C7D2CB] leading-relaxed">
+          {summary}
+        </p>
+      )}
+
+      <div className="space-y-4 mt-5">
         {insights.map((insight) => {
           const config = getTypeConfig(insight.type)
           const Icon = config.icon
@@ -122,6 +132,7 @@ export function AIInsightCard({
             </div>
           )
         })}
+      </div>
       </div>
     </motion.div>
   )

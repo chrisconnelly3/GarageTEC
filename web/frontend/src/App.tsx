@@ -61,7 +61,24 @@ export default function App() {
   const st = capture.status?.status
   const r50Status: 'connected' | 'waiting' | 'paused' =
     st === 'connected' ? 'connected' : st === 'paused' ? 'paused' : 'waiting'
-  const isPaused = !!capture.status?.paused
+  const sessionActive = !!capture.status?.session_active
+
+  // Inline message when Start Session is rejected (409 = no active player).
+  const [sessionError, setSessionError] = useState<string | null>(null)
+  const handleStartSession = () => {
+    setSessionError(null)
+    capture.startSession().catch((e: Error) => {
+      setSessionError(
+        e.message?.startsWith('409')
+          ? 'Select a player first'
+          : 'Could not start session',
+      )
+    })
+  }
+  const handleEndSession = () => {
+    setSessionError(null)
+    capture.endSession().catch(() => setSessionError('Could not end session'))
+  }
 
   const selectPlayerById = (id: number) => {
     const p = playerList.find((x) => x.id === id)
@@ -80,10 +97,13 @@ export default function App() {
         <Topbar
           players={playerList.map((p) => ({ id: p.id, name: p.name }))}
           activePlayerId={activePlayerId}
-          isPaused={isPaused}
+          sessionActive={sessionActive}
+          sessionError={sessionError}
           r50Status={r50Status}
-          onPause={() => capture.pause()}
-          onResume={() => capture.resume()}
+          activeClub={capture.status?.active_club ?? null}
+          onSelectClub={capture.selectClub}
+          onStartSession={handleStartSession}
+          onEndSession={handleEndSession}
           onSelectPlayer={(p) => selectPlayerById(p.id)}
         />
 
@@ -95,7 +115,6 @@ export default function App() {
               lastSwing={lastSwing}
               lastCapture={lastCapture}
               activeClub={capture.status?.active_club ?? null}
-              onSelectClub={capture.selectClub}
             />
           )}
           {activeTab === 'review' && (

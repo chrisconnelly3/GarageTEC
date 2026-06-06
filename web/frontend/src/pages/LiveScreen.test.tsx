@@ -161,24 +161,8 @@ describe("LiveScreen", () => {
     expect(screen.getAllByText("impact").length).toBeGreaterThan(0);
   });
 
-  it("shows FirstRunPrimer when localStorage key is absent", async () => {
+  it("does NOT render the FirstRunPrimer (removed from Live)", async () => {
     localStorage.clear();
-    render(
-      <LiveScreen
-        playerId={1}
-        sessionId={1}
-        lastSwing={null}
-        lastCapture={null}
-        activeClub="7 Iron"
-      />,
-    );
-    await screen.findByText("38");
-    expect(screen.getByTestId("first-run-primer")).toBeInTheDocument();
-    expect(screen.getByText(/reading your swing/i)).toBeInTheDocument();
-  });
-
-  it("hides FirstRunPrimer when localStorage key is present", async () => {
-    localStorage.setItem("garagetec-live-primer-v1", "1");
     render(
       <LiveScreen
         playerId={1}
@@ -190,7 +174,23 @@ describe("LiveScreen", () => {
     );
     await screen.findByText("38");
     expect(screen.queryByTestId("first-run-primer")).not.toBeInTheDocument();
-    localStorage.clear();
+  });
+
+  it("renders the captured view without an outer scroll container (fits one viewport)", async () => {
+    const { container } = render(
+      <LiveScreen
+        playerId={1}
+        sessionId={1}
+        lastSwing={null}
+        lastCapture={null}
+        activeClub="7 Iron"
+      />,
+    );
+    await screen.findByText("38");
+    // The outer Live container must not scroll — it should fit, not overflow-y-auto.
+    const outer = container.firstElementChild as HTMLElement;
+    expect(outer.className).toContain("overflow-hidden");
+    expect(outer.className).not.toContain("overflow-y-auto");
   });
 
   it("shows waiting state when no swing data", async () => {

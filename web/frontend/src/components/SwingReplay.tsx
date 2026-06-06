@@ -133,16 +133,28 @@ export function SwingReplay({ src, highlight, seek, impactTime, onTime, onDurati
         </div>
       </div>
 
-      <div className="h-12 bg-[#121714] border-t border-[#242C27] px-4 flex items-center space-x-4">
-        <button onClick={toggle} disabled={!src} aria-label={isPlaying ? 'Pause' : 'Play'}
-          className="w-9 h-9 rounded-full bg-garage-green text-[#0A0D0B] flex items-center justify-center disabled:opacity-40 flex-shrink-0 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-garage-green/60 focus-visible:ring-offset-2 focus-visible:ring-offset-[#121714]">
-          {isPlaying ? <Pause className="w-4 h-4 fill-current" /> : <Play className="w-4 h-4 fill-current ml-0.5" />}
-        </button>
-        <div className="flex-1 h-2 bg-[#1A211D] rounded-full relative">
-          <div className="absolute top-0 left-0 h-full bg-garage-green rounded-full shadow-glow-primary-sm"
-            style={{ width: `${progress}%` }} />
+      {/* In fill mode (Live), the LiveTimeline below is the single scrubber — we
+          only show the play/pause button here (no redundant progress fill).
+          In non-fill mode (Review), keep the full bar with progress fill. */}
+      {fill ? (
+        <div className="h-12 bg-[#121714] border-t border-[#242C27] px-4 flex items-center">
+          <button onClick={toggle} disabled={!src} aria-label={isPlaying ? 'Pause' : 'Play'}
+            className="w-9 h-9 rounded-full bg-garage-green text-[#0A0D0B] flex items-center justify-center disabled:opacity-40 flex-shrink-0 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-garage-green/60 focus-visible:ring-offset-2 focus-visible:ring-offset-[#121714]">
+            {isPlaying ? <Pause className="w-4 h-4 fill-current" /> : <Play className="w-4 h-4 fill-current ml-0.5" />}
+          </button>
         </div>
-      </div>
+      ) : (
+        <div className="h-12 bg-[#121714] border-t border-[#242C27] px-4 flex items-center space-x-4">
+          <button onClick={toggle} disabled={!src} aria-label={isPlaying ? 'Pause' : 'Play'}
+            className="w-9 h-9 rounded-full bg-garage-green text-[#0A0D0B] flex items-center justify-center disabled:opacity-40 flex-shrink-0 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-garage-green/60 focus-visible:ring-offset-2 focus-visible:ring-offset-[#121714]">
+            {isPlaying ? <Pause className="w-4 h-4 fill-current" /> : <Play className="w-4 h-4 fill-current ml-0.5" />}
+          </button>
+          <div className="flex-1 h-2 bg-[#1A211D] rounded-full relative">
+            <div className="absolute top-0 left-0 h-full bg-garage-green rounded-full shadow-glow-primary-sm"
+              style={{ width: `${progress}%` }} />
+          </div>
+        </div>
+      )}
     </div>
   )
 }

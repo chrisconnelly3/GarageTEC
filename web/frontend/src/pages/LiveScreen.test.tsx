@@ -206,6 +206,42 @@ describe("LiveScreen", () => {
     expect(left?.querySelector('[data-testid="live-timeline"]')).not.toBeNull();
   });
 
+  it("ball cards render in the left column (ball-club-strip), NOT the right column", async () => {
+    const { container } = render(
+      <LiveScreen playerId={1} sessionId={1} lastSwing={null} lastCapture={null} activeClub="7 Iron" />,
+    );
+    await screen.findByText("142"); // ball speed value
+    const left = container.querySelector(".lg\\:basis-\\[62\\%\\]");
+    const strip = left?.querySelector('[data-testid="ball-club-strip"]');
+    expect(strip).not.toBeNull();
+    // Ball Speed value should be inside the strip.
+    expect(strip?.textContent).toContain("142");
+  });
+
+  it("body cards render in the right column (flex-1), NOT the ball strip", async () => {
+    const { container } = render(
+      <LiveScreen playerId={1} sessionId={1} lastSwing={null} lastCapture={null} activeClub="7 Iron" />,
+    );
+    await screen.findByText("38");
+    const left = container.querySelector(".lg\\:basis-\\[62\\%\\]");
+    const strip = left?.querySelector('[data-testid="ball-club-strip"]');
+    // Body card value (38) should NOT be inside the ball strip.
+    expect(strip?.textContent).not.toContain("38");
+  });
+
+  it("right column has no overflow-y-auto (body cards + coach fit without scroll)", async () => {
+    const { container } = render(
+      <LiveScreen playerId={1} sessionId={1} lastSwing={null} lastCapture={null} activeClub="7 Iron" />,
+    );
+    await screen.findByText("38");
+    // Right column is flex-1 (not lg:basis-[62%]). It must not have overflow-y-auto.
+    const left = container.querySelector(".lg\\:basis-\\[62\\%\\]");
+    // The sibling after the left column is the right column.
+    const right = left?.nextElementSibling as HTMLElement | null;
+    expect(right).not.toBeNull();
+    expect(right?.className).not.toContain("overflow-y-auto");
+  });
+
   it("renders the unified LiveTimeline (not the evenly-spaced PhaseTimeline) on Live", async () => {
     render(
       <LiveScreen playerId={1} sessionId={1} lastSwing={null} lastCapture={null} activeClub="7 Iron" />,

@@ -52,6 +52,19 @@ describe("SwingReplay", () => {
     // Bottom-bar play button + large center overlay, both labelled Play while paused.
     expect(screen.getAllByRole("button", { name: /play/i }).length).toBeGreaterThanOrEqual(2);
   });
+  it("in fill mode the bottom bar has NO progress-fill bar (LiveTimeline is the scrubber)", () => {
+    const { container } = render(<SwingReplay src="/media/swings/x.mp4" fill />);
+    // The progress fill div has a style with width: X% driven by progress state.
+    // In fill mode it should not be rendered.
+    const bars = container.querySelectorAll(".bg-\\[\\#1A211D\\]");
+    // The track bar (bg-[#1A211D]) only exists in non-fill mode.
+    expect(bars.length).toBe(0);
+  });
+  it("in fill mode still has a play/pause button in the bottom bar", () => {
+    render(<SwingReplay src="/media/swings/x.mp4" fill />);
+    // At least the bottom-bar play button must be present (center overlay also present while paused).
+    expect(screen.getAllByRole("button", { name: /play/i }).length).toBeGreaterThanOrEqual(1);
+  });
   it("has a working fullscreen toggle button", () => {
     render(<SwingReplay src="/media/swings/x.mp4" />);
     expect(screen.getByRole("button", { name: /fullscreen/i })).toBeInTheDocument();

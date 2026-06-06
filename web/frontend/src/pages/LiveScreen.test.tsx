@@ -193,6 +193,44 @@ describe("LiveScreen", () => {
     expect(outer.className).not.toContain("overflow-y-auto");
   });
 
+  it("lays the captured view out as two columns (video left, cards right)", async () => {
+    const { container } = render(
+      <LiveScreen playerId={1} sessionId={1} lastSwing={null} lastCapture={null} activeClub="7 Iron" />,
+    );
+    await screen.findByText("38");
+    // The captured wrapper is a row on lg with a wide left column (basis ~62%).
+    const left = container.querySelector(".lg\\:basis-\\[62\\%\\]");
+    expect(left).not.toBeNull();
+    // The video player and the unified timeline both live in that left column.
+    expect(left?.querySelector("video")).not.toBeNull();
+    expect(left?.querySelector('[data-testid="live-timeline"]')).not.toBeNull();
+  });
+
+  it("renders the unified LiveTimeline (not the evenly-spaced PhaseTimeline) on Live", async () => {
+    render(
+      <LiveScreen playerId={1} sessionId={1} lastSwing={null} lastCapture={null} activeClub="7 Iron" />,
+    );
+    await screen.findByText("38");
+    expect(screen.getByTestId("live-timeline")).toBeInTheDocument();
+  });
+
+  it("shows the NEWEST coaching entry (last in the array)", async () => {
+    vi.mocked(api.getLatestSwing).mockResolvedValue({
+      ...mockSwing,
+      coaching: [
+        { id: 1, swing_id: 42, session_id: 1, kind: "mock", model: null, created_at: "2024-01-01T10:00:00Z",
+          content: { headline: "OLD MOCK READ", summary: null, findings: [], drills: [] } },
+        { id: 2, swing_id: 42, session_id: 1, kind: "real", model: "gpt", created_at: "2024-01-01T10:05:00Z",
+          content: { headline: "NEW REAL READ", summary: null, findings: [], drills: [] } },
+      ],
+    });
+    render(
+      <LiveScreen playerId={1} sessionId={1} lastSwing={null} lastCapture={null} activeClub="7 Iron" />,
+    );
+    expect(await screen.findByText("NEW REAL READ")).toBeInTheDocument();
+    expect(screen.queryByText("OLD MOCK READ")).not.toBeInTheDocument();
+  });
+
   it("shows waiting state when no swing data", async () => {
     vi.mocked(api.getLatestSwing).mockResolvedValue(null);
     render(

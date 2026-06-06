@@ -8,13 +8,16 @@ interface SwingReplayProps {
   seek?: { t: number } | null    // a fresh token each request, so repeat-seek to the same time re-fires
   impactTime?: number | null     // auto-seek here on load so the replay opens on impact
   onTime?: (t: number) => void   // playback time (seconds), for phase sync
+  onDuration?: (d: number) => void // total duration (seconds), for the timeline scale
+  fill?: boolean                 // Live: the player fills its parent column (no fixed aspect) and lets object-contain center the real frame
 }
 
-export function SwingReplay({ src, highlight, seek, impactTime, onTime }: SwingReplayProps) {
+export function SwingReplay({ src, highlight, seek, impactTime, onTime, onDuration, fill }: SwingReplayProps) {
   const containerRef = useRef<HTMLDivElement>(null)
   const ref = useRef<HTMLVideoElement>(null)
   const [isPlaying, setIsPlaying] = useState(false)
-  const [speed, setSpeed] = useState<'realtime' | 'slowmo'>('realtime')
+  // Default to slow-mo (0.25x) so the swing is studyable the moment it loads.
+  const [speed, setSpeed] = useState<'slowmo' | 'realtime'>('slowmo')
   const [progress, setProgress] = useState(0)
   const [isFullscreen, setIsFullscreen] = useState(false)
 
@@ -47,7 +50,11 @@ export function SwingReplay({ src, highlight, seek, impactTime, onTime }: SwingR
 
   const onLoadedMetadata = () => {
     const v = ref.current
-    if (v && impactTime != null && Number.isFinite(impactTime)) {
+    if (!v) return
+    // Re-assert the chosen rate (some browsers reset it when a new source loads).
+    v.playbackRate = speed === 'slowmo' ? 0.25 : 1
+    if (Number.isFinite(v.duration)) onDuration?.(v.duration)
+    if (impactTime != null && Number.isFinite(impactTime)) {
       v.currentTime = impactTime
     }
   }
@@ -71,21 +78,28 @@ export function SwingReplay({ src, highlight, seek, impactTime, onTime }: SwingR
     const v = ref.current
     if (!v) return
     onTime?.(v.currentTime)
+    if (Number.isFinite(v.duration)) onDuration?.(v.duration)
     setProgress(v.duration ? (v.currentTime / v.duration) * 100 : 0)
   }
 
   return (
     <div ref={containerRef} className={cn(
       'relative w-full bg-[#0A0D0B] rounded-[18px] overflow-hidden border flex flex-col',
+      fill && 'h-full',
       highlight ? 'border-garage-green shadow-glow-primary' : 'border-[#242C27]',
     )}>
-      {/* 32:9 — two side-by-side 16:9 USB cameras. Width-driven, short height. */}
-      <div className="relative aspect-[32/9] bg-gradient-to-b from-[#121714] to-[#0A0D0B] flex items-center justify-center">
+      {/* fill: the area grows to fill the column and object-contain centers the
+          real frame (portrait mock now, 32:9 composite in production) — no
+          distortion. Otherwise a 32:9 width-driven box (two 16:9 cameras). */}
+      <div className={cn(
+        'relative bg-gradient-to-b from-[#121714] to-[#0A0D0B] flex items-center justify-center',
+        fill ? 'flex-1 min-h-0' : 'aspect-[32/9]',
+      )}>
         {src ? (
           <video ref={ref} src={src} onTimeUpdate={onTimeUpdate}
             onLoadedMetadata={onLoadedMetadata}
             onPlay={() => setIsPlaying(true)} onPause={() => setIsPlaying(false)}
-            onEnded={() => setIsPlaying(false)} playsInline
+            loop playsInline
             className="w-full h-full object-contain" />
         ) : (
           <div className="text-[#8B978F] text-sm">No swing video yet.</div>
@@ -103,7 +117,7 @@ export function SwingReplay({ src, highlight, seek, impactTime, onTime }: SwingR
 
         <div className="absolute top-4 right-4 flex space-x-2">
           <div className="bg-[#0A0D0B]/80 backdrop-blur rounded-full p-1 border border-[#242C27] flex">
-            {(['realtime', 'slowmo'] as const).map((s) => (
+            {(['slowmo', 'realtime'] as const).map((s) => (
               <button key={s} onClick={() => setSpeed(s)}
                 className={cn('px-3 py-1 rounded-full text-xs font-medium transition-colors',
                   speed === s ? 'bg-[#242C27] text-[#E7EEE9]' : 'text-[#8B978F] hover:text-[#E7EEE9]')}>

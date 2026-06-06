@@ -135,7 +135,8 @@ export function ReviewScreen({ playerId, sessionId, defaultSwingId }: ReviewScre
     )
   }
 
-  const coachContent = data.coaching[0]?.content ?? null
+  // Newest coaching entry (a real read is generated after the mock seed).
+  const coachContent = data.coaching[data.coaching.length - 1]?.content ?? null
   const insights = coachingToInsights(coachContent)
 
   return (

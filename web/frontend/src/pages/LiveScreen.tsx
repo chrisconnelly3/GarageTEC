@@ -2,13 +2,13 @@ import { useEffect, useMemo, useState } from 'react'
 import { SwingReplay } from '../components/SwingReplay'
 import { MetricCard } from '../components/MetricCard'
 import { AIInsightCard } from '../components/AIInsightCard'
-import { PhaseTimeline } from '../components/PhaseTimeline'
+import { LiveTimeline } from '../components/LiveTimeline'
 import { motion, AnimatePresence } from 'framer-motion'
 import { useApi } from '../lib/useApi'
 import { getLatestSwing, getHistory, getBallHistory, mediaUrl } from '../lib/api'
 import { labelFor, coachingToInsights, isEstimated } from '../lib/format'
 import { BODY_CARD_ORDER, BALL_BENCHMARK_ORDER, BALL_RAW_ORDER, METRIC_UNIT } from '../lib/metricConfig'
-import { phaseAtTime, momentKindToLabel } from '../lib/phase'
+import { phaseAtTime } from '../lib/phase'
 import { computeTrend } from '../lib/trend'
 import type { SwingDetail, Benchmark, BallBenchmark, BallRawField } from '../lib/types'
 
@@ -30,6 +30,7 @@ export function LiveScreen({ playerId, sessionId, lastSwing, activeClub = null }
   useEffect(() => { reload() }, [lastSwing]) // eslint-disable-line react-hooks/exhaustive-deps
 
   const [videoTime, setVideoTime] = useState(0)
+  const [duration, setDuration] = useState(0)
   const [seek, setSeek] = useState<{ t: number } | null>(null)
   const [manualPhase, setManualPhase] = useState<string | null>(null)
   const moments = data?.moments ?? []
@@ -80,11 +81,11 @@ export function LiveScreen({ playerId, sessionId, lastSwing, activeClub = null }
     return map
   }, [data])
 
-  const coachContent = data?.coaching[0]?.content ?? null
+  // Use the NEWEST coaching entry (a real read is generated after the mock seed),
+  // so the displayed analysis is the latest one for this swing.
+  const coachContent = data?.coaching[data.coaching.length - 1]?.content ?? null
   const insights = coachingToInsights(coachContent)
   const status: 'waiting' | 'captured' = data ? 'captured' : 'waiting'
-
-  const present = new Set(moments.map((m) => momentKindToLabel(m.kind)))
 
   return (
     <div className="h-full flex flex-col p-4 gap-3 overflow-hidden">
@@ -107,63 +108,68 @@ export function LiveScreen({ playerId, sessionId, lastSwing, activeClub = null }
           </motion.div>
         ) : (
           <motion.div key="captured" initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }}
-            className="flex-1 min-h-0 flex flex-col gap-3">
-            {/* Top band: replay + phase jumper beside the AI coach. The replay is
-                32:9 (short) so this band stays compact and leaves room below. */}
-            <div className="flex flex-col lg:flex-row gap-3 flex-shrink-0">
-              <div className="flex-[2] flex flex-col">
-                <SwingReplay src={videoSrc} highlight seek={seek} impactTime={impactTime}
-                  onTime={(t) => {
-                    setVideoTime(t)
-                    if (t > 0) setManualPhase(null) // real playback takes over
-                  }} />
-                <PhaseTimeline present={present} active={CAP(currentPhase)}
-                  onSeek={(label) => {
-                    // Always update the phase card immediately (works without video too)
+            className="flex-1 min-h-0 flex flex-col lg:flex-row gap-3">
+            {/* LEFT (wider, ~62%): the video fills this column; the unified
+                time-accurate timeline sits directly beneath it. This is the focus. */}
+            <div className="flex flex-col gap-2 min-h-0 lg:basis-[62%] lg:flex-none">
+              <SwingReplay src={videoSrc} highlight fill seek={seek} impactTime={impactTime}
+                onDuration={setDuration}
+                onTime={(t) => {
+                  setVideoTime(t)
+                  if (t > 0) setManualPhase(null) // real playback takes over
+                }} />
+              <div className="flex-shrink-0 rounded-[18px] border border-[#242C27] bg-[#121714]">
+                <LiveTimeline moments={moments} duration={duration} currentTime={videoTime}
+                  activeLabel={CAP(currentPhase)}
+                  onSeek={(t, label) => {
                     setManualPhase(label.toLowerCase())
-                    const mt = moments.find((m) => CAP(m.kind) === label)
-                    if (mt?.time_s != null) setSeek({ t: mt.time_s })
+                    setSeek({ t })
                   }} />
               </div>
-              <div className="flex-1 min-h-0 max-h-[280px]">
+            </div>
+
+            {/* RIGHT (~38%): everything that is NOT the video — AI coach on top,
+                then Body Mechanics, then Ball & Club. May scroll internally if the
+                full set can't fit; the PAGE never scrolls. */}
+            <div className="flex-1 min-h-0 flex flex-col gap-3 overflow-y-auto pr-0.5">
+              <div className="flex-shrink-0 min-h-0 max-h-[42%]">
                 <AIInsightCard headline={coachContent?.headline ?? 'No coaching available yet.'}
                   summary={coachContent?.summary} insights={insights} highlight />
               </div>
-            </div>
 
-            <div className="flex-shrink-0">
-              <div className="flex items-center gap-2 mb-1.5">
-                <span className="text-xs font-semibold text-[#E7EEE9]">Body Mechanics · vs Tour Pro</span>
-                <span className="text-[10px] uppercase tracking-wider text-[#8B978F]">{currentPhase}</span>
+              <div className="flex-shrink-0">
+                <div className="flex items-center gap-2 mb-1.5">
+                  <span className="text-xs font-semibold text-[#E7EEE9]">Body Mechanics · vs Tour Pro</span>
+                  <span className="text-[10px] uppercase tracking-wider text-[#8B978F]">{currentPhase}</span>
+                </div>
+                <div className="grid grid-cols-2 gap-1.5">
+                  {BODY_CARD_ORDER.map((name) => {
+                    const b = benchByKey.get(`${name}|${currentPhase}`)
+                    const unit = b?.unit ?? METRIC_UNIT[name] ?? ''
+                    if (!b) {
+                      return <MetricCard key={name} label={labelFor(name)} value={null} unit={unit}
+                        target={null} delta={null} zone={null} state="raw" offPhase={currentPhase}
+                        trend={{ delta: 0, towardPro: null }} compact />
+                    }
+                    const trend = computeTrend(histories?.[name] ?? [], b.value, b.target, b.direction)
+                    return <MetricCard key={name} label={labelFor(name)} phase={currentPhase}
+                      value={b.value} unit={b.unit ?? unit} target={b.target} delta={b.delta}
+                      zone={b.zone} state={b.state} trend={trend} isEstimated={isEstimated(null)} compact />
+                  })}
+                </div>
               </div>
-              <div className="grid grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-2">
-                {BODY_CARD_ORDER.map((name) => {
-                  const b = benchByKey.get(`${name}|${currentPhase}`)
-                  const unit = b?.unit ?? METRIC_UNIT[name] ?? ''
-                  if (!b) {
-                    return <MetricCard key={name} label={labelFor(name)} value={null} unit={unit}
-                      target={null} delta={null} zone={null} state="raw" offPhase={currentPhase}
-                      trend={{ delta: 0, towardPro: null }} compact />
-                  }
-                  const trend = computeTrend(histories?.[name] ?? [], b.value, b.target, b.direction)
-                  return <MetricCard key={name} label={labelFor(name)} phase={currentPhase}
-                    value={b.value} unit={b.unit ?? unit} target={b.target} delta={b.delta}
-                    zone={b.zone} state={b.state} trend={trend} isEstimated={isEstimated(null)} compact />
-                })}
-              </div>
-            </div>
 
-            <div className="flex-shrink-0">
-              <div className="flex items-center gap-2 mb-1.5">
-                <span className="text-xs font-semibold text-[#E7EEE9]">Ball &amp; Club · vs Tour Pro</span>
-                {activeClub && (
-                  <span className="text-[10px] uppercase tracking-wider text-[#8B978F]">
-                    {activeClub} · impact
-                  </span>
-                )}
-              </div>
-              <div className="grid grid-cols-4 md:grid-cols-6 lg:grid-cols-8 gap-1.5">
-                {(() => {
+              <div className="flex-shrink-0">
+                <div className="flex items-center gap-2 mb-1.5">
+                  <span className="text-xs font-semibold text-[#E7EEE9]">Ball &amp; Club · vs Tour Pro</span>
+                  {activeClub && (
+                    <span className="text-[10px] uppercase tracking-wider text-[#8B978F]">
+                      {activeClub} · impact
+                    </span>
+                  )}
+                </div>
+                <div className="grid grid-cols-3 gap-1.5">
+                  {(() => {
                   const bench = new Map((data?.ball_benchmarks ?? []).map((b: BallBenchmark) => [b.key, b]))
                   const raw = new Map((data?.ball_raw ?? []).map((r: BallRawField) => [r.key, r]))
                   const cards = []
@@ -192,7 +198,8 @@ export function LiveScreen({ playerId, sessionId, lastSwing, activeClub = null }
                       No ball data for this swing yet. It appears when your R50 reports the shot.
                     </p>
                   )
-                })()}
+                  })()}
+                </div>
               </div>
             </div>
           </motion.div>

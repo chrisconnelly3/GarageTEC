@@ -27,15 +27,15 @@ const mockSwing: SwingDetail = {
   },
   metrics: [],
   benchmarks: [
-    // context: "address" so it shows at phase=address (videoTime=0 => phaseAtTime returns address).
+    // context: "impact" — matches the default phase (currentPhase defaults to impact).
     {
-      name: "shoulder_tilt_deg", context: "address",
+      name: "shoulder_tilt_deg", context: "impact",
       value: 38, unit: "deg", target: 36, delta: 2, comparable: true,
       reason: null, direction: "higher", zone: "green", state: "ok",
     },
-    // early_extension_in only at "impact" context — won't show at address phase.
+    // early_extension_in only at "address" context — won't show at impact phase.
     {
-      name: "early_extension_in", context: "impact",
+      name: "early_extension_in", context: "address",
       value: 0.5, unit: "in", target: 1.0, delta: -0.5, comparable: true,
       reason: null, direction: "lower", zone: "yellow", state: "ok",
     },
@@ -89,9 +89,8 @@ describe("LiveScreen", () => {
   });
 
   it("renders off-phase metric placeholder for metrics without a benchmark at current phase", async () => {
-    // early_extension_in is in benchmarks only at impact; at address it won't match.
-    // The phase starts at address (videoTime=0), so benchmarks for address-only
-    // metrics should show the 'measured at' placeholder.
+    // early_extension_in is in benchmarks only at "address"; the default phase
+    // is impact so it won't have a benchmark match there.
     render(
       <LiveScreen
         playerId={1}
@@ -104,7 +103,7 @@ describe("LiveScreen", () => {
     // Wait for data to load.
     await screen.findByText("38");
     // Early Ext. should be rendered as off-phase or raw because no benchmark
-    // exists for early_extension_in at the "address" context in our fixture.
+    // exists for early_extension_in at the "impact" context in our fixture.
     expect(screen.getByText(/Early Ext\./i)).toBeInTheDocument();
   });
 
@@ -124,7 +123,13 @@ describe("LiveScreen", () => {
     expect(screen.getByText(/Tour 161/)).toBeInTheDocument();
   });
 
-  it("shows 'select club' text when no activeClub", async () => {
+  it("shows pick-club explanation when no activeClub and no ball cards", async () => {
+    // Use a swing with no ball_benchmarks so the empty state triggers.
+    vi.mocked(api.getLatestSwing).mockResolvedValue({
+      ...mockSwing,
+      ball_benchmarks: [],
+      ball_raw: [],
+    });
     render(
       <LiveScreen
         playerId={1}
@@ -135,7 +140,57 @@ describe("LiveScreen", () => {
       />,
     );
     await screen.findByText("38");
-    expect(screen.getByText(/select club/i)).toBeInTheDocument();
+    expect(screen.getByText(/pick the club you're hitting/i)).toBeInTheDocument();
+  });
+
+  it("defaults currentPhase to impact (shows impact benchmark cards before any video plays)", async () => {
+    // With videoTime=0 and no manualPhase, currentPhase must be 'impact'.
+    // The fixture has shoulder_tilt_deg at context:"impact" so its value (38) must appear.
+    render(
+      <LiveScreen
+        playerId={1}
+        sessionId={1}
+        lastSwing={null}
+        lastCapture={null}
+        activeClub="7 Iron"
+      />,
+    );
+    // value=38 is the impact benchmark — it should show without any video interaction.
+    expect(await screen.findByText("38")).toBeInTheDocument();
+    // The phase label(s) in the body section should say "impact" (may appear more than once).
+    expect(screen.getAllByText("impact").length).toBeGreaterThan(0);
+  });
+
+  it("shows FirstRunPrimer when localStorage key is absent", async () => {
+    localStorage.clear();
+    render(
+      <LiveScreen
+        playerId={1}
+        sessionId={1}
+        lastSwing={null}
+        lastCapture={null}
+        activeClub="7 Iron"
+      />,
+    );
+    await screen.findByText("38");
+    expect(screen.getByTestId("first-run-primer")).toBeInTheDocument();
+    expect(screen.getByText(/reading your swing/i)).toBeInTheDocument();
+  });
+
+  it("hides FirstRunPrimer when localStorage key is present", async () => {
+    localStorage.setItem("garagetec-live-primer-v1", "1");
+    render(
+      <LiveScreen
+        playerId={1}
+        sessionId={1}
+        lastSwing={null}
+        lastCapture={null}
+        activeClub="7 Iron"
+      />,
+    );
+    await screen.findByText("38");
+    expect(screen.queryByTestId("first-run-primer")).not.toBeInTheDocument();
+    localStorage.clear();
   });
 
   it("shows waiting state when no swing data", async () => {

@@ -4,6 +4,7 @@ import { MetricCard } from '../components/MetricCard'
 import { AIInsightCard } from '../components/AIInsightCard'
 import { ClubSelector } from '../components/ClubSelector'
 import { PhaseTimeline } from '../components/PhaseTimeline'
+import { FirstRunPrimer } from '../components/FirstRunPrimer'
 import { motion, AnimatePresence } from 'framer-motion'
 import { useApi } from '../lib/useApi'
 import { getLatestSwing, getHistory, getBallHistory, mediaUrl } from '../lib/api'
@@ -12,6 +13,8 @@ import { BODY_CARD_ORDER, BALL_BENCHMARK_ORDER, BALL_RAW_ORDER, METRIC_UNIT } fr
 import { phaseAtTime, phaseMoments, momentKindToLabel } from '../lib/phase'
 import { computeTrend } from '../lib/trend'
 import type { SwingDetail, Benchmark, BallBenchmark, BallRawField } from '../lib/types'
+
+const PRIMER_KEY = 'garagetec-live-primer-v1'
 
 const CAP = (s: string) => s.charAt(0).toUpperCase() + s.slice(1)
 
@@ -33,8 +36,12 @@ export function LiveScreen({ playerId, sessionId, lastSwing, activeClub = null, 
 
   const [videoTime, setVideoTime] = useState(0)
   const [seek, setSeek] = useState<{ t: number } | null>(null)
+  const [manualPhase, setManualPhase] = useState<string | null>(null)
   const moments = data?.moments ?? []
-  const currentPhase = phaseAtTime(moments, videoTime)
+  // Default to impact (the most data-rich phase). Follows the real playhead once
+  // video plays (videoTime > 0). A tapped PhaseTimeline button sets manualPhase
+  // immediately (even with no video). Real playback clears the manual override.
+  const currentPhase = manualPhase ?? (videoTime > 0 ? phaseAtTime(moments, videoTime) : 'impact')
 
   const swingId = data?.swing.id ?? null
   const { data: histories } = useApi<Record<string, { value: number }[]>>(
@@ -64,6 +71,10 @@ export function LiveScreen({ playerId, sessionId, lastSwing, activeClub = null, 
       return Object.fromEntries(entries)
     },
     [playerId, swingId, ballClub],
+  )
+
+  const [showPrimer, setShowPrimer] = useState(
+    () => typeof window !== 'undefined' && !localStorage.getItem(PRIMER_KEY),
   )
 
   const annotated = data?.media?.find((m) => m.kind === 'annotated_video')
@@ -104,13 +115,24 @@ export function LiveScreen({ playerId, sessionId, lastSwing, activeClub = null, 
         ) : (
           <motion.div key="captured" initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }}
             className="flex-1 flex flex-col space-y-6">
+            {showPrimer && (
+              <FirstRunPrimer onDismiss={() => {
+                localStorage.setItem(PRIMER_KEY, '1')
+                setShowPrimer(false)
+              }} />
+            )}
             <div className="flex flex-col lg:flex-row gap-6">
               <div className="flex-[2] flex flex-col">
                 <div className="h-[360px]">
-                  <SwingReplay src={videoSrc} highlight seek={seek} onTime={setVideoTime} />
+                  <SwingReplay src={videoSrc} highlight seek={seek} onTime={(t) => {
+                    setVideoTime(t)
+                    if (t > 0) setManualPhase(null) // real playback takes over
+                  }} />
                 </div>
                 <PhaseTimeline present={present} active={CAP(currentPhase)}
                   onSeek={(label) => {
+                    // Always update the phase card immediately (works without video too)
+                    setManualPhase(label.toLowerCase())
                     const mt = moments.find((m) => CAP(m.kind) === label)
                     if (mt?.time_s != null) setSeek({ t: mt.time_s })
                   }} />
@@ -146,9 +168,11 @@ export function LiveScreen({ playerId, sessionId, lastSwing, activeClub = null, 
             <div>
               <div className="flex items-center gap-2 mb-3">
                 <span className="text-sm font-semibold text-[#E7EEE9]">Ball &amp; Club · vs Tour Pro</span>
-                <span className="text-[10px] uppercase tracking-wider text-[#8B978F]">
-                  {activeClub ? `${activeClub} · impact` : 'select club'}
-                </span>
+                {activeClub && (
+                  <span className="text-[10px] uppercase tracking-wider text-[#8B978F]">
+                    {activeClub} · impact
+                  </span>
+                )}
               </div>
               <div className="grid grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-2">
                 {(() => {
@@ -167,8 +191,19 @@ export function LiveScreen({ playerId, sessionId, lastSwing, activeClub = null, 
                       target={null} delta={null} zone={null} state="raw"
                       trend={{ delta: 0, towardPro: null }} />)
                   }
-                  return cards.length ? cards
-                    : <p className="text-sm text-[#8B978F] col-span-full">No matched ball data yet.</p>
+                  if (cards.length) return cards
+                  if (!activeClub) {
+                    return (
+                      <p className="text-sm text-[#8B978F] col-span-full">
+                        Pick the club you're hitting so we compare your ball numbers to the right Tour average.
+                      </p>
+                    )
+                  }
+                  return (
+                    <p className="text-sm text-[#8B978F] col-span-full">
+                      No ball data for this swing yet. It appears when your R50 reports the shot.
+                    </p>
+                  )
                 })()}
               </div>
             </div>

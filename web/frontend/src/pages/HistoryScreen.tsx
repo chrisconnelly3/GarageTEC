@@ -8,7 +8,6 @@ import {
   ResponsiveContainer,
 } from 'recharts'
 import {
-  ChevronDown,
   Star,
   ArrowUpRight,
   ArrowDownRight,
@@ -22,10 +21,21 @@ import { BallHistorySection } from '../components/BallHistorySection'
 import { labelFor, deltaVsBaseline, METRIC_GOOD, withinTimeframe } from '../lib/format'
 import type { Timeframe } from '../lib/format'
 import type { History } from '../lib/types'
+import { BODY_CARD_ORDER } from '../lib/metricConfig'
 
-const HERO_METRIC = 'shoulder_tilt_deg'
 const TREND_METRICS = [
   'shoulder_tilt_deg', 'hip_sway_in', 'spine_angle_deg', 'shoulder_turn_deg',
+]
+
+// All body metrics that have meaningful history (exclude hand_depth_in which is raw-only)
+const HERO_METRIC_OPTIONS = BODY_CARD_ORDER.filter(
+  (m) => m !== 'hand_depth_in',
+)
+
+const CONTEXT_OPTIONS: Array<{ value: string; label: string }> = [
+  { value: 'address', label: 'Address' },
+  { value: 'top', label: 'Top' },
+  { value: 'impact', label: 'Impact' },
 ]
 
 const shortDate = (iso: string) => {
@@ -50,13 +60,15 @@ interface HistoryScreenProps {
 
 export function HistoryScreen({ playerId }: HistoryScreenProps) {
   const [timeframe, setTimeframe] = useState<Timeframe>('Month')
+  const [heroMetric, setHeroMetric] = useState('shoulder_tilt_deg')
+  const [heroContext, setHeroContext] = useState('impact')
 
   const { data: hero, loading, error } = useApi<History | null>(
     () =>
       playerId
-        ? getHistory(playerId, HERO_METRIC, 'impact')
+        ? getHistory(playerId, heroMetric, heroContext)
         : Promise.resolve(null),
-    [playerId],
+    [playerId, heroMetric, heroContext],
   )
 
   const { data: trends } = useApi<TrendVM[]>(
@@ -105,21 +117,40 @@ export function HistoryScreen({ playerId }: HistoryScreenProps) {
     <div className="h-full flex flex-col p-6 space-y-6 overflow-y-auto">
       {/* Header & Filters */}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
-        <div className="flex items-center space-x-3">
+        <div className="flex items-center space-x-3 flex-wrap gap-y-2">
           <h1 className="text-2xl font-semibold text-[#E7EEE9]">History</h1>
           <div className="h-6 w-px bg-[#242C27] mx-2" />
-          <div className="flex space-x-2">
-            {[`Metric: ${labelFor(HERO_METRIC)}`, 'Context: Impact'].map(
-              (filter) => (
-                <button
-                  key={filter}
-                  className="flex items-center space-x-1 bg-[#121714] border border-[#242C27] rounded-full px-4 py-2 text-sm text-[#E7EEE9] hover:bg-[#1A211D] transition-colors min-h-[44px]"
-                >
-                  <span>{filter}</span>
-                  <ChevronDown className="w-4 h-4 text-[#8B978F]" />
-                </button>
-              ),
-            )}
+          <div className="flex space-x-2 flex-wrap gap-y-2">
+            {/* Metric selector — real native select, touch-friendly */}
+            <label className="relative flex items-center bg-[#121714] border border-[#242C27] rounded-full px-4 py-2 min-h-[44px] cursor-pointer hover:bg-[#1A211D] transition-colors">
+              <span className="text-sm text-[#8B978F] mr-1 shrink-0">Metric:</span>
+              <select
+                data-testid="metric-select"
+                value={heroMetric}
+                onChange={(e) => setHeroMetric(e.target.value)}
+                className="appearance-none bg-transparent text-sm text-[#E7EEE9] pr-5 cursor-pointer focus:outline-none"
+              >
+                {HERO_METRIC_OPTIONS.map((m) => (
+                  <option key={m} value={m}>{labelFor(m)}</option>
+                ))}
+              </select>
+              <span className="pointer-events-none absolute right-3 text-[#8B978F] text-xs">▾</span>
+            </label>
+            {/* Context selector */}
+            <label className="relative flex items-center bg-[#121714] border border-[#242C27] rounded-full px-4 py-2 min-h-[44px] cursor-pointer hover:bg-[#1A211D] transition-colors">
+              <span className="text-sm text-[#8B978F] mr-1 shrink-0">Context:</span>
+              <select
+                data-testid="context-select"
+                value={heroContext}
+                onChange={(e) => setHeroContext(e.target.value)}
+                className="appearance-none bg-transparent text-sm text-[#E7EEE9] pr-5 cursor-pointer focus:outline-none"
+              >
+                {CONTEXT_OPTIONS.map((c) => (
+                  <option key={c.value} value={c.value}>{c.label}</option>
+                ))}
+              </select>
+              <span className="pointer-events-none absolute right-3 text-[#8B978F] text-xs">▾</span>
+            </label>
           </div>
         </div>
 
@@ -144,7 +175,7 @@ export function HistoryScreen({ playerId }: HistoryScreenProps) {
       {/* HERO Chart */}
       <div className="flex-1 bg-[#121714] border border-[#242C27] rounded-[24px] p-6 flex flex-col min-h-[300px]">
         <h3 className="text-[#8B978F] text-sm font-medium mb-6 uppercase tracking-wider">
-          {labelFor(HERO_METRIC)} (Impact)
+          {labelFor(heroMetric)} ({CONTEXT_OPTIONS.find((c) => c.value === heroContext)?.label ?? heroContext})
         </h3>
         {loading ? (
           <div className="flex-1 flex items-center justify-center text-[#8B978F]">

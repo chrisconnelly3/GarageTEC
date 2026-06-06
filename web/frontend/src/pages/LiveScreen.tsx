@@ -6,7 +6,7 @@ import { LiveTimeline } from '../components/LiveTimeline'
 import { motion, AnimatePresence } from 'framer-motion'
 import { useApi } from '../lib/useApi'
 import { getLatestSwing, getHistory, getBallHistory, mediaUrl } from '../lib/api'
-import { labelFor, coachingToInsights, isEstimated } from '../lib/format'
+import { labelFor, isEstimated } from '../lib/format'
 import { BODY_CARD_ORDER, BALL_BENCHMARK_ORDER, BALL_RAW_ORDER, METRIC_UNIT } from '../lib/metricConfig'
 import { phaseAtTime } from '../lib/phase'
 import { computeTrend } from '../lib/trend'
@@ -84,7 +84,6 @@ export function LiveScreen({ playerId, sessionId, lastSwing, activeClub = null }
   // Use the NEWEST coaching entry (a real read is generated after the mock seed),
   // so the displayed analysis is the latest one for this swing.
   const coachContent = data?.coaching[data.coaching.length - 1]?.content ?? null
-  const insights = coachingToInsights(coachContent)
   const status: 'waiting' | 'captured' = data ? 'captured' : 'waiting'
 
   return (
@@ -179,7 +178,7 @@ export function LiveScreen({ playerId, sessionId, lastSwing, activeClub = null }
             <div className="flex-1 min-h-0 flex flex-col gap-3">
               <div className="flex-shrink-0 min-h-0 max-h-[38%]">
                 <AIInsightCard headline={coachContent?.headline ?? 'No coaching available yet.'}
-                  summary={coachContent?.summary} insights={insights} highlight />
+                  summary={coachContent?.summary} highlight />
               </div>
 
               <div className="flex-shrink-0">

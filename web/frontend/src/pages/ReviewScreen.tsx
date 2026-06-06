@@ -5,7 +5,7 @@ import { MetricCard } from '../components/MetricCard'
 import { PhaseTimeline } from '../components/PhaseTimeline'
 import { useApi } from '../lib/useApi'
 import { getSwing, getSwings, getBallHistory, mediaUrl } from '../lib/api'
-import { labelFor, coachingToInsights } from '../lib/format'
+import { labelFor } from '../lib/format'
 import { BALL_BENCHMARK_ORDER, BALL_RAW_ORDER, BODY_CARD_ORDER } from '../lib/metricConfig'
 import { phaseAtTime, momentKindToLabel } from '../lib/phase'
 import { computeTrend } from '../lib/trend'
@@ -137,7 +137,6 @@ export function ReviewScreen({ playerId, sessionId, defaultSwingId }: ReviewScre
 
   // Newest coaching entry (a real read is generated after the mock seed).
   const coachContent = data.coaching[data.coaching.length - 1]?.content ?? null
-  const insights = coachingToInsights(coachContent)
 
   return (
     <div className="h-full flex flex-col p-6 space-y-6 overflow-y-auto">
@@ -203,7 +202,7 @@ export function ReviewScreen({ playerId, sessionId, defaultSwingId }: ReviewScre
         <div className="flex flex-col space-y-6">
           <AIInsightCard
             headline={coachContent?.headline ?? 'Detailed Swing Analysis'}
-            insights={insights}
+            summary={coachContent?.summary}
           />
         </div>
       </div>

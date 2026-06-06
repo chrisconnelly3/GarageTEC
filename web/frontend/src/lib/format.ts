@@ -36,32 +36,6 @@ export const BALL_METRICS: BallMetricDef[] = [
   { key: "attack_angle", label: "Attack Angle", unit: "deg", good: "neutral", decimals: 1 },
 ];
 
-import type { CoachContent } from "./types";
-
-export interface InsightVM {
-  id: string;
-  type: "mechanic" | "power" | "timing" | "warning";
-  text: string;
-  metric: string;
-  drill: string;
-  severity: "good" | "neutral" | "bad";
-}
-
-// Map an AI coach content payload → the AIInsightCard `insights` prop shape.
-export function coachingToInsights(content: CoachContent | null | undefined): InsightVM[] {
-  if (!content) return [];
-  return (content.findings ?? []).map((f, i) => ({
-    id: String(i),
-    type:
-      f.severity === "good" ? "power" : f.severity === "bad" ? "mechanic" : "timing",
-    text:
-      f.vs_baseline || f.vs_ideal || f.ball_effect ||
-      `${labelFor(f.metric)} ${f.value}${f.unit ?? ""}`,
-    metric: labelFor(f.metric),
-    drill: content.drills?.[i]?.name ?? "Maintain",
-    severity: (f.severity as "good" | "neutral" | "bad") ?? "neutral",
-  }));
-}
 export type Timeframe = "Session" | "Week" | "Month" | "Year";
 
 // Returns the cutoff Date for a timeframe relative to `now`. "Session" uses a

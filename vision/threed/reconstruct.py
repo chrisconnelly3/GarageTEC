@@ -14,11 +14,21 @@ MIN_VISIBILITY = 0.5
 
 
 def triangulate_point(P1, P2, pt1, pt2):
-    """DLT triangulation of one correspondence. Returns 3D np.array (meters)."""
+    """DLT triangulation of one correspondence. Returns a 3D np.array (meters),
+    or None if the result is degenerate (homogeneous w == 0, e.g. a point at
+    infinity from a zero/near-zero baseline) -- dividing by it would yield
+    inf/nan, so we skip it instead of poisoning the 3D timeline."""
     a = np.array(pt1, dtype=float).reshape(2, 1)
     b = np.array(pt2, dtype=float).reshape(2, 1)
     Xh = cv2.triangulatePoints(np.asarray(P1, float), np.asarray(P2, float), a, b)
-    return (Xh[:3] / Xh[3]).ravel()
+    Xh = np.asarray(Xh, dtype=float).reshape(4, -1)[:, 0]   # (4,) for one point
+    w = float(Xh[3])
+    if w == 0.0 or not np.isfinite(w):
+        return None
+    X = (Xh[:3] / w).ravel()
+    if not np.all(np.isfinite(X)):
+        return None
+    return X
 
 
 def _by_name(frame: Optional[List[Landmark]]):
@@ -41,6 +51,8 @@ def reconstruct(face_on, down_line, calibration,
             if a.visibility < min_visibility or b.visibility < min_visibility:
                 continue
             X = triangulate_point(P1, P2, (a.x, a.y), (b.x, b.y))
+            if X is None:        # degenerate triangulation -> skip this landmark
+                continue
             lms3d.append(Landmark3D(name=name, x=float(X[0]), y=float(X[1]),
                                     z=float(X[2]),
                                     confidence=float(min(a.visibility,

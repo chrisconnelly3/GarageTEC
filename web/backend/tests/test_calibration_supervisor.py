@@ -93,6 +93,63 @@ def test_run_requires_min_poses():
     assert out["ok"] is False and "15" in out["error"]   # MIN_RUN_POSES
 
 
+def test_run_snapshots_consistent_lists_under_concurrent_appends(monkeypatch):
+    """Fix 2 regression: run() must snapshot _obj/_fo/_dl atomically so a
+    concurrently-appending capture thread can never hand cv2.stereoCalibrate
+    three lists of mismatched length (a torn read)."""
+    import threading
+    sup = _sup()
+    sup.configure(device_left=0, device_right=1, cols=9, rows=6, square_mm=25.0)
+
+    seen_lengths = []
+
+    def fake_stereo(obj, fo, dl, size, sq):
+        # Capture the lengths handed to the calibrator; they MUST be equal.
+        seen_lengths.append((len(obj), len(fo), len(dl)))
+        return CalibrationResult(calib={"image_width": 640},
+                                 reprojection_error=0.4, n_poses=len(obj))
+
+    monkeypatch.setattr("web.backend.calibration.stereo_calibrate", fake_stereo)
+    # accept every frame (unique key each call) -> the appender keeps growing
+    monkeypatch.setattr("web.backend.calibration.detect_board",
+                        lambda *a, **k: _det(True, 100, 100))
+    counter = {"n": 0}
+
+    def growing_tilt(*a, **k):
+        counter["n"] += 1
+        return float(counter["n"]) * 100.0   # always a new tilt bucket
+
+    monkeypatch.setattr("web.backend.calibration.estimate_tilt_deg", growing_tilt)
+
+    stop = threading.Event()
+
+    def appender():
+        frame = np.zeros((480, 640, 3), np.uint8)
+        while not stop.is_set():
+            sup.process_frame(frame)
+
+    t = threading.Thread(target=appender, daemon=True)
+    t.start()
+    try:
+        # let the appender accumulate enough poses to clear MIN_RUN_POSES so
+        # run() actually reaches stereo_calibrate, then race them.
+        import time
+        deadline = time.monotonic() + 2.0
+        while len(sup._obj) < MIN_RUN_POSES and time.monotonic() < deadline:
+            time.sleep(0.001)
+        # call run() many times while the appender hammers the lists
+        for _ in range(200):
+            sup.run()
+    finally:
+        stop.set()
+        t.join(timeout=2.0)
+
+    # every snapshot handed to stereo_calibrate had equal-length point lists
+    assert seen_lengths, "stereo_calibrate was never reached"
+    for lo, lf, ld in seen_lengths:
+        assert lo == lf == ld, f"torn read: {(lo, lf, ld)}"
+
+
 def test_mono_mode_forwards_flag_and_uses_full_frame(monkeypatch):
     sup = _sup()
     sup.configure(device_left=0, cols=9, rows=6, square_mm=25.4, mono=True)

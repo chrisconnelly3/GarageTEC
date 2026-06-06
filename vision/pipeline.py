@@ -88,8 +88,17 @@ def process_video(conn, video_path: str, *, player_id: int, session_id: int,
 
             if calibration is None:
                 from vision.threed.calibration import active_calibration
-                calibration = active_calibration(conn, image_width=source.width,
-                                                 image_height=source.height)
+                # The landmarks fed to reconstruct() are in PER-VIEW (half-crop)
+                # pixel coords from split_views(), NOT the full composite width.
+                # split_views splits at x = round(W * split): down_line = [:, :x]
+                # (width x), face_on = [:, x:] (width W - x). The AssumedGeometry
+                # fallback builds one K (cx/focal) that must match that half-view
+                # frame, so pass the face-on half width here, not source.width.
+                split_x = int(round(source.width * split))
+                view_width = source.width - split_x   # face_on (right) crop width
+                view_height = source.height
+                calibration = active_calibration(conn, image_width=view_width,
+                                                 image_height=view_height)
             if calibration is not None:
                 frames_3d = reconstruct_window(
                     face_on, down_line, calibration,

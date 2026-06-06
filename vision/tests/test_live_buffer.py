@@ -76,6 +76,55 @@ def test_flush_empty_returns_none(tmp_path):
     assert buf.flush_to_video(str(tmp_path / "empty.mp4")) is None
 
 
+def test_flush_raises_when_writer_not_opened(tmp_path, monkeypatch):
+    """Fix 3: if the VideoWriter fails to open (codec unavailable), flush must
+    raise rather than silently returning a path to an empty/unreadable file."""
+    import vision.live_buffer as lb
+
+    class _DeadWriter:
+        def isOpened(self):
+            return False
+
+        def write(self, f):
+            raise AssertionError("must not write when not opened")
+
+        def release(self):
+            pass
+
+    monkeypatch.setattr(lb.cv2, "VideoWriter", lambda *a, **k: _DeadWriter())
+    buf = RollingFrameBuffer(fps=20.0, window_s=5.0)
+    for i in range(5):
+        buf.push(np.zeros((48, 64, 3), np.uint8), time_s=i / 20.0)
+    import pytest
+    with pytest.raises(RuntimeError):
+        buf.flush_to_video(str(tmp_path / "wont_open.mp4"))
+
+
+def test_push_defaults_to_real_monotonic_time(monkeypatch):
+    """Fix 3: push() with no time_s stamps frames on the real monotonic clock,
+    so eviction reflects ACTUAL elapsed time (not a synthetic fps clock)."""
+    import vision.live_buffer as lb
+    clock = {"t": 100.0}
+    monkeypatch.setattr(lb.time, "monotonic", lambda: clock["t"])
+    buf = RollingFrameBuffer(fps=30.0, window_s=1.0)
+    buf.push(np.zeros((4, 4, 3), np.uint8))            # t=100.0
+    clock["t"] = 100.5
+    buf.push(np.zeros((4, 4, 3), np.uint8))            # t=100.5 (within window)
+    clock["t"] = 102.0
+    buf.push(np.zeros((4, 4, 3), np.uint8))            # t=102.0 -> evicts older
+    assert len(buf) == 1
+
+
+def test_observed_fps_matches_real_rate():
+    """observed_fps() reports the rate implied by the buffered timestamps so a
+    real camera rate != configured fps isn't time-distorted in the clip."""
+    buf = RollingFrameBuffer(fps=240.0, window_s=100.0)  # nominal fps far off
+    # 11 frames spaced 0.1s apart -> 10 intervals over 1.0s -> 10 fps observed.
+    for i in range(11):
+        buf.push(np.zeros((4, 4, 3), np.uint8), time_s=i * 0.1)
+    assert abs(buf.observed_fps() - 10.0) < 1e-6
+
+
 def test_fill_from_source_reads_until_exhausted():
     buf = RollingFrameBuffer(fps=10.0, window_s=100.0)
     src = FakeSource(n=5)

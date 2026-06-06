@@ -69,22 +69,28 @@ class CalibrationSupervisor:
         h, w = composite.shape[:2]
         # mono = single webcam: the whole frame is the "view"; otherwise a half.
         half = (w, h) if self.mono else (int(w * (1 - self.split)), h)
-        self.image_size = half
         accepted = False
-        if det.found_both and len(self._obj) < MAX_POSES:
+        if det.found_both:
             cell = coverage_cell(det.fo_center, half)
             tilt = estimate_tilt_deg(det.fo_corners, self.cols, self.rows, half)
             bucket = int(tilt // TILT_BUCKET_DEG)
             key = (cell, bucket)
-            # Accept only NEW (position, angle) combos -> forces varied poses.
-            if key not in self._seen:
-                self._seen.add(key)
-                self._covered.add(cell)
-                self._tilt_buckets.add(bucket)
-                self._obj.append(_object_points(self.cols, self.rows, self.square_mm / 1000.0))
-                self._fo.append(det.fo_corners)
-                self._dl.append(det.dl_corners)
-                accepted = True
+            # Mutate the accumulation state under the lock so run() (request
+            # thread) can take a consistent snapshot of equal-length point lists
+            # and a matching image_size while this capture thread keeps appending.
+            with self._lock:
+                self.image_size = half
+                if (key not in self._seen) and len(self._obj) < MAX_POSES:
+                    self._seen.add(key)
+                    self._covered.add(cell)
+                    self._tilt_buckets.add(bucket)
+                    self._obj.append(_object_points(self.cols, self.rows, self.square_mm / 1000.0))
+                    self._fo.append(det.fo_corners)
+                    self._dl.append(det.dl_corners)
+                    accepted = True
+        else:
+            with self._lock:
+                self.image_size = half
         self._overlay_jpeg = self._render_overlay(composite, det)
         self.bus.publish("calibration_status", self.status())
         return accepted
@@ -177,12 +183,22 @@ class CalibrationSupervisor:
                     "error": "single-camera test mode: live capture + board "
                              "detection validated; real calibration needs the "
                              "two-camera bay."}
-        if len(self._obj) < MIN_RUN_POSES:
+        # Snapshot the accumulation state under the lock. The capture thread
+        # (_loop -> process_frame) appends to these lists and mutates image_size
+        # concurrently; copying them atomically here guarantees the three point
+        # lists have matching lengths and a consistent image_size for
+        # cv2.stereoCalibrate (no torn/mismatched reads).
+        with self._lock:
+            obj = list(self._obj)
+            fo = list(self._fo)
+            dl = list(self._dl)
+            size = self.image_size or (640, 480)
+
+        if len(obj) < MIN_RUN_POSES:
             return {"ok": False,
-                    "error": f"only {len(self._obj)} poses; need >= {MIN_RUN_POSES}",
-                    "n_poses": len(self._obj)}
-        size = self.image_size or (640, 480)
-        res = stereo_calibrate(self._obj, self._fo, self._dl, size,
+                    "error": f"only {len(obj)} poses; need >= {MIN_RUN_POSES}",
+                    "n_poses": len(obj)}
+        res = stereo_calibrate(obj, fo, dl, size,
                                self.square_mm / 1000.0)
         import json
         repo.save_calibration(

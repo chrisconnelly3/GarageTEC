@@ -4,3 +4,9 @@ opencv-python>=4.8
 # API this pipeline depends on. 0.10.14 still includes it and has a py3.12 wheel.
 mediapipe>=0.10,<0.10.15
 numpy>=1.26,<2.0
+# RTMPose backend (top-down, far better arm tracking under golf occlusion).
+# It is the default pose backend; MediaPipe above stays as the fallback.
+# onnxruntime is CPU; install onnxruntime-gpu instead on a CUDA/NVIDIA box for
+# live-speed inference.
+rtmlib>=0.0.13
+onnxruntime>=1.17

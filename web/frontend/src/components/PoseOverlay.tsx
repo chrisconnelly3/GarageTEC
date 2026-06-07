@@ -10,13 +10,16 @@ export interface PoseData {
   frames: { poses: number[][][] }[] // frames[i].poses[p] = [ [x,y,vis], ...33 ]
 }
 
-// BlazePose 33-landmark connections — torso, arms, legs (the golf exoskeleton).
+// COCO-17 connections (RTMPose layout) — torso, arms, legs (the golf
+// exoskeleton). Indices: 5/6 shoulders, 7/8 elbows, 9/10 wrists, 11/12 hips,
+// 13/14 knees, 15/16 ankles, 0 nose.
 const CONNECTIONS: [number, number][] = [
-  [11, 12], [11, 13], [13, 15], [12, 14], [14, 16],
-  [11, 23], [12, 24], [23, 24],
-  [23, 25], [25, 27], [24, 26], [26, 28],
+  [5, 6], [5, 7], [7, 9], [6, 8], [8, 10],
+  [5, 11], [6, 12], [11, 12],
+  [11, 13], [13, 15], [12, 14], [14, 16],
+  [0, 5], [0, 6],
 ]
-const JOINTS = [11, 12, 13, 14, 15, 16, 23, 24, 25, 26, 27, 28]
+const JOINTS = [0, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16]
 const VIS = 0.35  // draw mid-confidence arm joints instead of culling them
 const LINE = '#79BC30'   // brand green
 const JOINT = '#C6F66E'  // brighter green for joints

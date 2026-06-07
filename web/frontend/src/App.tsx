@@ -1,8 +1,7 @@
 import { useEffect, useState } from 'react'
 import { Sidebar } from './components/Sidebar'
 import { Topbar } from './components/Topbar'
-import { LiveScreen } from './pages/LiveScreen'
-import { ReviewScreen } from './pages/ReviewScreen'
+import { SwingScreen } from './pages/SwingScreen'
 import { HistoryScreen } from './pages/HistoryScreen'
 import { SessionsScreen } from './pages/SessionsScreen'
 import { PlayersScreen } from './pages/PlayersScreen'
@@ -11,11 +10,11 @@ import { ConnectScreen } from './pages/ConnectScreen'
 import useEvents from './useEvents'
 import useCapture from './useCapture'
 import { useApi } from './lib/useApi'
-import { getPlayers, getSessions, getLatestSwing } from './lib/api'
+import { getPlayers, getSessions } from './lib/api'
 import type { Player } from './lib/types'
 
 export default function App() {
-  const [activeTab, setActiveTab] = useState('live')
+  const [activeTab, setActiveTab] = useState('swing')
 
   const { lastSwing, lastCapture } = useEvents()
   const capture = useCapture(lastCapture)
@@ -43,24 +42,16 @@ export default function App() {
     return () => { alive = false }
   }, [activePlayerId, lastSwing, lastCapture])
 
-  // The latest ready swing id for Review (resolved from the active player).
-  const [reviewSwingId, setReviewSwingId] = useState<number | null>(null)
-  useEffect(() => {
-    if (activePlayerId == null) {
-      setReviewSwingId(null)
-      return
-    }
-    let alive = true
-    getLatestSwing(activePlayerId, activeSessionId ?? undefined)
-      .then((d) => { if (alive) setReviewSwingId(d?.swing.id ?? null) })
-      .catch(() => { if (alive) setReviewSwingId(null) })
-    return () => { alive = false }
-  }, [activePlayerId, activeSessionId, lastSwing])
+  const [pinnedSwingId, setPinnedSwingId] = useState<number | null>(null)
+  const openSwing = (id: number) => { setPinnedSwingId(id); setActiveTab('swing') }
 
-  // Map capture status → Topbar union
+  // Map capture status → 4-state R50 value
   const st = capture.status?.status
-  const r50Status: 'connected' | 'waiting' | 'paused' =
-    st === 'connected' ? 'connected' : st === 'paused' ? 'paused' : 'waiting'
+  const r50: 'connected' | 'waiting' | 'paused' | 'error' =
+    st === 'connected' ? 'connected'
+      : st === 'paused' ? 'paused'
+        : (capture.status?.last_error || st === 'stopped') ? 'error'
+          : 'waiting'
   const sessionActive = !!capture.status?.session_active
 
   // Inline message when Start Session is rejected (409 = no active player).
@@ -100,7 +91,7 @@ export default function App() {
         className="fixed top-1.5 left-1/2 -translate-x-1/2 z-30 h-[68px] w-auto max-w-[440px] object-contain pointer-events-none select-none"
       />
 
-      <Sidebar activeTab={activeTab} setActiveTab={setActiveTab} />
+      <Sidebar activeTab={activeTab} setActiveTab={setActiveTab} r50Error={r50 === 'error'} />
 
       <div className="flex-1 flex flex-col min-w-0">
         <Topbar
@@ -108,7 +99,7 @@ export default function App() {
           activePlayerId={activePlayerId}
           sessionActive={sessionActive}
           sessionError={sessionError}
-          r50Status={r50Status}
+          r50Status={r50}
           activeClub={capture.status?.active_club ?? null}
           onSelectClub={capture.selectClub}
           onStartSession={handleStartSession}
@@ -117,25 +108,20 @@ export default function App() {
         />
 
         <main className="flex-1 overflow-hidden relative">
-          {activeTab === 'live' && (
-            <LiveScreen
+          {activeTab === 'swing' && (
+            <SwingScreen
               playerId={activePlayerId}
               sessionId={activeSessionId}
               lastSwing={lastSwing}
-              lastCapture={lastCapture}
               activeClub={capture.status?.active_club ?? null}
+              r50={r50}
+              deepLinkSwingId={pinnedSwingId}
+              onReconnect={() => setActiveTab('connect')}
             />
           )}
-          {activeTab === 'review' && (
-            <ReviewScreen
-              playerId={activePlayerId}
-              sessionId={activeSessionId}
-              defaultSwingId={reviewSwingId}
-            />
-          )}
-          {activeTab === 'history' && <HistoryScreen playerId={activePlayerId} />}
+          {activeTab === 'history' && <HistoryScreen playerId={activePlayerId} onOpenSwing={openSwing} />}
           {activeTab === 'sessions' && (
-            <SessionsScreen activeSessionId={activeSessionId} />
+            <SessionsScreen activeSessionId={activeSessionId} onOpenSwing={openSwing} />
           )}
           {activeTab === 'players' && (
             <PlayersScreen

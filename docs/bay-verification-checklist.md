@@ -83,3 +83,16 @@ already runs RTMPose; the metric pipeline still defaults to MediaPipe (`vision/c
    community mirror for the prototype (`vision/pose_rtm.py` logs each file's SHA-256). For
    production, obtain the **official OpenMMLab** file and verify its SHA-256 matches, or
    pin the verified hash in `_SOURCES`. Current (unverified) hashes are logged at load time.
+5. **Top-of-swing arm occlusion → fix with MULTI-VIEW (the chosen path).** A SINGLE camera
+   cannot reliably resolve the overlapping hands during the backswing and at the top — the
+   skeleton splits the wrists (one hand stays correct, the other jumps to the hip). Verified
+   to be a fundamental single-view 2D limitation, NOT a model gap: RTMPose-m and ViTPose-s
+   both fail it (each drops a different hand), and a confidence-based "snap the hands
+   together" patch was tested and made the TOP worse (dragged the good hand down to the bad
+   one). RTMPose is correct at address/downswing/impact/finish; only the most-occluded
+   backswing/top split. The proper fix uses BOTH bay cameras: triangulate the wrists from the
+   two calibrated views (each sees a different occlusion) and reproject the fused 3D back into
+   each view to drive the overlay. So once calibration exists (step 2), have the overlay read
+   the reprojected 3D landmarks (the metric pipeline already triangulates) instead of raw
+   per-view 2D. Until then, expect the top-of-swing arms to look imperfect on single-view
+   playback — this is known and accepted, not a regression.

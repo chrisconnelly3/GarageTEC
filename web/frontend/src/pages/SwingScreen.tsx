@@ -67,9 +67,11 @@ export function SwingScreen({ playerId, sessionId, lastSwing, activeClub = null,
   // idx itself = number of swings newer than the displayed one (the badge count).
   const displayedId = data?.swing.id ?? null
   const idx = displayedId == null ? -1 : swingList.findIndex((s) => s.id === displayedId)
+  // idx 0 = latest, so idx = number of swings newer than the displayed one (the
+  // badge count). An off-list pinned swing (idx === -1) shows no badge (0).
   const newCount = following ? 0 : Math.max(0, idx)
   const canPrev = idx >= 0 && idx < swingList.length - 1
-  const canNext = !following
+  const canNext = !following && idx >= 0
 
   const goLive = () => { setSelectedSwingId(null); setVideoTime(0); setSeek(null) }
   const onPrev = () => { if (canPrev) setSelectedSwingId(swingList[idx + 1].id) }
@@ -175,7 +177,7 @@ export function SwingScreen({ playerId, sessionId, lastSwing, activeClub = null,
     <div className="h-full flex flex-col p-4 gap-3 overflow-hidden">
       {error && (
         <div className="flex-shrink-0 rounded-[18px] border border-garage-red/40 bg-garage-red/10 px-6 py-3 text-sm text-garage-red">
-          Failed to load live data: {error}
+          {following ? 'Failed to load live data' : 'Failed to load this swing'}: {error}
         </div>
       )}
 

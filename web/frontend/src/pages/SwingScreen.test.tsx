@@ -98,4 +98,11 @@ describe("SwingScreen", () => {
     render(<SwingScreen {...props} deepLinkSwingId={41} />);
     await waitFor(() => expect(api.getSwing).toHaveBeenCalledWith(41));
   });
+
+  it("disables Next for a pinned swing that is not in the list (deep-linked)", async () => {
+    render(<SwingScreen {...props} deepLinkSwingId={99} />);
+    await waitFor(() => expect(api.getSwing).toHaveBeenCalledWith(99));
+    const next = await screen.findByLabelText("Newer swing");
+    expect(next).toBeDisabled();
+  });
 });

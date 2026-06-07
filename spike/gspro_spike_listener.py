@@ -703,8 +703,18 @@ class App:
 
     # --------------------------- finish / files -----------------------------
     def finish_and_open(self):
+        # Open the folder holding the shot log, cross-platform (Windows / macOS /
+        # Linux) so the "all done" button works on the brother's Mac too.
+        path = app_dir()
         try:
-            os.startfile(app_dir())
+            if sys.platform == "darwin":            # macOS
+                import subprocess
+                subprocess.Popen(["open", path])
+            elif os.name == "nt":                    # Windows
+                os.startfile(path)                   # noqa: SLF / win-only
+            else:                                     # Linux
+                import subprocess
+                subprocess.Popen(["xdg-open", path])
         except Exception:
             pass
 

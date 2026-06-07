@@ -1,0 +1,4 @@
+# macOS/Linux shell launchers MUST keep LF line endings — a CRLF in a .command
+# or .sh breaks the shebang on a Mac ("bad interpreter: /bin/bash^M").
+*.command text eol=lf
+*.sh      text eol=lf

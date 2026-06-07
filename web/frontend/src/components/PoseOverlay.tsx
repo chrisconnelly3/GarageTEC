@@ -17,7 +17,7 @@ const CONNECTIONS: [number, number][] = [
   [23, 25], [25, 27], [24, 26], [26, 28],
 ]
 const JOINTS = [11, 12, 13, 14, 15, 16, 23, 24, 25, 26, 27, 28]
-const VIS = 0.5
+const VIS = 0.35  // draw mid-confidence arm joints instead of culling them
 const LINE = '#79BC30'   // brand green
 const JOINT = '#C6F66E'  // brighter green for joints
 

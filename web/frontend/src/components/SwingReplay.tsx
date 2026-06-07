@@ -30,7 +30,9 @@ export function SwingReplay({ src, poseSrc, highlight, seek, impactTime, onTime,
   useEffect(() => {
     if (!poseSrc) { setPose(null); return }
     let alive = true
-    fetch(poseSrc)
+    // no-store so a regenerated sidecar is always picked up (never the stale
+    // cached copy from a prior extraction).
+    fetch(poseSrc, { cache: 'no-store' })
       .then((r) => (r.ok ? r.json() : null))
       .then((d) => { if (alive) setPose(d) })
       .catch(() => { if (alive) setPose(null) })

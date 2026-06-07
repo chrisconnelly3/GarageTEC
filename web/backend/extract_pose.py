@@ -26,9 +26,19 @@ import mediapipe as mp
 _VIS = 0.5
 
 
+def _enhance(bgr):
+    """Bay footage is dim, which hurts detection. Lift brightness/contrast and
+    apply CLAHE on the luma channel so the golfer pops out of the shadows."""
+    lab = cv2.cvtColor(bgr, cv2.COLOR_BGR2LAB)
+    l, a, b = cv2.split(lab)
+    l = cv2.createCLAHE(clipLimit=2.5, tileGridSize=(8, 8)).apply(l)
+    out = cv2.cvtColor(cv2.merge((l, a, b)), cv2.COLOR_LAB2BGR)
+    return cv2.convertScaleAbs(out, alpha=1.25, beta=18)
+
+
 def _run_half(pose, bgr_half):
     """Return 33 [x,y,vis] (normalized to the half) or None if no person."""
-    rgb = cv2.cvtColor(bgr_half, cv2.COLOR_BGR2RGB)
+    rgb = cv2.cvtColor(_enhance(bgr_half), cv2.COLOR_BGR2RGB)
     res = pose.process(rgb)
     if not res.pose_landmarks:
         return None
@@ -40,13 +50,19 @@ def extract(video_path: Path):
     cap = cv2.VideoCapture(str(video_path))
     cap.set(cv2.CAP_PROP_ORIENTATION_AUTO, 1)  # honor the .mov rotation flag
     fps = cap.get(cv2.CAP_PROP_FPS) or 30.0
-    n = int(cap.get(cv2.CAP_PROP_FRAME_COUNT))
 
     mp_pose = mp.solutions.pose
-    # static_image_mode=True: each half is detected independently (no tracking
-    # bleed between the two alternating views).
-    pose = mp_pose.Pose(static_image_mode=True, model_complexity=1,
-                        min_detection_confidence=0.4)
+    # ONE persistent tracking instance PER VIEW (not a shared static detector):
+    # tracking mode (static_image_mode=False) carries each golfer's state frame
+    # to frame, so detection is steadier and far less jittery, and
+    # smooth_landmarks applies MediaPipe's built-in velocity filter. The two
+    # views never share state because each has its own Pose. model_complexity=2
+    # is the most accurate BlazePose model (worth it for the offline sidecar).
+    def _mk():
+        return mp_pose.Pose(static_image_mode=False, model_complexity=2,
+                            smooth_landmarks=True, min_detection_confidence=0.5,
+                            min_tracking_confidence=0.5)
+    pose_left, pose_right = _mk(), _mk()
 
     frames = []
     W = H = 0
@@ -64,11 +80,11 @@ def extract(video_path: Path):
 
         poses = []
         # LEFT view → x maps to [0, 0.5]
-        pl = _run_half(pose, left)
+        pl = _run_half(pose_left, left)
         if pl:
             poses.append([[x * 0.5, y, v] for x, y, v in pl])
         # RIGHT view → x maps to [0.5, 1.0]
-        pr = _run_half(pose, right)
+        pr = _run_half(pose_right, right)
         if pr:
             poses.append([[0.5 + x * 0.5, y, v] for x, y, v in pr])
             # right-wrist (15=left wrist,16=right wrist) — use the higher-vis one
@@ -80,7 +96,8 @@ def extract(video_path: Path):
         frames.append({"poses": poses})
         fi += 1
     cap.release()
-    pose.close()
+    pose_left.close()
+    pose_right.close()
     return {"fps": round(fps, 4), "width": W, "height": H, "frames": frames}, wrist_y
 
 

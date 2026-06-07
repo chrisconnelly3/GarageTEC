@@ -1,4 +1,4 @@
-import { Square, Play, Wifi } from 'lucide-react'
+import { Square, Play } from 'lucide-react'
 import { cn } from '../lib/utils'
 import { ClubSelector } from './ClubSelector'
 
@@ -8,7 +8,7 @@ interface TopbarProps {
   activePlayerId: number | null
   sessionActive: boolean
   sessionError: string | null
-  r50Status: 'connected' | 'waiting' | 'paused'
+  r50Status: 'connected' | 'waiting' | 'paused' | 'error'
   activeClub: string | null
   onSelectClub: (club: string | null) => void
   onStartSession: () => void
@@ -68,31 +68,6 @@ export function Topbar({
           <span className="text-xs text-garage-red font-medium">{sessionError}</span>
         )}
 
-        <div className="flex items-center space-x-2 bg-[#121714] border border-[#242C27] rounded-full px-4 py-2 min-h-[44px]">
-          <div className="relative flex h-3 w-3">
-            {r50Status === 'connected' && (
-              <>
-                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-garage-green opacity-40"></span>
-                <span className="relative inline-flex rounded-full h-3 w-3 bg-garage-green"></span>
-              </>
-            )}
-            {r50Status === 'waiting' && (
-              <span className="relative inline-flex rounded-full h-3 w-3 bg-garage-amber"></span>
-            )}
-            {r50Status === 'paused' && (
-              <span className="relative inline-flex rounded-full h-3 w-3 bg-[#8B978F]"></span>
-            )}
-          </div>
-          <span className="text-sm font-medium text-[#E7EEE9]">
-            {r50Status === 'connected'
-              ? 'R50 Connected'
-              : r50Status === 'waiting'
-                ? 'Waiting for R50...'
-                : 'R50 Paused'}
-          </span>
-          <Wifi className="w-4 h-4 text-[#8B978F] ml-2" />
-        </div>
-
         <button
           onClick={() => (sessionActive ? onEndSession() : onStartSession())}
           disabled={!sessionActive && noPlayer}
@@ -104,6 +79,11 @@ export function Topbar({
               : 'bg-garage-green text-[#0A0D0B] shadow-glow-primary-sm hover:bg-garage-green-deep',
           )}
         >
+          <span className={cn('w-2.5 h-2.5 rounded-full',
+            r50Status === 'connected' ? 'bg-garage-green'
+              : r50Status === 'waiting' ? 'bg-garage-amber'
+                : r50Status === 'paused' ? 'bg-[#8B978F]' : 'bg-garage-red')}
+            title={`R50: ${r50Status}`} />
           {sessionActive ? (
             <>
               <Square className="w-4 h-4 fill-current" />

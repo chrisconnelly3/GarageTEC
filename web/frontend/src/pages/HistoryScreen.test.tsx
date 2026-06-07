@@ -21,7 +21,7 @@ describe("HistoryScreen", () => {
   });
 
   it("renders the metric select with options from BODY_CARD_ORDER (minus hand_depth_in)", async () => {
-    render(<HistoryScreen playerId={1} />);
+    render(<HistoryScreen playerId={1} onOpenSwing={() => {}} />);
     const select = await screen.findByTestId("metric-select");
     expect(select).toBeInTheDocument();
     // Should contain shoulder_tilt_deg option (label "Shoulder Tilt")
@@ -31,7 +31,7 @@ describe("HistoryScreen", () => {
   });
 
   it("renders the context select with address/top/impact options", async () => {
-    render(<HistoryScreen playerId={1} />);
+    render(<HistoryScreen playerId={1} onOpenSwing={() => {}} />);
     const select = await screen.findByTestId("context-select");
     expect(select).toBeInTheDocument();
     expect(screen.getByRole("option", { name: /address/i })).toBeInTheDocument();
@@ -40,7 +40,7 @@ describe("HistoryScreen", () => {
   });
 
   it("changing the metric select triggers a new getHistory call with the new metric", async () => {
-    render(<HistoryScreen playerId={1} />);
+    render(<HistoryScreen playerId={1} onOpenSwing={() => {}} />);
     const select = await screen.findByTestId("metric-select");
     // Default fetch: shoulder_tilt_deg, impact
     expect(api.getHistory).toHaveBeenCalledWith(1, "shoulder_tilt_deg", "impact");
@@ -52,7 +52,7 @@ describe("HistoryScreen", () => {
   });
 
   it("changing the context select triggers a new getHistory call with the new context", async () => {
-    render(<HistoryScreen playerId={1} />);
+    render(<HistoryScreen playerId={1} onOpenSwing={() => {}} />);
     const select = await screen.findByTestId("context-select");
     // Default: impact
     expect(api.getHistory).toHaveBeenCalledWith(1, "shoulder_tilt_deg", "impact");
@@ -63,12 +63,12 @@ describe("HistoryScreen", () => {
   });
 
   it("shows no-history placeholder when chart data is empty", async () => {
-    render(<HistoryScreen playerId={1} />);
+    render(<HistoryScreen playerId={1} onOpenSwing={() => {}} />);
     expect(await screen.findByText(/no history yet/i)).toBeInTheDocument();
   });
 
   it("does not call getHistory when playerId is null", () => {
-    render(<HistoryScreen playerId={null} />);
+    render(<HistoryScreen playerId={null} onOpenSwing={() => {}} />);
     // The selects should render (the controls are always visible)
     expect(screen.getByTestId("metric-select")).toBeInTheDocument();
     // But no fetch should fire because playerId is null

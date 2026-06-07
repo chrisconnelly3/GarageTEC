@@ -13,6 +13,7 @@ interface SessionVM {
   summary: string
   stats: string[]
   isLive: boolean
+  latestSwingId: number | null
 }
 
 const formatDateTime = (iso: string) => {
@@ -25,9 +26,10 @@ const formatDateTime = (iso: string) => {
 
 interface SessionsScreenProps {
   activeSessionId: number | null
+  onOpenSwing: (id: number) => void
 }
 
-export function SessionsScreen({ activeSessionId }: SessionsScreenProps) {
+export function SessionsScreen({ activeSessionId, onOpenSwing }: SessionsScreenProps) {
   const { data, loading, error } = useApi<SessionVM[]>(async () => {
     const [sessions, players] = await Promise.all([getSessions(), getPlayers()])
     const nameById = new Map(players.map((p) => [p.id, p.name]))
@@ -52,6 +54,7 @@ export function SessionsScreen({ activeSessionId }: SessionsScreenProps) {
         summary: d?.coaching[0]?.content?.headline ?? 'No summary yet.',
         stats: [],
         isLive: s.ended_at === null || s.id === activeSessionId,
+        latestSwingId: d && d.swings.length ? d.swings[0].id : null,
       }
     })
   }, [activeSessionId])
@@ -139,7 +142,10 @@ export function SessionsScreen({ activeSessionId }: SessionsScreenProps) {
 
             {/* Right Col: Action */}
             <div className="flex items-center justify-end">
-              <button className="flex items-center space-x-2 text-[#E7EEE9] bg-[#1A211D] group-hover:bg-garage-green group-hover:text-[#0A0D0B] px-5 py-3 rounded-full font-medium transition-all min-h-[44px]">
+              <button
+                onClick={() => session.latestSwingId != null && onOpenSwing(session.latestSwingId)}
+                disabled={session.latestSwingId == null}
+                className="flex items-center space-x-2 text-[#E7EEE9] bg-[#1A211D] group-hover:bg-garage-green group-hover:text-[#0A0D0B] px-5 py-3 rounded-full font-medium transition-all min-h-[44px] disabled:opacity-40">
                 <Video className="w-4 h-4" />
                 <span>View Swings</span>
                 <ChevronRight className="w-4 h-4" />

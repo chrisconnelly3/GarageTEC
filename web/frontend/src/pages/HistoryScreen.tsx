@@ -70,9 +70,10 @@ interface TrendVM {
 
 interface HistoryScreenProps {
   playerId: number | null
+  onOpenSwing: (id: number) => void
 }
 
-export function HistoryScreen({ playerId }: HistoryScreenProps) {
+export function HistoryScreen({ playerId, onOpenSwing }: HistoryScreenProps) {
   const [timeframe, setTimeframe] = useState<Timeframe>('Month')
   const [heroMetric, setHeroMetric] = useState('shoulder_tilt_deg')
   const [heroContext, setHeroContext] = useState('impact')
@@ -127,6 +128,7 @@ export function HistoryScreen({ playerId }: HistoryScreenProps) {
   const chartData = heroPoints.map((p) => ({
     date: useTimeAxis ? timeOfDay(p.created_at) : shortDate(p.created_at),
     value: p.value,
+    swingId: p.swing_id,
   }))
 
   return (
@@ -252,10 +254,14 @@ export function HistoryScreen({ playerId }: HistoryScreenProps) {
                     r: 6,
                   }}
                   activeDot={{
-                    r: 8,
-                    fill: '#79BC30',
-                    stroke: '#0A0D0B',
-                    strokeWidth: 3,
+                    r: 8, fill: '#79BC30', stroke: '#0A0D0B', strokeWidth: 3,
+                    style: { cursor: 'pointer' },
+                    // recharts passes the datum under payload.payload
+                    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                    onClick: (_e: any, p: any) => {
+                      const id = p?.payload?.swingId
+                      if (id != null) onOpenSwing(id)
+                    },
                   }}
                   style={{
                     filter: 'drop-shadow(0px 0px 8px rgba(121,188,48,0.25))',

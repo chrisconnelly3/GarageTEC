@@ -122,7 +122,13 @@ def active_calibration(conn, image_width=None, image_height=None, height_in=70.0
     row = repo.get_active_calibration(conn)
     if row is not None:
         import json
-        return CheckerboardCalibration.from_dict(json.loads(row.calib_json))
+        # A malformed/empty calib_json (e.g. a stub "{}") must NOT crash the
+        # whole pipeline — treat it as "no usable calibration" and fall through
+        # to the assumed-geometry fallback.
+        try:
+            return CheckerboardCalibration.from_dict(json.loads(row.calib_json))
+        except (ValueError, KeyError, TypeError):
+            pass
     if image_width and image_height:
         return AssumedGeometryCalibration(image_width, image_height, height_in)
     return None

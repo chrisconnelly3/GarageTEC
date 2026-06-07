@@ -95,7 +95,8 @@ def test_assumed_geometry_built_with_half_view_width(monkeypatch):
         return r
 
     monkeypatch.setattr(_Pose, "estimate", _fo_estimate)
-    monkeypatch.setattr(pipe, "PoseEstimator", _Pose)
+    monkeypatch.setattr(pipe, "make_pose_estimator",
+                        lambda view, backend=None: _Pose(view=view))
 
     # Capture the image dims active_calibration is built with.
     captured = {}

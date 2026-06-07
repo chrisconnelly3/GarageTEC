@@ -51,3 +51,15 @@ class PoseEstimator:
 
     def close(self) -> None:
         self._pose.close()
+
+
+def make_pose_estimator(view: str, backend: str = None):
+    """Return a pose estimator for `view`. backend: "mediapipe" (BlazePose, this
+    module's PoseEstimator) or "rtmpose" (vision.pose_rtm.RTMPoseEstimator).
+    Defaults to constants.POSE_BACKEND. Both share the estimate()/close() API and
+    return Landmark lists keyed by the same names the metrics use."""
+    backend = backend or C.POSE_BACKEND
+    if backend == "rtmpose":
+        from vision.pose_rtm import RTMPoseEstimator
+        return RTMPoseEstimator(view=view)
+    return PoseEstimator(view=view)

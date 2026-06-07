@@ -11,6 +11,12 @@ VIEW_FACE_ON = "face_on"       # right half
 VIEW_LAYOUT = "side_by_side_LR"
 
 # ---- pose ----
+# Backend: "mediapipe" (BlazePose, fast/CPU, default) or "rtmpose" (top-down
+# RTMPose via rtmlib+ONNX — far better arm tracking, but heavier; prefer on a
+# CUDA GPU for live speed). The skeleton OVERLAY already uses RTMPose; the
+# metric pipeline can opt in via this flag or the process_video pose_backend arg
+# once a GPU box is in place and metrics are bay-validated.
+POSE_BACKEND = "mediapipe"
 POSE_MODEL_COMPLEXITY = 1
 POSE_MIN_DET_CONF = 0.5
 POSE_MIN_TRK_CONF = 0.5

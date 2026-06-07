@@ -9,7 +9,7 @@ from typing import Callable, List, Optional, Tuple
 
 from vision import constants as C
 from vision.frames import VideoFileSource, FrameSource
-from vision.pose import PoseEstimator
+from vision.pose import make_pose_estimator
 from vision.swing_detect import hand_trajectory_from_timeline, detect_swings
 from vision.segment import segment_swing
 from vision.persist import persist_swing
@@ -41,13 +41,14 @@ def process_video(conn, video_path: str, *, player_id: int, session_id: int,
                   split: float = C.DEFAULT_SPLIT, single_swing: bool = False,
                   render: bool = False, out_dir: str = "swings",
                   on_swing: Optional[Callable[[SwingResult], None]] = None,
-                  calibration=None
+                  calibration=None, pose_backend: Optional[str] = None
                   ) -> List[SwingResult]:
     """Process a recorded video end to end. Returns the list of SwingResults
-    (also delivered one-by-one via on_swing as each swing is persisted)."""
+    (also delivered one-by-one via on_swing as each swing is persisted).
+    pose_backend overrides constants.POSE_BACKEND ("mediapipe"|"rtmpose")."""
     source = VideoFileSource(video_path, split=split)
-    dl_pose = PoseEstimator(view=C.VIEW_DOWN_LINE)
-    fo_pose = PoseEstimator(view=C.VIEW_FACE_ON)
+    dl_pose = make_pose_estimator(C.VIEW_DOWN_LINE, pose_backend)
+    fo_pose = make_pose_estimator(C.VIEW_FACE_ON, pose_backend)
     results: List[SwingResult] = []
     try:
         down_line, face_on = build_timelines(source, dl_pose, fo_pose)

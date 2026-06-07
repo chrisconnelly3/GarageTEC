@@ -4,25 +4,20 @@ import {
   Users,
   RefreshCw,
   Settings,
-  Video,
   Calendar,
 } from 'lucide-react'
 import { cn } from '../lib/utils'
 interface SidebarProps {
   activeTab: string
   setActiveTab: (tab: string) => void
+  r50Error?: boolean
 }
-export function Sidebar({ activeTab, setActiveTab }: SidebarProps) {
+export function Sidebar({ activeTab, setActiveTab, r50Error }: SidebarProps) {
   const navItems = [
     {
-      id: 'live',
-      label: 'Live',
+      id: 'swing',
+      label: 'Swing',
       icon: Activity,
-    },
-    {
-      id: 'review',
-      label: 'Review',
-      icon: Video,
     },
     {
       id: 'history',
@@ -94,6 +89,10 @@ export function Sidebar({ activeTab, setActiveTab }: SidebarProps) {
             className="w-5 h-5"
             strokeWidth={activeTab === 'connect' ? 2.5 : 2}
           />
+          {r50Error && (
+            <span className="absolute top-2 right-2 w-2.5 h-2.5 rounded-full bg-garage-red ring-2 ring-[#0A0D0B]"
+              aria-label="R50 connection problem" />
+          )}
         </button>
       </div>
     </div>

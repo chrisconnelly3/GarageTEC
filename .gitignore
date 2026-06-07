@@ -50,3 +50,6 @@ desktop.ini
 .uvicorn_8000.log
 
 .superpowers/
+models/
+pose_ab.py
+sc_tmp.html

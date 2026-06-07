@@ -57,3 +57,29 @@ understanding of the metric code, not real footage.
   Confirm the highlighted step tracks the real video through all 8 positions. Note:
   `extract_pose.py`'s built-in `detect_phases` heuristic is demo-only and unreliable
   (top-of-backswing vs finish ambiguity) — do not rely on it for real captures.
+
+---
+
+## ⚠️ RTMPose backend cutover (do this when the GPU box + bay are ready)
+
+We switched the pose model to **RTMPose** (top-down, via `rtmlib` + ONNX Runtime) because
+MediaPipe BlazePose tracked the arms poorly under golf occlusion. The skeleton OVERLAY
+already runs RTMPose; the metric pipeline still defaults to MediaPipe (`vision/constants.py`
+`POSE_BACKEND = "mediapipe"`) so CPU/CI stay fast. Finish the cutover in the real bay:
+
+1. **GPU + flip the backend.** Install `onnxruntime-gpu` (CUDA) on the bay PC, then set
+   `POSE_BACKEND = "rtmpose"` (or pass `pose_backend="rtmpose"` to `process_video`). A cheap
+   NVIDIA card suffices — **GTX 1050 Ti 4 GB minimum, GTX 1060 6 GB comfortable** (RTMPose
+   needs ~1–2 GB VRAM; ~hundreds of fps → live overlay). On CPU it's ~12 fps (skeleton ready
+   ~10–15 s after a shot); the GPU makes it instant + live.
+2. **Calibrate the two bay cameras.** Until there's a real checkerboard calibration, 3D
+   metrics fall back to "assumed geometry" and are **physically wrong** — verified by running
+   the real pipeline on the uncalibrated demo clip, which produced absurd values (175° spine
+   tilt, 17″ sway). Only trust metric numbers (and tune the stoplight) from CALIBRATED bay
+   swings, NOT from arbitrary clips.
+3. **Tune the stoplight thresholds** (`coach/metric_thresholds.py`) on real calibrated swings
+   — the current thresholds were set against synthetic demo data.
+4. **Verify the model integrity before shipping.** RTMPose/YOLOX ONNX were fetched from a
+   community mirror for the prototype (`vision/pose_rtm.py` logs each file's SHA-256). For
+   production, obtain the **official OpenMMLab** file and verify its SHA-256 matches, or
+   pin the verified hash in `_SOURCES`. Current (unverified) hashes are logged at load time.

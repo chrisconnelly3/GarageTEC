@@ -41,10 +41,23 @@ version instead (see the "ON A MAC" section below). Copy these files:
    You do NOT need to press Start or type anything - it runs itself.
 
 ==========================================================================
- ON A MAC  (no .exe - run the Python version)
+ ON A MAC  (easiest: use the prebuilt app)
 ==========================================================================
-The app itself is cross-platform; only the .exe is Windows-only. On a Mac you
-run the same app through Python (a one-time install).
+EASIEST - if you were sent "R50 Spike Listener.app":
+   1. Double-click  R50 Spike Listener.app
+   2. First time, macOS may say "Apple cannot check it for malicious software":
+        right-click (or Control-click) the app -> Open -> Open.
+        (You only have to do this once.)
+   3. If it asks to ALLOW incoming network connections, click "Allow."
+   4. Follow the on-screen steps (join the R50's Wi-Fi from the Wi-Fi menu in
+      the TOP-right menu bar). Shots pop up as you hit them.
+   5. The shot log is saved on your DESKTOP as  spike_log_<date>.jsonl
+   No Python, no Terminal - it's just like the Windows app.
+
+--------------------------------------------------------------------------
+ PLAN B on a Mac (only if you don't have the .app) - run via Python
+--------------------------------------------------------------------------
+The app is cross-platform; you can also run it through Python (one-time install).
 
 1. Install Python 3:
      - Go to  https://www.python.org/downloads/macos/

@@ -1,0 +1,44 @@
+name: Build R50 Spike Listener (macOS)
+
+# Builds the R50 spike listener into a double-clickable macOS .app so a
+# non-technical Mac user needs NO Python and NO Terminal — just the app.
+# Run it manually: GitHub repo -> Actions -> this workflow -> "Run workflow",
+# then download the artifact at the bottom of the run.
+
+on:
+  workflow_dispatch: {}
+
+jobs:
+  build:
+    # Intel runner on purpose: an x86_64 .app runs natively on Intel Macs AND on
+    # Apple Silicon (M1/M2/M3/M4) via Rosetta, so one build covers every Mac.
+    runs-on: macos-13
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Install PyInstaller
+        run: python -m pip install --upgrade pip pyinstaller
+
+      - name: Build the .app
+        run: |
+          pyinstaller --noconfirm --windowed \
+            --name "R50 Spike Listener" \
+            --osx-bundle-identifier com.garagetec.r50spike \
+            spike/gspro_spike_listener.py
+
+      - name: Ad-hoc codesign (avoids the Gatekeeper "is damaged" error)
+        run: codesign --force --deep --sign - "dist/R50 Spike Listener.app"
+
+      - name: Zip the .app (ditto preserves the bundle structure)
+        run: ditto -c -k --sequesterRsrc --keepParent "dist/R50 Spike Listener.app" "R50-Spike-Listener-mac.zip"
+
+      - name: Upload the app
+        uses: actions/upload-artifact@v4
+        with:
+          name: R50-Spike-Listener-mac
+          path: R50-Spike-Listener-mac.zip
+          if-no-files-found: error

@@ -56,6 +56,18 @@ def app_dir():
     return os.path.dirname(os.path.abspath(__file__))
 
 
+def log_dir():
+    """Writable, user-VISIBLE folder for the shot log. A macOS .app bundle's
+    executable dir lives read-only/hidden inside the bundle, so write to the
+    Desktop there. Windows .exe: next to the exe. Plain script: the script dir."""
+    if getattr(sys, "frozen", False):
+        if sys.platform == "darwin":
+            desk = os.path.expanduser("~/Desktop")
+            return desk if os.path.isdir(desk) else os.path.expanduser("~")
+        return os.path.dirname(sys.executable)
+    return os.path.dirname(os.path.abspath(__file__))
+
+
 def now_str():
     return datetime.now().strftime("%H:%M:%S.%f")[:-3]
 
@@ -584,7 +596,7 @@ class App:
             return
         self._clear_error()
         port, mode, probe = self._get_settings()
-        folder = app_dir()
+        folder = log_dir()
         self.logpath = os.path.join(folder, "spike_log_" +
                                     datetime.now().strftime("%Y%m%d_%H%M%S") + ".jsonl")
         try:
@@ -705,7 +717,7 @@ class App:
     def finish_and_open(self):
         # Open the folder holding the shot log, cross-platform (Windows / macOS /
         # Linux) so the "all done" button works on the brother's Mac too.
-        path = app_dir()
+        path = log_dir()
         try:
             if sys.platform == "darwin":            # macOS
                 import subprocess

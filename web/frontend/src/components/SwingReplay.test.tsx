@@ -73,4 +73,8 @@ describe("SwingReplay", () => {
     const { container } = render(<SwingReplay src="/media/swings/x.mp4" impactTime={1.2} />);
     expect(container.querySelector("video")).not.toBeNull();
   });
+  it("shows a custom placeholder when src is null and placeholder is given", () => {
+    render(<SwingReplay src={null} placeholder="Video not kept for this swing" />);
+    expect(screen.getByText("Video not kept for this swing")).toBeInTheDocument();
+  });
 });

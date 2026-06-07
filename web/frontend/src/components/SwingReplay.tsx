@@ -12,9 +12,10 @@ interface SwingReplayProps {
   onTime?: (t: number) => void   // playback time (seconds), for phase sync
   onDuration?: (d: number) => void // total duration (seconds), for the timeline scale
   fill?: boolean                 // Live: the player fills its parent column (no fixed aspect) and lets object-contain center the real frame
+  placeholder?: string           // text shown when src is null (default below)
 }
 
-export function SwingReplay({ src, poseSrc, highlight, seek, impactTime, onTime, onDuration, fill }: SwingReplayProps) {
+export function SwingReplay({ src, poseSrc, highlight, seek, impactTime, onTime, onDuration, fill, placeholder }: SwingReplayProps) {
   const containerRef = useRef<HTMLDivElement>(null)
   const ref = useRef<HTMLVideoElement>(null)
   const [isPlaying, setIsPlaying] = useState(false)
@@ -120,7 +121,7 @@ export function SwingReplay({ src, poseSrc, highlight, seek, impactTime, onTime,
             loop playsInline
             className="w-full h-full object-contain" />
         ) : (
-          <div className="text-[#8B978F] text-sm">No swing video yet.</div>
+          <div className="text-[#8B978F] text-sm">{placeholder ?? 'No swing video yet.'}</div>
         )}
 
         {/* Toggleable pose skeleton drawn over the video. */}

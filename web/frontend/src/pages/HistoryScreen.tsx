@@ -1,31 +1,14 @@
 import { useState } from 'react'
-import {
-  LineChart,
-  Line,
-  XAxis,
-  YAxis,
-  Tooltip,
-  ResponsiveContainer,
-} from 'recharts'
-import {
-  Star,
-  ArrowUpRight,
-  ArrowDownRight,
-  Minus,
-} from 'lucide-react'
+import { Activity } from 'lucide-react'
 import { cn } from '../lib/utils'
-import { motion } from 'framer-motion'
 import { useApi } from '../lib/useApi'
 import { getHistory } from '../lib/api'
 import { BallHistorySection } from '../components/BallHistorySection'
-import { labelFor, deltaVsBaseline, METRIC_GOOD, withinTimeframe } from '../lib/format'
+import { HistoryLineChart } from '../components/HistoryLineChart'
+import { labelFor, withinTimeframe, unitForMetric, shortDate, timeOfDay, allSameDay } from '../lib/format'
 import type { Timeframe } from '../lib/format'
 import type { History } from '../lib/types'
 import { BODY_CARD_ORDER } from '../lib/metricConfig'
-
-const TREND_METRICS = [
-  'shoulder_tilt_deg', 'hip_sway_in', 'spine_angle_deg', 'shoulder_turn_deg',
-]
 
 // All body metrics that have meaningful history (exclude hand_depth_in which is raw-only)
 const HERO_METRIC_OPTIONS = BODY_CARD_ORDER.filter(
@@ -37,36 +20,6 @@ const CONTEXT_OPTIONS: Array<{ value: string; label: string }> = [
   { value: 'top', label: 'Top' },
   { value: 'impact', label: 'Impact' },
 ]
-
-const shortDate = (iso: string) => {
-  const d = new Date(iso)
-  return Number.isNaN(d.getTime())
-    ? iso
-    : d.toLocaleDateString(undefined, { month: 'short', day: 'numeric' })
-}
-
-const timeOfDay = (iso: string) => {
-  const d = new Date(iso)
-  return Number.isNaN(d.getTime())
-    ? iso
-    : d.toLocaleTimeString(undefined, { hour: 'numeric', minute: '2-digit' })
-}
-
-/** Returns true when every ISO string falls on the same calendar date (YYYY-MM-DD). */
-const allSameDay = (isos: string[]): boolean => {
-  if (isos.length < 2) return false
-  const day0 = isos[0].slice(0, 10)
-  return isos.every((s) => s.slice(0, 10) === day0)
-}
-
-interface TrendVM {
-  name: string
-  value: string
-  delta: number
-  deltaGood: 'up' | 'down' | 'neutral'
-  isPB: boolean
-  sparkline: number[]
-}
 
 interface HistoryScreenProps {
   playerId: number | null
@@ -86,50 +39,17 @@ export function HistoryScreen({ playerId, onOpenSwing }: HistoryScreenProps) {
     [playerId, heroMetric, heroContext],
   )
 
-  const { data: trends } = useApi<TrendVM[]>(
-    async () => {
-      if (!playerId) return []
-      const histories = await Promise.all(
-        TREND_METRICS.map((name) =>
-          getHistory(playerId, name, 'impact').catch(
-            () => ({ points: [] } as Pick<History, 'points'>),
-          ),
-        ),
-      )
-      return TREND_METRICS.map((name, i) => {
-        const points = withinTimeframe(histories[i].points ?? [], timeframe)
-        const vals = points.map((p) => p.value)
-        const { value, delta } = deltaVsBaseline(points)
-        const good = METRIC_GOOD[name] ?? 'neutral'
-        const latest = vals[vals.length - 1]
-        const isPB =
-          vals.length > 1 &&
-          (good === 'down'
-            ? latest === Math.min(...vals)
-            : good === 'up'
-              ? latest === Math.max(...vals)
-              : false)
-        return {
-          name: labelFor(name),
-          value: Number(value.toFixed(1)).toString(),
-          delta,
-          deltaGood: good,
-          isPB,
-          sparkline: vals.slice(-5),
-        }
-      })
-    },
-    [playerId, timeframe],
-  )
-
   const heroPoints = withinTimeframe(hero?.points ?? [], timeframe)
   const heroIsos = heroPoints.map((p) => p.created_at)
   const useTimeAxis = allSameDay(heroIsos)
-  const chartData = heroPoints.map((p) => ({
+  const chartData = heroPoints.map((p, i) => ({
+    idx: i,
     date: useTimeAxis ? timeOfDay(p.created_at) : shortDate(p.created_at),
     value: p.value,
     swingId: p.swing_id,
   }))
+  const heroUnit = unitForMetric(heroMetric)
+  const heroTarget = hero?.target ?? null
 
   return (
     <div className="h-full flex flex-col p-6 space-y-6 overflow-y-auto">
@@ -194,6 +114,11 @@ export function HistoryScreen({ playerId, onOpenSwing }: HistoryScreenProps) {
       <div className="flex-1 bg-[#121714] border border-[#242C27] rounded-[24px] p-6 flex flex-col min-h-[300px]">
         <h3 className="text-[#8B978F] text-sm font-medium mb-6 uppercase tracking-wider">
           {labelFor(heroMetric)} ({CONTEXT_OPTIONS.find((c) => c.value === heroContext)?.label ?? heroContext})
+          {heroTarget != null && (
+            <span className="ml-2 text-[#79BC30] normal-case tracking-normal">
+              Tour avg {heroTarget}{heroUnit}
+            </span>
+          )}
         </h3>
         {loading ? (
           <div className="flex-1 flex items-center justify-center text-[#8B978F]">
@@ -204,157 +129,35 @@ export function HistoryScreen({ playerId, onOpenSwing }: HistoryScreenProps) {
             Failed to load history: {error}
           </div>
         ) : chartData.length === 0 ? (
-          <div className="flex-1 flex items-center justify-center text-[#8B978F]">
-            No history yet for this player.
+          <div className="flex-1 flex flex-col items-center justify-center text-center px-6 gap-3">
+            <div className="w-12 h-12 rounded-full bg-[#1A211D] border border-[#242C27] flex items-center justify-center">
+              <Activity className="w-5 h-5 text-[#4A554E]" />
+            </div>
+            {!playerId ? (
+              <p className="text-[#8B978F] max-w-xs">
+                Select a player above to see their swing history.
+              </p>
+            ) : (
+              <>
+                <p className="text-[#E7EEE9] font-medium">
+                  No shots in this {timeframe.toLowerCase()} yet
+                </p>
+                <p className="text-[#8B978F] text-sm max-w-xs">
+                  Take some swings on the range, or switch to a longer range above.
+                </p>
+              </>
+            )}
           </div>
         ) : (
           <div className="flex-1 w-full min-h-[240px] h-[240px]">
-            <ResponsiveContainer width="100%" height="100%">
-              <LineChart
-                data={chartData}
-                margin={{ top: 20, right: 20, bottom: 0, left: -20 }}
-              >
-                <XAxis
-                  dataKey="date"
-                  stroke="#4A554E"
-                  tick={{ fill: '#8B978F', fontSize: 12 }}
-                  tickLine={false}
-                  axisLine={false}
-                  dy={10}
-                />
-                <YAxis
-                  stroke="#4A554E"
-                  tick={{ fill: '#8B978F', fontSize: 12 }}
-                  tickLine={false}
-                  axisLine={false}
-                />
-                <Tooltip
-                  contentStyle={{
-                    backgroundColor: '#1A211D',
-                    borderColor: '#242C27',
-                    borderRadius: '12px',
-                    color: '#E7EEE9',
-                  }}
-                  itemStyle={{ color: '#79BC30', fontWeight: 'bold' }}
-                  cursor={{
-                    stroke: '#242C27',
-                    strokeWidth: 2,
-                    strokeDasharray: '4 4',
-                  }}
-                />
-                <Line
-                  type="monotone"
-                  dataKey="value"
-                  stroke="#79BC30"
-                  strokeWidth={4}
-                  dot={{
-                    fill: '#0A0D0B',
-                    stroke: '#79BC30',
-                    strokeWidth: 2,
-                    r: 6,
-                  }}
-                  activeDot={{
-                    r: 8, fill: '#79BC30', stroke: '#0A0D0B', strokeWidth: 3,
-                    style: { cursor: 'pointer' },
-                    // recharts passes the datum under payload.payload
-                    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-                    onClick: (_e: any, p: any) => {
-                      const id = p?.payload?.swingId
-                      if (id != null) onOpenSwing(id)
-                    },
-                  }}
-                  style={{
-                    filter: 'drop-shadow(0px 0px 8px rgba(121,188,48,0.25))',
-                  }}
-                />
-              </LineChart>
-            </ResponsiveContainer>
+            <HistoryLineChart
+              data={chartData}
+              unit={heroUnit}
+              target={heroTarget}
+              onOpenSwing={onOpenSwing}
+            />
           </div>
         )}
-      </div>
-
-      {/* Trend Cards */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-        {(trends ?? []).map((metric, i) => {
-          const isGood =
-            metric.deltaGood === 'up'
-              ? metric.delta > 0
-              : metric.deltaGood === 'down'
-                ? metric.delta < 0
-                : true
-          const isNeutral = metric.delta === 0
-          const max = Math.max(...metric.sparkline, 1)
-          const min = Math.min(...metric.sparkline, 0)
-          return (
-            <motion.div
-              key={metric.name}
-              initial={{ opacity: 0, y: 10 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: i * 0.1 }}
-              className="bg-[#121714] border border-[#242C27] rounded-[18px] p-4 relative overflow-hidden"
-            >
-              <div className="flex justify-between items-start mb-3 gap-2">
-                <span className="text-[10px] uppercase tracking-[0.1em] text-[#8B978F] font-semibold truncate min-w-0">
-                  {metric.name}
-                </span>
-                {metric.isPB && (
-                  <div
-                    className="bg-garage-amber/10 text-garage-amber p-1 rounded-full"
-                    title="Personal Best"
-                  >
-                    <Star className="w-3.5 h-3.5 fill-current" />
-                  </div>
-                )}
-              </div>
-
-              <div className="flex items-end justify-between">
-                <div className="flex flex-col">
-                  <span className="text-3xl font-bold font-mono tracking-tight text-[#E7EEE9] mb-1">
-                    {metric.value}
-                  </span>
-                  {!isNeutral ? (
-                    <div
-                      className={cn(
-                        'flex items-center text-xs font-medium',
-                        isGood ? 'text-garage-green' : 'text-garage-red',
-                      )}
-                    >
-                      {metric.delta > 0 ? (
-                        <ArrowUpRight className="w-3 h-3 mr-0.5" />
-                      ) : (
-                        <ArrowDownRight className="w-3 h-3 mr-0.5" />
-                      )}
-                      {Math.abs(metric.delta)} vs base
-                    </div>
-                  ) : (
-                    <div className="flex items-center text-xs font-medium text-[#8B978F]">
-                      <Minus className="w-3 h-3 mr-0.5" />
-                      No change
-                    </div>
-                  )}
-                </div>
-
-                {/* Mini Sparkline */}
-                <div className="w-16 h-8 flex items-end space-x-0.5 opacity-60">
-                  {metric.sparkline.map((val, idx) => {
-                    const height =
-                      max === min ? 50 : Math.max(10, ((val - min) / (max - min)) * 100)
-                    return (
-                      <div
-                        key={idx}
-                        className={cn(
-                          'flex-1 rounded-t-sm',
-                          isGood ? 'bg-garage-green' : 'bg-[#8B978F]',
-                        )}
-                        style={{ height: `${height}%` }}
-                      />
-                    )
-                  })}
-                </div>
-              </div>
-            </motion.div>
-          )
-        })}
       </div>
 
       {/* Ball-data trends vs TrackMan tour averages, per club */}

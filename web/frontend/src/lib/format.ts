@@ -19,6 +19,42 @@ export const METRIC_GOOD: Record<string, "up" | "down" | "neutral"> = {
   early_extension_in: "down", hip_sway_in: "down", head_sway_in: "down",
 };
 export const labelFor = (name: string) => METRIC_LABEL[name] ?? name;
+// Body-metric units are encoded in the key suffix (_deg → °, _in → ").
+export const unitForMetric = (name: string) =>
+  name.endsWith("_deg") ? "°" : name.endsWith("_in") ? '"' : "";
+
+// --- History chart axis helpers (shared by the body + ball charts) ---
+export const shortDate = (iso: string) => {
+  const d = new Date(iso);
+  return Number.isNaN(d.getTime())
+    ? iso
+    : d.toLocaleDateString(undefined, { month: "short", day: "numeric" });
+};
+export const timeOfDay = (iso: string) => {
+  const d = new Date(iso);
+  return Number.isNaN(d.getTime())
+    ? iso
+    : d.toLocaleTimeString(undefined, { hour: "numeric", minute: "2-digit" });
+};
+/** True when every ISO string falls on the same calendar date (YYYY-MM-DD). */
+export const allSameDay = (isos: string[]): boolean => {
+  if (isos.length < 2) return false;
+  const day0 = isos[0].slice(0, 10);
+  return isos.every((s) => s.slice(0, 10) === day0);
+};
+
+// History charts plot one point per shot, so consecutive shots share a date label.
+// Return the data indices at which the label first changes (one tick per day),
+// evenly sampled down to `max` so a long timeframe never crowds the axis.
+export function labelChangeTicks(labels: string[], max = 8): number[] {
+  const starts: number[] = [];
+  labels.forEach((l, i) => {
+    if (i === 0 || l !== labels[i - 1]) starts.push(i);
+  });
+  if (starts.length <= max) return starts;
+  const step = Math.ceil(starts.length / max);
+  return starts.filter((_, i) => i % step === 0);
+}
 
 // Ball-metric trends (History → Ball section). `metric` keys match /api/ball-history
 // (which mirror the ball benchmark keys). `good` is the direction that's better;

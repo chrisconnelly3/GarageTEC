@@ -44,7 +44,7 @@ beforeEach(() => {
   vi.mocked(api.getLatestSwing).mockResolvedValue(mkDetail(42));
   vi.mocked(api.getSwing).mockImplementation((id: number) => Promise.resolve(mkDetail(id, {}, id !== 40)));
   vi.mocked(api.getSwings).mockResolvedValue(summaries);
-  vi.mocked(api.getHistory).mockResolvedValue({ player: 1, metric: "shoulder_tilt_deg", context: "impact", points: [] });
+  vi.mocked(api.getHistory).mockResolvedValue({ player: 1, metric: "shoulder_tilt_deg", context: "impact", target: null, points: [] });
   vi.mocked(api.getBallHistory).mockResolvedValue({ player: 1, metric: "ball_speed", club: "7 Iron", target: 161, points: [] });
 });
 

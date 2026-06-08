@@ -39,13 +39,22 @@ export interface SwingDetail { swing: Swing; metrics: Metric[]; benchmarks?: Ben
 export interface SessionDetail { session: Session; swings: Swing[]; coaching: Coaching[]; }
 export interface CaptureStatus { status: CaptureState; paused: boolean; connected: boolean; shot_count: number; active_player_id: number | null; active_club: string | null; last_error: string | null; session_active: boolean; active_session_id: number | null; }
 export interface HistoryPoint { swing_id: number; created_at: string; value: number; }
-export interface History { player: number; metric: string; context: string; points: HistoryPoint[]; }
+export interface History { player: number; metric: string; context: string; target: number | null; points: HistoryPoint[]; }
 export interface BallHistoryPoint { shot_id: number; captured_at: string; value: number; }
 // Ball-metric trend vs the TrackMan tour average for the selected club. `target`
 // is null when no club is given or the (metric,club) has no tour average.
 export interface BallHistory {
   player: number; metric: string; club: string | null;
   target: number | null; points: BallHistoryPoint[];
+}
+export interface SessionStats {
+  session_id: number;
+  swing_count: number;
+  club_counts: Record<string, number>;
+  top_ball: { label: string; value: number; unit: string } | null;
+  tour_range: { in_range: number; total: number } | null;
+  latest_swing_id: number | null;
+  takeaway: string | null;
 }
 export interface SyncProposal { swing_id: number; shot_id: number; confidence: number; reason: string; }
 export interface SyncProposals { session: number; proposals: SyncProposal[]; unmatched_swings: Swing[]; unmatched_shots: Shot[]; }

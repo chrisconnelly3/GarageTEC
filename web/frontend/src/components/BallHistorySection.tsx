@@ -1,44 +1,11 @@
 import { useEffect, useState } from 'react'
-import {
-  LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer, ReferenceLine,
-} from 'recharts'
-import { Star, ArrowUpRight, ArrowDownRight, Minus } from 'lucide-react'
-import { cn } from '../lib/utils'
+import { Activity } from 'lucide-react'
+import { HistoryLineChart } from './HistoryLineChart'
 import { useApi } from '../lib/useApi'
 import { getBallHistory, getClubs } from '../lib/api'
-import { BALL_METRICS, withinTimeframe } from '../lib/format'
-import type { BallMetricDef, Timeframe } from '../lib/format'
+import { BALL_METRICS, withinTimeframe, shortDate, timeOfDay, allSameDay } from '../lib/format'
+import type { Timeframe } from '../lib/format'
 import type { BallHistory } from '../lib/types'
-
-const shortDate = (iso: string) => {
-  const d = new Date(iso)
-  return Number.isNaN(d.getTime())
-    ? iso
-    : d.toLocaleDateString(undefined, { month: 'short', day: 'numeric' })
-}
-
-const timeOfDay = (iso: string) => {
-  const d = new Date(iso)
-  return Number.isNaN(d.getTime())
-    ? iso
-    : d.toLocaleTimeString(undefined, { hour: 'numeric', minute: '2-digit' })
-}
-
-const allSameDay = (isos: string[]): boolean => {
-  if (isos.length < 2) return false
-  const day0 = isos[0].slice(0, 10)
-  return isos.every((s) => s.slice(0, 10) === day0)
-}
-
-interface BallTrendVM {
-  def: BallMetricDef
-  value: number | null
-  target: number | null
-  deltaVsTour: number | null   // latest - target
-  isGood: boolean
-  isPB: boolean
-  sparkline: number[]
-}
 
 interface Props {
   playerId: number | null
@@ -64,58 +31,22 @@ export function BallHistorySection({ playerId, timeframe }: Props) {
     }).catch(() => {})
   }, []) // eslint-disable-line react-hooks/exhaustive-deps
 
-  const { data: histories } = useApi<Record<string, BallHistory>>(
-    async () => {
-      if (!playerId || !club) return {}
-      const results = await Promise.all(
-        BALL_METRICS.map((m) =>
-          getBallHistory(playerId, m.key, club).catch(
-            () => ({ player: playerId, metric: m.key, club, target: null, points: [] } as BallHistory),
-          ),
-        ),
-      )
-      return Object.fromEntries(results.map((h) => [h.metric, h]))
-    },
-    [playerId, club],
+  const { data: heroHist } = useApi<BallHistory | null>(
+    () =>
+      playerId && club
+        ? getBallHistory(playerId, heroKey, club).catch(() => null)
+        : Promise.resolve(null),
+    [playerId, club, heroKey],
   )
 
-  // Filter a history's points to the timeframe (keyed on captured_at).
-  const filtered = (h: BallHistory | undefined) =>
-    withinTimeframe(
-      (h?.points ?? []).map((p) => ({ created_at: p.captured_at, value: p.value })),
-      timeframe,
-    )
-
-  const trends: BallTrendVM[] = BALL_METRICS.map((def) => {
-    const h = histories?.[def.key]
-    const pts = filtered(h)
-    const vals = pts.map((p) => p.value)
-    const value = vals.length ? vals[vals.length - 1] : null
-    const target = h?.target ?? null
-    // Raw delta; rounded only at display time so 2-decimal metrics (smash) keep
-    // their precision instead of collapsing to 0.0.
-    const deltaVsTour =
-      value != null && target != null ? value - target : null
-    const isGood =
-      deltaVsTour == null || def.good === 'neutral'
-        ? false
-        : def.good === 'up'
-          ? deltaVsTour >= 0
-          : deltaVsTour <= 0
-    const isPB =
-      vals.length > 1 && def.good !== 'neutral' &&
-      (def.good === 'up'
-        ? value === Math.max(...vals)
-        : value === Math.min(...vals))
-    return { def, value, target, deltaVsTour, isGood, isPB, sparkline: vals.slice(-5) }
-  })
-
   const heroDef = BALL_METRICS.find((m) => m.key === heroKey) ?? BALL_METRICS[0]
-  const heroHist = histories?.[heroKey]
-  const heroPts = filtered(heroHist)
-  const heroIsos = heroPts.map((p) => p.created_at)
-  const useTimeAxis = allSameDay(heroIsos)
-  const chartData = heroPts.map((p) => ({
+  const heroPts = withinTimeframe(
+    (heroHist?.points ?? []).map((p) => ({ created_at: p.captured_at, value: p.value })),
+    timeframe,
+  )
+  const useTimeAxis = allSameDay(heroPts.map((p) => p.created_at))
+  const chartData = heroPts.map((p, i) => ({
+    idx: i,
     date: useTimeAxis ? timeOfDay(p.created_at) : shortDate(p.created_at),
     value: p.value,
   }))
@@ -163,109 +94,24 @@ export function BallHistorySection({ playerId, timeframe }: Props) {
           )}
         </h3>
         {chartData.length === 0 ? (
-          <div className="h-[260px] flex items-center justify-center text-[#8B978F]">
-            No {club} shots yet for this player.
+          <div className="h-[260px] flex flex-col items-center justify-center text-center px-6 gap-3">
+            <div className="w-12 h-12 rounded-full bg-[#1A211D] border border-[#242C27] flex items-center justify-center">
+              <Activity className="w-5 h-5 text-[#4A554E]" />
+            </div>
+            <p className="text-[#8B978F] max-w-xs">
+              No {club ?? 'club'} shots in this range yet. Hit a few, or pick another club above.
+            </p>
           </div>
         ) : (
           <div className="w-full h-[260px]">
-            <ResponsiveContainer width="100%" height="100%">
-              <LineChart data={chartData} margin={{ top: 20, right: 20, bottom: 0, left: -20 }}>
-                <XAxis dataKey="date" stroke="#4A554E" tick={{ fill: '#8B978F', fontSize: 12 }}
-                       tickLine={false} axisLine={false} dy={10} />
-                <YAxis stroke="#4A554E" tick={{ fill: '#8B978F', fontSize: 12 }}
-                       tickLine={false} axisLine={false} domain={['auto', 'auto']} />
-                <Tooltip
-                  contentStyle={{ backgroundColor: '#1A211D', borderColor: '#242C27', borderRadius: '12px', color: '#E7EEE9' }}
-                  itemStyle={{ color: '#79BC30', fontWeight: 'bold' }}
-                  cursor={{ stroke: '#242C27', strokeWidth: 2, strokeDasharray: '4 4' }}
-                />
-                {heroTarget != null && (
-                  <ReferenceLine y={heroTarget} stroke="#79BC30" strokeDasharray="6 6"
-                                 strokeOpacity={0.6} />
-                )}
-                <Line type="monotone" dataKey="value" stroke="#79BC30" strokeWidth={4}
-                      dot={{ fill: '#0A0D0B', stroke: '#79BC30', strokeWidth: 2, r: 5 }}
-                      activeDot={{ r: 7, fill: '#79BC30', stroke: '#0A0D0B', strokeWidth: 3 }}
-                      style={{ filter: 'drop-shadow(0px 0px 8px rgba(121,188,48,0.25))' }} />
-              </LineChart>
-            </ResponsiveContainer>
+            <HistoryLineChart
+              data={chartData}
+              unit={heroDef.unit}
+              decimals={heroDef.decimals}
+              target={heroTarget}
+            />
           </div>
         )}
-      </div>
-
-      {/* Per-metric cards: latest value + vs-tour delta */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-        {trends.map((t) => {
-          const max = Math.max(...t.sparkline, 1)
-          const min = Math.min(...t.sparkline, 0)
-          const dp = t.def.decimals
-          // Benchmarked cards (have a tour target + a good/bad direction) carry a
-          // tinted full border + faint wash so they pop above the neutral "raw"
-          // (no tour avg) cards — same in-card zone language as MetricCard, no stripe.
-          const benchmarked = t.deltaVsTour != null && t.def.good !== 'neutral'
-          const cardZone = benchmarked
-            ? t.isGood
-              ? 'border-garage-green/40 bg-garage-green/[0.08]'
-              : 'border-garage-red/40 bg-garage-red/[0.08]'
-            : 'border-[#242C27]'
-          return (
-            <div key={t.def.key}
-                 className={cn('bg-[#121714] border rounded-[18px] p-4 relative overflow-hidden', cardZone)}>
-              <div className="flex justify-between items-start mb-3 gap-2">
-                <span className="flex items-center gap-2 min-w-0">
-                  {benchmarked && (
-                    <span className={cn('shrink-0 w-1.5 h-1.5 rounded-full',
-                      t.isGood ? 'bg-garage-green' : 'bg-garage-red')} />
-                  )}
-                  <span className="text-[10px] uppercase tracking-[0.1em] text-[#8B978F] font-semibold truncate">
-                    {t.def.label}
-                  </span>
-                </span>
-                {t.isPB && (
-                  <div className="bg-garage-amber/10 text-garage-amber p-1 rounded-full" title="Personal Best">
-                    <Star className="w-3.5 h-3.5 fill-current" />
-                  </div>
-                )}
-              </div>
-              <div className="flex items-end justify-between">
-                <div className="flex flex-col">
-                  <span className="text-3xl font-bold font-mono tracking-tight text-[#E7EEE9] mb-1">
-                    {t.value == null ? '--' : t.value.toFixed(dp)}
-                  </span>
-                  {t.deltaVsTour == null ? (
-                    <div className="flex items-center text-xs font-medium text-[#8B978F]">
-                      <Minus className="w-3 h-3 mr-0.5" />
-                      {t.value == null ? 'No data' : 'No tour avg'}
-                    </div>
-                  ) : t.def.good === 'neutral' ? (
-                    <div className="flex items-center text-xs font-medium text-[#8B978F]">
-                      {t.deltaVsTour >= 0 ? '+' : ''}{t.deltaVsTour.toFixed(dp)} vs tour
-                    </div>
-                  ) : (
-                    <div className={cn('flex items-center text-xs font-medium',
-                      t.isGood ? 'text-garage-green' : 'text-garage-red')}>
-                      {t.deltaVsTour >= 0
-                        ? <ArrowUpRight className="w-3 h-3 mr-0.5" />
-                        : <ArrowDownRight className="w-3 h-3 mr-0.5" />}
-                      {Math.abs(t.deltaVsTour).toFixed(dp)} vs tour
-                    </div>
-                  )}
-                </div>
-                <div className="w-16 h-8 flex items-end space-x-0.5 opacity-60">
-                  {t.sparkline.map((val, idx) => {
-                    const height = max === min ? 50 : Math.max(10, ((val - min) / (max - min)) * 100)
-                    return (
-                      <div key={idx}
-                           className={cn('flex-1 rounded-t-sm',
-                             t.def.good !== 'neutral' && t.isGood ? 'bg-garage-green' : 'bg-[#8B978F]')}
-                           style={{ height: `${height}%` }} />
-                    )
-                  })}
-                </div>
-              </div>
-            </div>
-          )
-        })}
       </div>
     </div>
   )

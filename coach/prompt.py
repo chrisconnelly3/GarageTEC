@@ -100,20 +100,81 @@ def _iter_context_metrics(context):
         yield from context.get("metrics", [])
 
 
+_SWING_TASK = (
+    "\n\nReturn JSON with keys: headline (ONE short plain-language verdict "
+    "sentence), summary (2-3 tight sentences calling out only the top two or "
+    "three worst-offender metrics and how they show up in the ball flight -- no "
+    "raw numbers, the player sees those on the cards), findings[] (internal "
+    "grounding: the measured deltas), drills[], and confidence_notes[]. Each "
+    "finding must cite one metric above by exact name and value and compare to "
+    "baseline and/or ideal."
+)
+
+_SESSION_TASK = (
+    "\n\nThis is a full PRACTICE SESSION of multiple swings, not one swing. "
+    "Return JSON with keys: headline (ONE short plain-language sentence on how "
+    "the session went OVERALL -- lead with what IMPROVED across the session and "
+    "name what SLIPPED, reading each metric's `trend` and `vs_baseline_delta` "
+    "across the swings), summary (2-3 tight sentences on the session's biggest "
+    "movers, what got better, what regressed, and how it showed up in the ball "
+    "flight -- no raw numbers, the player sees those on the cards), findings[] "
+    "(internal grounding: the measured deltas), drills[], and confidence_notes[]. "
+    "Each finding must cite one metric above by exact name and value and compare "
+    "to baseline and/or ideal."
+)
+
+
 def build_user(context):
-    """Render the grounding context as the user prompt (real numbers only)."""
+    """Render the grounding context as the user prompt (real numbers only).
+    Sessions get a trend-over-the-session framing; swings get the per-swing read."""
+    kind = context.get("kind", "swing")
     return (
-        "Here is the grounding context for this "
-        f"{context.get('kind', 'swing')}. Use ONLY these numbers:\n\n"
+        f"Here is the grounding context for this {kind}. Use ONLY these numbers:\n\n"
         + json.dumps(context, indent=2, sort_keys=True)
-        + "\n\nReturn JSON with keys: headline (ONE short plain-language "
-        "verdict sentence), summary (2-3 tight sentences calling out only the "
-        "top two or three worst-offender metrics and how they show up in the "
-        "ball flight -- no raw numbers, the player sees those on the cards), "
-        "findings[] (internal grounding: the measured deltas), drills[], and "
-        "confidence_notes[]. Each finding must cite one metric above by exact "
-        "name and value and compare to baseline and/or ideal."
+        + (_SESSION_TASK if kind == "session" else _SWING_TASK)
     )
+
+
+def _round6(v):
+    return round(float(v), 6) if isinstance(v, (int, float)) else None
+
+
+def _validate_session(obj, context, errors):
+    """Grounding check for a session summary: each finding must cite a metric by
+    name with a value measured in at least one swing (any phase), with a
+    baseline/ideal comparison; or cite a real shot field by value."""
+    metric_vals = {}   # name -> set of measured values across all swings
+    shot_vals = {}     # name -> set of shot-field values across all swings
+    for m in _iter_context_metrics(context):
+        if m.get("value") is not None:
+            metric_vals.setdefault(m["name"], set()).add(_round6(m["value"]))
+    for sw in context.get("swings", []):
+        for k, v in (sw.get("shot") or {}).items():
+            if k != "id" and isinstance(v, (int, float)):
+                shot_vals.setdefault(k, set()).add(_round6(v))
+
+    for i, f in enumerate(obj["findings"]):
+        if not isinstance(f, dict):
+            errors.append(f"finding {i} is not an object")
+            continue
+        name = f.get("metric")
+        val = _round6(f.get("value"))
+        if name in metric_vals:
+            if val is None or val not in metric_vals[name]:
+                errors.append(
+                    f"finding {i} value {f.get('value')!r} not measured for "
+                    f"metric {name!r} in this session")
+            if not (f.get("vs_baseline") or f.get("vs_ideal")):
+                errors.append(
+                    f"finding {i} has no comparison (vs_baseline/vs_ideal)")
+        elif name in shot_vals:
+            if val is None or val not in shot_vals[name]:
+                errors.append(
+                    f"finding {i} value {f.get('value')!r} does not match any "
+                    f"shot field {name!r} in this session")
+        else:
+            errors.append(f"finding {i} cites unknown metric: {name!r}")
+    return (len(errors) == 0), errors
 
 
 def validate(obj, context):
@@ -141,6 +202,14 @@ def validate(obj, context):
         errors.append("drills must be a list")
     if not isinstance(obj["confidence_notes"], list):
         errors.append("confidence_notes must be a list")
+
+    # SESSION grounding is by metric NAME across all swings, not by (name, phase):
+    # the same phase ("impact") repeats across every swing, so the per-context
+    # pairing used for a single swing is ambiguous here. A finding is grounded if
+    # it cites a real metric (or shot field) and a value actually measured
+    # somewhere in the session, and still carries a baseline/ideal comparison.
+    if context.get("kind") == "session":
+        return _validate_session(obj, context, errors)
 
     # Index real metrics by (name, context) -> set of allowed (rounded) values.
     # Keying by NAME ALONE would let a finding cite a value that only exists in a

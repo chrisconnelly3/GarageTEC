@@ -43,7 +43,29 @@ export default function App() {
   }, [activePlayerId, lastSwing, lastCapture])
 
   const [pinnedSwingId, setPinnedSwingId] = useState<number | null>(null)
-  const openSwing = (id: number) => { setPinnedSwingId(id); setActiveTab('swing') }
+  // A past session the user chose to review ("Load Session"). When set, the Swing
+  // screen scopes its swing selector to this session instead of the live one.
+  const [loadedSessionId, setLoadedSessionId] = useState<number | null>(null)
+
+  // Deep-link a single swing (from History). Operates on the live/all-swings
+  // context, so clear any loaded past session.
+  const openSwing = (id: number) => {
+    setLoadedSessionId(null); setPinnedSwingId(id); setActiveTab('swing')
+  }
+  // "Load Session" from the Sessions list: switch to that session's player,
+  // scope the Swing screen to that session, and land on its latest swing.
+  const loadSession = (sessionId: number, playerId: number) => {
+    if (playerId !== activePlayerId) selectPlayerById(playerId)
+    setPinnedSwingId(null)
+    setLoadedSessionId(sessionId)
+    setActiveTab('swing')
+  }
+  // Sidebar navigation: clicking "Swing" returns to the live session, so clear
+  // any loaded past session.
+  const selectTab = (tab: string) => {
+    if (tab === 'swing') setLoadedSessionId(null)
+    setActiveTab(tab)
+  }
 
   // Map capture status → 4-state R50 value
   const st = capture.status?.status
@@ -84,14 +106,16 @@ export default function App() {
     <div className="flex h-screen w-full bg-[#0A0D0B] text-[#E7EEE9] overflow-hidden font-sans selection:bg-garage-green/30 selection:text-garage-green">
       {/* Brand logo — dead-center of the viewport, vertically centered in the
           80px header. Rendered here (not inside Topbar) so the header's
-          backdrop-filter doesn't become its fixed-positioning containing block. */}
+          backdrop-filter doesn't become its fixed-positioning containing block.
+          Shrinks below 2xl so its centered footprint never overlaps the Topbar's
+          player/club controls on narrower displays; full size at the 1920 bay. */}
       <img
         src="/garagetec-logo.png"
         alt="GarageTEC"
-        className="fixed top-1.5 left-1/2 -translate-x-1/2 z-30 h-[68px] w-auto max-w-[440px] object-contain pointer-events-none select-none"
+        className="fixed top-1.5 left-1/2 -translate-x-1/2 z-30 h-10 2xl:h-[68px] w-auto max-w-[240px] 2xl:max-w-[440px] object-contain pointer-events-none select-none"
       />
 
-      <Sidebar activeTab={activeTab} setActiveTab={setActiveTab} r50Error={r50 === 'error'} />
+      <Sidebar activeTab={activeTab} setActiveTab={selectTab} r50Error={r50 === 'error'} />
 
       <div className="flex-1 flex flex-col min-w-0">
         <Topbar
@@ -111,7 +135,7 @@ export default function App() {
           {activeTab === 'swing' && (
             <SwingScreen
               playerId={activePlayerId}
-              sessionId={activeSessionId}
+              sessionId={loadedSessionId ?? activeSessionId}
               lastSwing={lastSwing}
               activeClub={capture.status?.active_club ?? null}
               r50={r50}
@@ -121,7 +145,7 @@ export default function App() {
           )}
           {activeTab === 'history' && <HistoryScreen playerId={activePlayerId} onOpenSwing={openSwing} />}
           {activeTab === 'sessions' && (
-            <SessionsScreen activeSessionId={activeSessionId} onOpenSwing={openSwing} />
+            <SessionsScreen activeSessionId={activeSessionId} onLoadSession={loadSession} />
           )}
           {activeTab === 'players' && (
             <PlayersScreen

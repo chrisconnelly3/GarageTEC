@@ -30,3 +30,24 @@ def test_get_session_includes_swings(client, conn):
 
 def test_get_missing_session_404(client):
     assert client.get("/api/sessions/999").status_code == 404
+
+
+def test_session_stats_aggregates(client, conn):
+    p = seed_player(conn)
+    swing = seed_ready_swing(conn, p)
+    sid = swing.session_id
+
+    r = client.get(f"/api/sessions/{sid}/stats")
+    assert r.status_code == 200
+    b = r.json()
+    assert b["session_id"] == sid
+    assert b["swing_count"] == 1
+    assert b["club_counts"] == {"7i": 1}
+    assert b["latest_swing_id"] == swing.id
+    assert b["takeaway"] is None  # no session-level coaching seeded
+    if b["tour_range"] is not None:
+        assert 0 <= b["tour_range"]["in_range"] <= b["tour_range"]["total"]
+
+
+def test_session_stats_404(client):
+    assert client.get("/api/sessions/999/stats").status_code == 404

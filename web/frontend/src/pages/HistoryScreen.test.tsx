@@ -10,7 +10,7 @@ vi.mock("../lib/api", () => ({
 import { HistoryScreen } from "./HistoryScreen";
 import * as api from "../lib/api";
 
-const emptyHistory = { player: 1, metric: "shoulder_tilt_deg", context: "impact", points: [] };
+const emptyHistory = { player: 1, metric: "shoulder_tilt_deg", context: "impact", target: null, points: [] };
 
 describe("HistoryScreen", () => {
   beforeEach(() => {
@@ -62,9 +62,9 @@ describe("HistoryScreen", () => {
     expect(api.getHistory).toHaveBeenCalledWith(1, "shoulder_tilt_deg", "address");
   });
 
-  it("shows no-history placeholder when chart data is empty", async () => {
+  it("shows a timeframe-aware empty state when chart data is empty", async () => {
     render(<HistoryScreen playerId={1} onOpenSwing={() => {}} />);
-    expect(await screen.findByText(/no history yet/i)).toBeInTheDocument();
+    expect(await screen.findByText(/no shots in this month yet/i)).toBeInTheDocument();
   });
 
   it("does not call getHistory when playerId is null", () => {

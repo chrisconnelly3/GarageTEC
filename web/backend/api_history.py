@@ -1,7 +1,7 @@
 from fastapi import APIRouter, Depends, HTTPException
 
 from store import repo
-from coach import ball_reference
+from coach import ball_reference, golftec
 from web.backend.deps import get_conn
 
 router = APIRouter(prefix="/api/history", tags=["history"])
@@ -33,10 +33,15 @@ def history(player: int, metric: str, context: str = "overall",
         raise HTTPException(status_code=400,
                             detail=f"invalid context: {context!r}")
     rows = repo.swing_history(conn, player, metric, context=context)
+    # Tour-pro reference value for this (metric, context), from the same GolfTEC
+    # reference the swing "vs Tour Pro" panel uses. None when no target exists
+    # (e.g. raw metrics, or the "overall" context which has no phase target).
+    target = golftec.compare(metric, context, 0.0).get("target")
     return {
         "player": player,
         "metric": metric,
         "context": context,
+        "target": target,
         "points": [{"swing_id": sid, "created_at": ts, "value": value}
                    for (sid, ts, value) in rows],
     }

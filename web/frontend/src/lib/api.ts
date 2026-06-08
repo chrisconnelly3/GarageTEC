@@ -2,7 +2,7 @@ import type {
   Player, Session, SwingDetail, SessionDetail, History, SyncProposals,
   CaptureStatus, ActivePlayerIn, Settings, PlayerWithCounts, SwingSummary,
   CalibrationStartIn, CalibrationStatus, CalibrationResult, ActiveCalibration,
-  CalibrationHistoryItem, CameraInfo, BallHistory,
+  CalibrationHistoryItem, CameraInfo, BallHistory, SessionStats,
   LiveCaptureStartIn, LiveCaptureStatus,
 } from "./types";
 
@@ -37,6 +37,8 @@ export const createPlayer = (p: ActivePlayerIn) => postJSON<Player>("/api/player
 export const getSessions = (player?: number) =>
   getJSON<Session[]>("/api/sessions" + (player ? `?player=${player}` : ""));
 export const getSession = (id: number) => getJSON<SessionDetail>(`/api/sessions/${id}`);
+export const getSessionStats = (id: number) =>
+  getJSON<SessionStats>(`/api/sessions/${id}/stats`);
 
 export const getSwing = (id: number) => getJSON<SwingDetail>(`/api/swings/${id}`);
 export const getLatestSwing = (player: number, session?: number) =>

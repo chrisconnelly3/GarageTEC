@@ -343,11 +343,19 @@ def seed(conn, media_root):
     if os.environ.get("ANTHROPIC_API_KEY"):
         try:
             from coach import coach as _coach, backend as _backend
+            be = _backend.make_backend("cloud")
             ss = repo.list_swing_summaries(conn, player_id=alex.id, limit=12)
             sid = next((s["id"] for s in ss if s.get("has_shot")), None)
             if sid is not None:
-                _coach.coach_swing(conn, _backend.make_backend("cloud"), sid)
+                _coach.coach_swing(conn, be, sid)
                 print(f"real coaching generated for swing {sid}")
+            # Session-level takeaways (what improved/slipped) for Alex's two most
+            # recent completed sessions, so the Sessions cards show a real one.
+            ended = [s for s in repo.list_sessions(conn, player_id=alex.id)
+                     if s.ended_at]
+            for s in ended[:2]:
+                _coach.coach_session(conn, be, s.id)
+                print(f"real session takeaway generated for session {s.id}")
         except Exception as e:   # noqa: BLE001 - demo convenience, never fatal
             print(f"real coaching skipped: {e}")
 

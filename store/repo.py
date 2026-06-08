@@ -128,7 +128,10 @@ def list_sessions(conn, player_id=None):
     if player_id is not None:
         sql += " WHERE player_id=?"
         args.append(player_id)
-    sql += " ORDER BY id DESC"
+    # Most-recent-first, with any open (live) session pinned to the top.
+    # started_at is a normalized ISO-8601 UTC string, so a lexicographic DESC
+    # sort is chronological; id DESC breaks same-timestamp ties deterministically.
+    sql += " ORDER BY (ended_at IS NULL) DESC, started_at DESC, id DESC"
     return [_session_from_row(r) for r in conn.execute(sql, args).fetchall()]
 
 

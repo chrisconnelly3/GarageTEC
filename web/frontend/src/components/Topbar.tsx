@@ -79,7 +79,7 @@ export function Topbar({
               : 'bg-garage-green text-[#0A0D0B] shadow-glow-primary-sm hover:bg-garage-green-deep',
           )}
         >
-          <span className={cn('w-2.5 h-2.5 rounded-full',
+          <span className={cn('w-2.5 h-2.5 rounded-full ring-2 ring-[#0A0D0B]/50',
             r50Status === 'connected' ? 'bg-garage-green'
               : r50Status === 'waiting' ? 'bg-garage-amber'
                 : r50Status === 'paused' ? 'bg-[#8B978F]' : 'bg-garage-red')}

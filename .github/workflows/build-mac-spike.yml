@@ -10,9 +10,10 @@ on:
 
 jobs:
   build:
-    # Intel runner on purpose: an x86_64 .app runs natively on Intel Macs AND on
-    # Apple Silicon (M1/M2/M3/M4) via Rosetta, so one build covers every Mac.
-    runs-on: macos-13
+    # GitHub retired the Intel (macos-13) runners, so build on the current
+    # Apple-Silicon runner. This produces an arm64 .app, which runs natively on
+    # any modern Mac (M1/M2/M3/M4). (For an old Intel Mac, we'd build universal2.)
+    runs-on: macos-latest
     steps:
       - uses: actions/checkout@v4
 

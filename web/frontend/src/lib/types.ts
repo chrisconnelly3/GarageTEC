@@ -56,8 +56,6 @@ export interface SessionStats {
   latest_swing_id: number | null;
   takeaway: string | null;
 }
-export interface SyncProposal { swing_id: number; shot_id: number; confidence: number; reason: string; }
-export interface SyncProposals { session: number; proposals: SyncProposal[]; unmatched_swings: Swing[]; unmatched_shots: Shot[]; }
 export interface ActivePlayerIn { name: string; height_in: number; handedness: Handedness; }
 export interface Settings { idle_minutes: number; units: "yards" | "meters"; port: number; }
 export interface PlayerWithCounts extends Player { swing_count: number; session_count: number; }

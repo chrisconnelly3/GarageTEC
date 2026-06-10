@@ -2,7 +2,6 @@ import {
   Activity,
   History,
   Users,
-  RefreshCw,
   Settings,
   Calendar,
 } from 'lucide-react'
@@ -33,11 +32,6 @@ export function Sidebar({ activeTab, setActiveTab, r50Error }: SidebarProps) {
       id: 'players',
       label: 'Players',
       icon: Users,
-    },
-    {
-      id: 'sync',
-      label: 'Sync',
-      icon: RefreshCw,
     },
   ]
   return (

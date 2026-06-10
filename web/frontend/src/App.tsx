@@ -5,7 +5,6 @@ import { SwingScreen } from './pages/SwingScreen'
 import { HistoryScreen } from './pages/HistoryScreen'
 import { SessionsScreen } from './pages/SessionsScreen'
 import { PlayersScreen } from './pages/PlayersScreen'
-import { SyncScreen } from './pages/SyncScreen'
 import { ConnectScreen } from './pages/ConnectScreen'
 import useEvents from './useEvents'
 import useCapture from './useCapture'
@@ -154,7 +153,6 @@ export default function App() {
               onAdded={reloadPlayers}
             />
           )}
-          {activeTab === 'sync' && <SyncScreen sessionId={activeSessionId} />}
           {activeTab === 'connect' && (
             <ConnectScreen captureStatus={capture.status} />
           )}

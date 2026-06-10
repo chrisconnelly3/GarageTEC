@@ -1,5 +1,5 @@
 import type {
-  Player, Session, SwingDetail, SessionDetail, History, SyncProposals,
+  Player, Session, SwingDetail, SessionDetail, History,
   CaptureStatus, ActivePlayerIn, Settings, PlayerWithCounts, SwingSummary,
   CalibrationStartIn, CalibrationStatus, CalibrationResult, ActiveCalibration,
   CalibrationHistoryItem, CameraInfo, BallHistory, SessionStats,
@@ -57,12 +57,6 @@ export const getBallHistory = (player: number, metric: string, club?: string | n
   return getJSON<BallHistory>(`/api/ball-history?${qs.toString()}`);
 };
 
-export const getProposals = (session: number) =>
-  getJSON<SyncProposals>(`/api/sync/proposals?session=${session}`);
-export const applyMatch = (swing_id: number, shot_id: number) =>
-  postJSON<{ ok: true }>("/api/sync/apply", { swing_id, shot_id });
-export const unlinkSwing = (swing_id: number) =>
-  postJSON<{ ok: true }>("/api/sync/unlink", { swing_id });
 
 export const mediaUrl = (path: string) => `/media/${path}`;
 

@@ -9,13 +9,12 @@ realistic data so you can feel the product as if the bay were live:
     so the directional comparison reads GREEN for a good load.
   - Ball cards + per-club Ball-history populate (Driver / 7 Iron / PW / 5 Iron).
   - History trends span ~3 weeks of backdated sessions (real date/time axis).
-  - Sync shows proposals (an unmatched swing + unmatched shots near in time).
   - Connect shows an active calibration in history.
   - The real `smooth_swing.mov` is wired as each swing's video, with phase
     moments at real timestamps so playback + scrubbing + the phase jumper work.
 
 Run (resets the dev DB first is recommended):
-    & 'C:\\Users\\chris\\AppData\\Local\\Programs\\Python\\Python312\\python.exe' -m web.backend.seed_demo
+    python -m web.backend.seed_demo
 """
 import json
 import random

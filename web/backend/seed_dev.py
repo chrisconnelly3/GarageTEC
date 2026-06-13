@@ -1,7 +1,7 @@
 """Idempotent dev seed: a demo player with processed swings so every Screen
 renders real data without a live R50. Run:
 
-    & 'C:\\Users\\chris\\AppData\\Local\\Programs\\Python\\Python312\\python.exe' -m web.backend.seed_dev
+    python -m web.backend.seed_dev
 """
 import json
 import random

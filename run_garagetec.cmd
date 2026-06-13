@@ -1,6 +1,6 @@
 @echo off
 setlocal
-set PY=C:\Users\chris\AppData\Local\Programs\Python\Python312\python.exe
+set PY=python
 set PORT=8000
 set URL=http://localhost:%PORT%/
 

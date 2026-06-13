@@ -102,12 +102,10 @@ splits them itself.
 
 ## 4. Run the calibration script
 
-From the project folder (`C:\Users\chris\Documents\Golf`), run (use the full
-Python path; `python` isn't on PATH on this machine):
+From the repo root, run:
 
 ```
-& "C:\Users\chris\AppData\Local\Programs\Python\Python312\python.exe" `
-  scripts/calibrate_bay_cameras.py calib_frames `
+python scripts/calibrate_bay_cameras.py calib_frames `
   --cols 9 --rows 6 --square-mm 24 --split 0.5 --out bay_calib.json
 ```
 

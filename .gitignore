@@ -61,3 +61,6 @@ build/
 *.spec.bak
 # ...but keep the app's build recipe under version control (overrides *.spec above)
 !garagetec.spec
+
+# Impeccable design-critique snapshots (local review scratch)
+.impeccable/

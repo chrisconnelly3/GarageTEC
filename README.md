@@ -108,6 +108,57 @@ touchscreen at arm's length, not for phones or the cloud.
 
 ---
 
+## Build the bay: required hardware
+
+Everything below is off-the-shelf. The parts that actually decide whether this works
+well are **two identical cameras, mounts that never move, and flicker-free light** —
+spend your attention there, not on the PC.
+
+| Part | Qty | What we use | Notes |
+|---|---|---|---|
+| **Launch monitor** | 1 | **Garmin Approach R50** | The whole pipeline keys off it. Must reach the PC over your LAN, it streams shots via GSPro Open Connect (TCP 921). |
+| **Cameras** | **2** | [ELP 2MP USB Camera Module, 1080p @ 120fps, OV4689, UVC](https://www.amazon.com/dp/B0BHWC6FVB) | Buy **two identical units**. 120fps halves the timing skew between two free-running cameras (~4 ms). UVC = no drivers. These are USB 2.0, so they rely on MJPEG for 1080p120. Lock focus/exposure/white balance; auto-hunting ruins calibration. |
+| **Camera stands** | **2** | [Tonalee adjustable tripod, 24"–36", 360°](https://www.amazon.com/dp/B0FP4ZCS8Y) | **One per camera.** Face-on ≈ chest height, perpendicular to the target line; down-the-line behind the player, on the line. Anchor with sandbags. Wall/ceiling mounts are better if you can, calibration dies the moment a camera gets bumped. |
+| **USB extensions** | 2 (optional) | [USB 3.0 extension, 20 ft](https://www.amazon.com/dp/B081H5L66K) | Only if the PC isn't next to the tripods. This one is *passive* and 20 ft is past spec for a USB 2.0 camera, if you get dropouts or no-signal, switch to an **active/repeater** extension. |
+| **Touchscreen** | 1 | [Pisichen 27" 2K IPS, 10-point touch](https://www.amazon.com/dp/B0GJSHQNKL) | The UI is touch-first at standing height. A normal non-touch monitor works fine, you'd just be less cool. |
+| **Controller PC** | 1 | Windows 11 mini-PC | Specs below. |
+| **Lighting** | 2–4 | High-CRI (>90) **flicker-free** LED panels | Don't skip this. Cheap LEDs pulse at line frequency and put banding in 120fps footage, which wrecks pose tracking. Even, shadow-free front/side light. |
+| **Calibration target** | 1 | Printed checkerboard on foam board | Needed for the 3D metrics. Must be **rigid and flat**. See the [calibration guide](docs/guides/bay-camera-calibration-guide.md). |
+| **Hitting area** | — | Net or enclosure, mat, side netting | If you don't already have a bay. |
+| **Powered USB hub** | 1 (optional) | Any powered USB 3.0 hub | Two 1080p120 MJPEG streams can starve one port. Better still: plug each camera into a **separate USB controller**. |
+
+### Controller PC: minimum viable specs
+
+Pose runs on a short recorded clip a second or two after you hit, not on a live
+120fps stream, so this is laptop-class work, not a workstation.
+
+| | Minimum | Comfortable |
+|---|---|---|
+| CPU | 4-core (i3-12xxx / Ryzen 3) | 6-core (i5 / Ryzen 5) |
+| RAM | 8 GB | 16 GB |
+| Storage | 256 GB NVMe | 500 GB NVMe |
+| USB | 2× USB 3.0 | 4× USB 3.0, separate controllers |
+| OS | Windows 11 | Windows 11 |
+| **GPU** | **None. Integrated graphics is fine.** | See below |
+
+**About the GPU.** The default pose backend (MediaPipe) is CPU-only and needs no
+graphics card at all, the AI coach is a cloud API call, and nothing here trains a
+model. A GPU buys you exactly one thing: switching the pose backend to **RTMPose**
+for an instant, live skeleton overlay instead of ~10–15 s after each shot. If you
+want that, the bar is low: **GTX 1050 Ti 4 GB minimum, GTX 1060 6 GB comfortable**
+(RTMPose needs ~1–2 GB VRAM). Install `onnxruntime-gpu` and set
+`POSE_BACKEND = "rtmpose"` in `vision/constants.py`.
+
+Budget for the core build lands around **$900–1,500**, mostly the PC and the
+touchscreen. The cameras are the cheap part.
+
+### One non-hardware requirement
+
+An **Anthropic API key** for the AI coach. Everything else, capture, metrics,
+benchmarks, trends, runs fully offline without it.
+
+---
+
 ## Running it
 
 **Packaged app:** launch `GarageTEC.exe`. It creates its data folder on first run,

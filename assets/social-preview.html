@@ -1,0 +1,72 @@
+<!doctype html>
+<html>
+<head>
+<meta charset="utf-8">
+<style>
+  * { margin: 0; box-sizing: border-box; }
+  body {
+    width: 1280px; height: 640px; overflow: hidden;
+    background:
+      radial-gradient(90% 120% at 18% 0%, #131a12 0%, rgba(10,13,11,0) 60%),
+      radial-gradient(70% 90% at 100% 100%, rgba(121,188,48,0.10) 0%, rgba(10,13,11,0) 55%),
+      #0A0D0B;
+    font-family: "Segoe UI", system-ui, sans-serif;
+    color: #E7EEE9;
+    display: flex; flex-direction: column; justify-content: center;
+    padding: 0 96px;
+    position: relative;
+  }
+  /* faint swing-arc accent */
+  .arc {
+    position: absolute; right: -180px; top: -180px; width: 640px; height: 640px;
+    border: 3px solid rgba(121,188,48,0.14); border-radius: 50%;
+    border-left-color: transparent; border-bottom-color: transparent;
+    transform: rotate(-18deg);
+  }
+  .arc2 {
+    position: absolute; right: -120px; top: -120px; width: 520px; height: 520px;
+    border: 2px solid rgba(231,238,233,0.05); border-radius: 50%;
+    border-left-color: transparent; border-bottom-color: transparent;
+    transform: rotate(-30deg);
+  }
+  .logo { height: 96px; width: auto; align-self: flex-start; margin-bottom: 18px; }
+  .tag {
+    font-size: 30px; font-weight: 600; color: #E7EEE9;
+    letter-spacing: 0.01em; margin-bottom: 40px;
+  }
+  .tag b { color: #79BC30; font-weight: 600; }
+  ul { list-style: none; display: flex; flex-direction: column; gap: 20px; }
+  li {
+    font-size: 24px; color: #B8C4BC; display: flex; align-items: center; gap: 16px;
+    letter-spacing: 0.01em;
+  }
+  li::before {
+    content: ""; width: 10px; height: 10px; border-radius: 50%;
+    background: #79BC30; box-shadow: 0 0 12px rgba(121,188,48,0.6); flex-shrink: 0;
+  }
+  li b { color: #E7EEE9; font-weight: 600; }
+  .foot {
+    position: absolute; left: 96px; bottom: 40px;
+    font-size: 17px; letter-spacing: 0.14em; text-transform: uppercase;
+    color: #5b6b5f; font-weight: 600;
+  }
+  .bar {
+    position: absolute; left: 0; bottom: 0; width: 100%; height: 6px;
+    background: linear-gradient(90deg, #79BC30 0%, rgba(121,188,48,0.15) 70%, transparent 100%);
+  }
+</style>
+</head>
+<body>
+  <div class="arc"></div><div class="arc2"></div>
+  <img class="logo" src="../web/frontend/public/garagetec-logo.png" alt="GarageTEC">
+  <div class="tag">Your home golf bay, with a <b>tour coach built in</b>.</div>
+  <ul>
+    <li><b>Every shot auto-captured:</b> R50 launch data + two-camera video, matched instantly</li>
+    <li><b>Body &amp; ball metrics graded vs Tour Pros,</b> with a green / yellow / red read</li>
+    <li><b>An AI coach</b> that reads every swing and session in plain English</li>
+    <li><b>100% local:</b> your swings never leave the garage</li>
+  </ul>
+  <div class="foot">DIY Golf Swing Studio · Windows · Open Source</div>
+  <div class="bar"></div>
+</body>
+</html>

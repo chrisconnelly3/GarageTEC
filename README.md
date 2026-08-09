@@ -139,23 +139,111 @@ Pose runs on a short recorded clip a second or two after you hit, not on a live
 | Storage | 256 GB NVMe | 500 GB NVMe |
 | USB | 2× USB 3.0 | 4× USB 3.0, separate controllers |
 | OS | Windows 11 | Windows 11 |
-| **GPU** | **None. Integrated graphics is fine.** | See below |
+| **GPU** | **NVIDIA GTX 1050 Ti (4 GB)** | **GTX 1060 (6 GB) or better** |
 
-**About the GPU.** The default pose backend (MediaPipe) is CPU-only and needs no
-graphics card at all, the AI coach is a cloud API call, and nothing here trains a
-model. A GPU buys you exactly one thing: switching the pose backend to **RTMPose**
-for an instant, live skeleton overlay instead of ~10–15 s after each shot. If you
-want that, the bar is low: **GTX 1050 Ti 4 GB minimum, GTX 1060 6 GB comfortable**
-(RTMPose needs ~1–2 GB VRAM). Install `onnxruntime-gpu` and set
-`POSE_BACKEND = "rtmpose"` in `vision/constants.py`.
+**Yes, you need the graphics card.** GarageTEC uses a pose model called **RTMPose**
+to find your body in the video, because the lighter CPU-only model (MediaPipe) loses
+track of your arms exactly where it matters most: the backswing and the top, where
+your hands overlap. RTMPose on a CPU runs at about 12 fps, which means **you'd stand
+there waiting 10–15 seconds after every shot** before your replay could show the
+skeleton overlay. That's not a golf lesson, that's a loading screen. Any cheap NVIDIA
+card takes it to hundreds of fps, so the overlay is simply *there* the moment you turn
+around. RTMPose only needs 1–2 GB of VRAM, so a used GTX 1050 Ti or 1060 (~$70–120) is
+genuinely enough. Buy the GPU.
 
-Budget for the core build lands around **$900–1,500**, mostly the PC and the
+Budget for the core build lands around **$1,000–1,600**, mostly the PC and the
 touchscreen. The cameras are the cheap part.
 
 ### One non-hardware requirement
 
 An **Anthropic API key** for the AI coach. Everything else, capture, metrics,
 benchmarks, trends, runs fully offline without it.
+
+---
+
+## Setup: from boxes to first swing
+
+Plan on an afternoon. You do steps 1–5 once, ever.
+
+### 1. Place the two cameras
+
+Camera position is the single biggest lever on data quality, so take your time here.
+
+- **Face-on camera:** directly in front of the golfer, **perpendicular to the target
+  line**, at about **chest height**, roughly **8–10 ft** away.
+- **Down-the-line camera:** **behind** the golfer, **on the target line** (looking
+  where the ball is going), also chest height, 8–10 ft back.
+- Both must see the **whole body plus the full club arc**, head to clubhead, top of
+  the backswing included. Take a test video and check nothing clips out of frame.
+- **Anchor everything.** Sandbag the tripod legs, tape the feet to the floor. Wall or
+  ceiling mounts are better than tripods if you can manage it, because the single
+  fastest way to break this system is bumping a camera.
+
+### 2. Lock the camera settings
+
+In your camera utility, turn **off** autofocus, auto-exposure, and auto white
+balance, then lock each one manually. Cameras that keep re-focusing and
+re-exposing mid-swing produce inconsistent data and invalidate calibration.
+
+### 3. Sort out the lighting
+
+Turn on your flicker-free LED panels and aim for **even, shadow-free light** from the
+front and sides. Record a quick 120fps clip and look for dark rolling bands across
+it. Bands mean a light is pulsing at the AC line frequency — that light has to be
+replaced with a flicker-free (DC-driven) one. Pose tracking will not be reliable
+until the bands are gone.
+
+### 4. Plug in and install
+
+1. Connect both cameras to the PC (separate USB ports, ideally separate controllers).
+2. Connect the touchscreen.
+3. Put the R50 and the PC **on the same network** so shot data can reach the app.
+4. Launch `GarageTEC.exe`. It sets up its own data folder on first run.
+5. Optional: to enable the AI coach, create a file named `.env` next to the app
+   containing `ANTHROPIC_API_KEY=your-key-here`.
+
+### 5. Calibrate the cameras (the important one)
+
+**Skip this and your 3D numbers will be wrong.** Not slightly wrong, physically
+impossible: an uncalibrated test produced a 175° spine tilt and 17 inches of sway.
+
+**What calibration actually is, in plain English:** the software needs to know each
+lens's quirks and exactly where the two cameras sit relative to each other. You can't
+type that in, you measure it, by showing both cameras a printed checkerboard from lots
+of angles and letting the software work backwards from how the pattern looks. That's
+the whole idea: you're showing the cameras a ruler so they can work out their own
+geometry.
+
+**What you need:** a checkerboard printed at **100% scale / "Actual size"** (turn off
+"fit to page"), glued **flat** to foam board, plus a ruler. The standard board is 10×7
+squares, which the software counts as **9×6 inner corners**. **Measure one square with
+your ruler in millimeters** and write the number down. Your printer is not exact, and
+this measurement is what makes the numbers metrically correct.
+
+**Then, in the app:**
+
+> **Connect → Camera Calibration → Start Capture**
+
+Stand in the hitting area and slowly wave the board around: near and far, left and
+right, high and low, tilted every direction. Hold each pose about a second so it isn't
+blurry, and keep the **whole board visible to both cameras** at once. Watch the
+coverage map on screen fill in. After 20–40 good poses, press **Run Calibration**. It
+saves and activates automatically.
+
+**Check it worked:** hit a good swing and look at the top of your backswing. Shoulder
+turn should read roughly **85–90°** and hip turn **45–50°**. Wildly different numbers
+(10°, or 200°) mean something's off, see the
+[full calibration guide](docs/guides/bay-camera-calibration-guide.md) for troubleshooting.
+
+> ⚠️ **Recalibrate any time a camera moves or gets bumped.** Calibration is a
+> measurement of where the cameras are. Move one, and the measurement is a lie.
+
+### 6. Hit a shot
+
+Pick who's hitting and the club in the top bar, press **Start Session**, and swing.
+The R50 detects the shot, which triggers the cameras, and a few seconds later your
+swing is on screen with the skeleton overlay, your numbers graded against tour pros,
+and the coach's read.
 
 ---
 

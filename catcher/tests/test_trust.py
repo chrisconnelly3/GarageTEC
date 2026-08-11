@@ -98,3 +98,41 @@ def test_unknown_device_gets_permissive_profile():
     """An R50 (or any future device) must not have its zeros nulled."""
     p = trust.profile_for("GARMIN-R50")
     assert p.zero_means_absent == frozenset()
+
+
+def test_model_source_forces_estimated_despite_high_confidence():
+    payload = dict(FULL, launch_angle_vertical_source="model_v2",
+                   launch_angle_vertical_confidence=0.99)
+    assert trust.derive_tiers(payload)["vla"] == trust.ESTIMATED
+
+
+def test_source_matching_is_case_insensitive():
+    payload = dict(FULL, launch_angle_vertical_source="MODEL")
+    assert trust.derive_tiers(payload)["vla"] == trust.ESTIMATED
+
+
+def test_unrecognized_source_does_not_force_estimated():
+    """A renamed upstream source must degrade gracefully, not mislabel."""
+    payload = dict(FULL, launch_angle_vertical_source="brand_new_sensor")
+    assert trust.derive_tiers(payload)["vla"] == trust.MEASURED
+
+
+def test_missing_confidence_fails_safe_for_scored_fields():
+    payload = dict(FULL, launch_angle_vertical_confidence=None,
+                   spin_confidence=None)
+    t = trust.derive_tiers(payload)
+    assert t["vla"] == trust.ESTIMATED
+    assert t["total_spin"] == trust.ESTIMATED
+    # Fields with no confidence concept are unaffected.
+    assert t["ball_speed"] == trust.MEASURED
+    assert t["spin_axis"] == trust.MEASURED
+
+
+def test_missing_carry_is_absent():
+    payload = {k: v for k, v in FULL.items() if k != "estimated_carry_yards"}
+    assert trust.derive_tiers(payload)["carry"] == trust.ABSENT
+
+
+def test_missing_club_path_is_absent():
+    payload = {k: v for k, v in FULL.items() if k != "club_path_deg"}
+    assert trust.derive_tiers(payload)["club_path"] == trust.ABSENT

@@ -65,7 +65,7 @@ def _num(value):
         return None
 
 
-def _tier(value, *, source=None, confidence=None) -> str:
+def _tier(value, *, source=None, confidence=None, conf_required=False) -> str:
     if _num(value) is None:
         return ABSENT
     if source is not None:
@@ -73,7 +73,12 @@ def _tier(value, *, source=None, confidence=None) -> str:
         if any(marker in text for marker in ESTIMATE_SOURCE_MARKERS):
             return ESTIMATED
     conf = _num(confidence)
-    if conf is not None and conf < CONFIDENCE_MIN:
+    if conf is None:
+        # Fields that ship a confidence score on the wire must produce one. A
+        # missing score is unverifiable, so fail safe rather than grade a value
+        # we cannot vouch for.
+        return ESTIMATED if conf_required else MEASURED
+    if conf < CONFIDENCE_MIN:
         return ESTIMATED
     return MEASURED
 
@@ -118,11 +123,13 @@ def derive_tiers(enrichment: Optional[dict]) -> Dict[str, str]:
         e.get("launch_angle_vertical"),
         source=e.get("launch_angle_vertical_source"),
         confidence=e.get("launch_angle_vertical_confidence"),
+        conf_required=True,
     )
     tiers["hla"] = _tier(
         e.get("launch_angle_horizontal"),
         source=e.get("launch_angle_horizontal_source"),
         confidence=e.get("launch_angle_horizontal_confidence"),
+        conf_required=True,
     )
 
     # Spin: OpenFlight exposes both the final value and the raw measurement.
@@ -132,6 +139,7 @@ def derive_tiers(enrichment: Optional[dict]) -> Dict[str, str]:
         e.get("spin_rpm"),
         source=e.get("spin_source"),
         confidence=e.get("spin_confidence"),
+        conf_required=True,
     )
     if spin_tier != ABSENT and _num(e.get("spin_rpm_measured")) is None:
         spin_tier = ESTIMATED

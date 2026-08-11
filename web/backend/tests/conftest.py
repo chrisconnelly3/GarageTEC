@@ -12,6 +12,23 @@ from web.backend import deps
 from web.backend.capture import CaptureEventBus, CaptureSupervisor
 
 
+class FakeEnrichClient:
+    """No-socket stand-in for OpenFlightEnrichClient used across web tests."""
+    def __init__(self, host, **kwargs):
+        self.host = host
+        self.kwargs = kwargs
+        self.started = False
+
+    def start(self):
+        self.started = True
+
+    def stop(self):
+        self.started = False
+
+    def is_connected(self):
+        return False
+
+
 class FakeListener:
     """No-socket stand-in for OpenConnectListener used across web tests."""
     def __init__(self, **kwargs):
@@ -51,6 +68,9 @@ def supervisor(conn, bus, tmp_path):
     sup = CaptureSupervisor(
         conn=conn, bus=bus,
         listener_factory=lambda **kw: FakeListener(**kw),
+        # Never let a test dial a real OpenFlight host: an OpenFlight-device
+        # message would otherwise start a live, reconnecting Socket.IO client.
+        enrich_client_factory=lambda host, **kw: FakeEnrichClient(host, **kw),
         buffer_path=str(tmp_path / "pending_shots.jsonl"),
         restart_poll_s=0.02)
     yield sup

@@ -86,3 +86,31 @@ def test_listener_parses_newline_and_concatenated_json():
         assert got[2]["ShotDataOptions"]["IsHeartBeat"] is True
     finally:
         listener.stop()
+
+
+def test_send_player_update_writes_201_with_club():
+    """A club change pushes a Player message on the live connection."""
+    sent = []
+
+    class FakeSock:
+        def sendall(self, data):
+            sent.append(data)
+
+    lst = OpenConnectListener(port=0, handedness="RH")
+    lst._conns.append(FakeSock())
+    lst.send_player_update(club="I7")
+
+    payload = json.loads(sent[0].decode("utf-8"))
+    assert payload["Code"] == 201
+    assert payload["Player"]["Club"] == "I7"
+    assert payload["Player"]["Handed"] == "RH"
+
+
+def test_send_player_update_survives_dead_socket():
+    class DeadSock:
+        def sendall(self, data):
+            raise OSError("broken pipe")
+
+    lst = OpenConnectListener(port=0)
+    lst._conns.append(DeadSock())
+    lst.send_player_update(club="DR")   # must not raise

@@ -72,6 +72,14 @@ class NoActivePlayerError(ValueError):
     to HTTP 409 (cannot start recording without someone to attribute shots to)."""
 
 
+# GarageTEC club names -> GSPro Open Connect club codes.
+_GSPRO_CLUB_CODES = {
+    "Driver": "DR", "3 Wood": "W3", "5 Wood": "W5", "Hybrid": "H3",
+    "3 Iron": "I3", "4 Iron": "I4", "5 Iron": "I5", "6 Iron": "I6",
+    "7 Iron": "I7", "8 Iron": "I8", "9 Iron": "I9", "PW": "PW",
+}
+
+
 def _default_listener_factory(**kwargs):
     """Real wrapper: build an OpenConnectListener. Injected fakes replace this
     in tests so no socket is ever opened and port 921 is never bound."""
@@ -314,6 +322,12 @@ class CaptureSupervisor:
         """The Live club selector sets which club is being hit; every subsequent
         shot is tagged with it (so the 'vs tour' ball comparison is per-club)."""
         self.active_club = club or None
+        code = _GSPRO_CLUB_CODES.get(self.active_club or "")
+        if code and self._listener is not None:
+            try:
+                self._listener.send_player_update(club=code)
+            except Exception:
+                pass  # pushing club is best-effort; never block the UI
         self.bus.publish("active_club_changed", {"club": self.active_club})
         return self.active_club
 

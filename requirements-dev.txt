@@ -1,1 +1,2 @@
 pytest>=8
+python-socketio[client]>=5.11

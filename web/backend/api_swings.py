@@ -1,5 +1,8 @@
+import json
+
 from fastapi import APIRouter, Depends, HTTPException, Response
 
+from catcher import trust as trust_mod
 from store import repo
 from coach import golftec, ball_reference
 from web.backend.deps import get_conn
@@ -21,6 +24,10 @@ def _swing_detail(conn, swing, shot):
         "ball_benchmarks": ball_reference.benchmark_ball(   # ball vs TrackMan
             shot_d, shot.club if shot else None),
         "ball_raw": ball_reference.raw_ball_fields(shot_d),  # raw, un-benchmarked
+        "trust": trust_mod.derive_tiers(
+            json.loads(shot.enrichment_json)
+            if shot is not None and shot.enrichment_json else None
+        ),
 
         "moments": [moment_dict(m) for m in repo.get_moments(conn, swing.id)],
         "coaching": [coaching_dict(c)

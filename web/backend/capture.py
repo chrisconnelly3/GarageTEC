@@ -26,6 +26,15 @@ from sync.service import SyncService
 _ENRICH_WINDOW_S = 5.0
 
 
+@dataclass
+class _RecentShot:
+    """A persisted shot still eligible for late enrichment."""
+    shot_id: int
+    ball_speed: float
+    ts: float
+    enriched: bool = False
+
+
 class CaptureEventBus:
     """Thread-safe FIFO of capture events. publish() from any thread; drain()
     from the SSE coroutine. Each event is {"event": str, "data": dict}."""
@@ -81,10 +90,12 @@ class CaptureSupervisor:
     def __init__(self, *, conn, bus, listener_factory: Callable = _default_listener_factory,
                  port: int = PORT_DEFAULT, idle_minutes: int = 15,
                  probe_ip: Optional[str] = None, buffer_path: Optional[str] = None,
-                 restart_poll_s: float = 1.0, live_capture=None):
+                 restart_poll_s: float = 1.0, live_capture=None,
+                 enrich_client_factory: Callable = OpenFlightEnrichClient):
         self.conn = conn
         self.bus = bus
         self._listener_factory = listener_factory
+        self._enrich_client_factory = enrich_client_factory
         # Optional LiveCaptureSupervisor: when set, a persisted shot auto-triggers
         # a buffered-clip capture that pairs back to this shot. Low-coupling: the
         # live engine just needs an on_shot(player_id, session_id, shot_id) method.
@@ -111,8 +122,8 @@ class CaptureSupervisor:
         self._enrich_buffer = EnrichBuffer()
         self._enrich_client = None
         self._enrich_lock = threading.Lock()
-        # [shot_id, ball_speed, monotonic_ts, enriched] for the shot-first race.
-        self._recent_shots = []
+        # Recently persisted shots still eligible for late enrichment.
+        self._recent_shots: list = []
         self.openflight_host = None
         self.enrichment_status = "idle"
         self.active_club = None          # set via the Live club selector
@@ -136,29 +147,39 @@ class CaptureSupervisor:
         self._enrich_buffer.add_enrichment(record)
 
     def _attach_to_recent_shot(self, ball_speed, record) -> bool:
-        """Attach `record` to a recent, not-yet-enriched shot. True if attached."""
+        """Attach `record` to a recent, not-yet-enriched shot. Returns whether
+        the record was CLAIMED (matched to a shot slot) — not whether the DB
+        write succeeded. A failed write still forfeits the record (the slot
+        stays marked enriched, no retry): if we returned False here instead,
+        on_enrichment() would re-buffer the record and it would drift onto a
+        later, unrelated shot."""
         try:
             target = float(ball_speed)
         except (TypeError, ValueError):
             return False
         cutoff = time.monotonic() - _ENRICH_WINDOW_S
+        # Both channels emit in shot order, so the oldest eligible slot is the
+        # right pairing (FIFO) — matches EnrichBuffer.take_for. Scanning
+        # newest-first (reversed) would pair a late enrichment to the wrong
+        # shot whenever two same-speed shots are pending at once.
         with self._enrich_lock:
-            for entry in reversed(self._recent_shots):
-                if entry[3] or entry[2] < cutoff:
+            for entry in self._recent_shots:
+                if entry.enriched or entry.ts < cutoff:
                     continue
-                if abs(entry[1] - target) <= SPEED_TOLERANCE:
-                    entry[3] = True
-                    shot_id = entry[0]
+                if abs(entry.ball_speed - target) <= SPEED_TOLERANCE:
+                    entry.enriched = True
+                    shot_id = entry.shot_id
                     break
             else:
                 return False
         try:
-            # Entry is already marked claimed above; a failed write here forfeits
-            # this one enrichment record permanently (no retry) rather than risk
-            # a double-attach race. Acceptable for a best-effort channel.
+            # Writes through the supervisor's own connection from the
+            # Socket.IO client thread; safe because deps.py opens it with
+            # check_same_thread=False, but it departs from the "fresh
+            # connection per thread" convention documented in live_capture.py.
             repo.set_shot_enrichment(self.conn, shot_id, json.dumps(record))
         except Exception:
-            return False   # enrichment must never break ingest
+            pass  # enrichment must never break ingest; slot stays claimed
         return True
 
     def _note_recent_shot(self, shot):
@@ -168,8 +189,9 @@ class CaptureSupervisor:
         now = time.monotonic()
         with self._enrich_lock:
             self._recent_shots = [e for e in self._recent_shots
-                                  if e[2] >= now - _ENRICH_WINDOW_S]
-            self._recent_shots.append([shot.id, float(shot.ball_speed), now, False])
+                                  if e.ts >= now - _ENRICH_WINDOW_S]
+            self._recent_shots.append(
+                _RecentShot(shot.id, float(shot.ball_speed), now))
 
     def note_source(self, device_id, source: str):
         """Learn the OpenFlight host from the connection it opened to us, and
@@ -182,9 +204,15 @@ class CaptureSupervisor:
             return
         addr = source.split("->")[-1]
         host = addr.rsplit(":", 1)[0].strip()
-        if not host or host == self.openflight_host:
+        if not host:
             return
-        self.openflight_host = host
+        # Check-and-set under the lock: the listener is thread-per-connection,
+        # so two threads could otherwise both see openflight_host is None and
+        # each start a client, orphaning one.
+        with self._enrich_lock:
+            if host == self.openflight_host:
+                return
+            self.openflight_host = host
         self._start_enrichment(host)
 
     def _start_enrichment(self, host: str):
@@ -195,7 +223,7 @@ class CaptureSupervisor:
             self.enrichment_status = state
             self.bus.publish("enrichment_status", {"state": state, "detail": detail})
 
-        self._enrich_client = OpenFlightEnrichClient(
+        self._enrich_client = self._enrich_client_factory(
             host, on_enrichment=self.on_enrichment, on_status=_status)
         self._enrich_client.start()
 
@@ -238,6 +266,12 @@ class CaptureSupervisor:
             return None  # buffered on DB failure; nothing to sync/emit yet
         if saved.enrichment_json is None:
             self._note_recent_shot(saved)
+            # Close the take_for/_note_recent_shot window: an enrichment that
+            # landed during the INSERT is buffered but was claimable by neither
+            # path. Re-poll AFTER registering, or the gap just moves.
+            late = self._enrich_buffer.take_for(saved.ball_speed)
+            if late is not None:
+                self._attach_to_recent_shot(saved.ball_speed, late)
         with self._lock:
             self._shot_count += 1
         try:
@@ -364,6 +398,7 @@ class CaptureSupervisor:
         if self._enrich_client is not None:
             self._enrich_client.stop()
             self._enrich_client = None
+        self.openflight_host = None
 
     def restart(self):
         with self._lock:

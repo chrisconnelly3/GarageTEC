@@ -26,7 +26,8 @@ def _swing_detail(conn, swing, shot):
         "ball_raw": ball_reference.raw_ball_fields(shot_d),  # raw, un-benchmarked
         "trust": trust_mod.derive_tiers(
             json.loads(shot.enrichment_json)
-            if shot is not None and shot.enrichment_json else None
+            if shot is not None and shot.enrichment_json else None,
+            shot.device_id if shot is not None else None,
         ),
 
         "moments": [moment_dict(m) for m in repo.get_moments(conn, swing.id)],

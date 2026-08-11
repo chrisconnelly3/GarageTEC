@@ -69,3 +69,22 @@ def test_swing_context_marks_estimated_ball_fields(db):
     ctx = context.build_swing_context(db, swing.id)
     assert ctx["shot_trust"]["ball_speed"] == "measured"
     assert ctx["shot_trust"]["total_spin"] == "estimated"
+
+
+def test_swing_context_trusts_r50_with_no_enrichment(db):
+    """The R50 has no enrichment side channel at all; its shots must not be
+    downgraded to estimated/absent the way a fabricating device's would be."""
+    from store import repo
+    from store.models import Shot
+
+    pid = repo.get_or_create_player(db, "R50", 70.0, "R").id
+    sid = repo.create_session(db, pid).id
+    swing = repo.add_swing(db, sid, pid, "v.mp4")
+    shot = repo.save_shot(db, Shot(captured_at="2026-08-10T00:00:00+00:00",
+                                   player_id=pid, session_id=sid,
+                                   ball_speed=148.2, vla=13.8,
+                                   device_id="GARMIN-R50"))
+    repo.link_shot_to_swing(db, shot.id, swing.id)
+
+    ctx = context.build_swing_context(db, swing.id)
+    assert ctx["shot_trust"]["vla"] == "measured"

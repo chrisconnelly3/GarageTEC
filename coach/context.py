@@ -74,7 +74,8 @@ def build_swing_context(conn, swing_id, norms_data=None):
         "shot": _shot_dict(shot),
         "shot_trust": trust_mod.derive_tiers(
             json.loads(shot.enrichment_json)
-            if shot is not None and shot.enrichment_json else None
+            if shot is not None and shot.enrichment_json else None,
+            shot.device_id if shot is not None else None,
         ),
         "metrics": [
             _metric_context(conn, swing.player_id, m, norms_data, swing_id)

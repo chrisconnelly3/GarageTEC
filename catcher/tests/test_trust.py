@@ -73,12 +73,34 @@ def test_fields_openflight_never_produces_are_absent():
 
 
 def test_no_enrichment_falls_back_conservatively():
-    t = trust.derive_tiers(None)
+    t = trust.derive_tiers(None, device_id="OpenFlight")
     assert t["ball_speed"] == trust.MEASURED
     assert t["carry"] == trust.MEASURED
     assert t["vla"] == trust.ESTIMATED
     assert t["total_spin"] == trust.ESTIMATED
     assert t["attack_angle"] == trust.ABSENT
+
+
+def test_no_enrichment_trusts_a_non_fabricating_device():
+    """The R50 only reports what it measured, so nothing is downgraded."""
+    t = trust.derive_tiers(None, device_id="GARMIN-R50")
+    assert t["vla"] == trust.MEASURED
+    assert t["total_spin"] == trust.MEASURED
+    assert t["attack_angle"] == trust.MEASURED
+    assert t["face_to_target"] == trust.MEASURED
+
+
+def test_no_enrichment_is_conservative_for_a_fabricating_device():
+    """OpenFlight without its side channel: we cannot tell guesses from data."""
+    t = trust.derive_tiers(None, device_id="OpenFlight")
+    assert t["vla"] == trust.ESTIMATED
+    assert t["total_spin"] == trust.ESTIMATED
+    assert t["attack_angle"] == trust.ABSENT
+
+
+def test_unknown_device_is_trusted_by_default():
+    """A device we have no profile for is assumed honest, not assumed to lie."""
+    assert trust.derive_tiers(None, device_id=None)["vla"] == trust.MEASURED
 
 
 def test_schema_drift_does_not_crash():

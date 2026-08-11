@@ -33,15 +33,23 @@ class DeviceProfile:
     "no measurement" rather than a real zero. Only ever populated for devices
     that pad absent fields with 0.0. Empty for the R50 and anything unknown,
     because a measured HLA/spin-axis/attack-angle can legitimately BE zero.
+
+    fabricates_unmeasured: True when the device substitutes plausible values
+    for fields it cannot actually measure. For such a device, a shot with no
+    per-field provenance record (no enrichment) cannot be trusted beyond its
+    guaranteed outputs. False for devices that only ever report what they
+    measured (nulls come through as NULL, not a guess).
     """
     zero_means_absent: frozenset = field(default_factory=frozenset)
+    fabricates_unmeasured: bool = False
 
 
 # OpenFlight's GSPro codec always emits a ClubData block and defaults unset
 # numeric fields to 0.0. AngleOfAttack and FaceToTarget are never assigned at
 # all; HLA and SpinAxis are set to 0.0 by its resolver when unmeasured.
 OPENFLIGHT_PROFILE = DeviceProfile(
-    zero_means_absent=frozenset({"hla", "spin_axis", "attack_angle", "face_to_target"})
+    zero_means_absent=frozenset({"hla", "spin_axis", "attack_angle", "face_to_target"}),
+    fabricates_unmeasured=True,
 )
 PERMISSIVE_PROFILE = DeviceProfile()
 
@@ -83,7 +91,8 @@ def _tier(value, *, source=None, confidence=None, conf_required=False) -> str:
     return MEASURED
 
 
-# Tiers used when no enrichment record arrived. Ball speed and carry are the
+# Tiers used when no enrichment record arrived, for a device that fabricates
+# values it cannot measure (OpenFlight). Ball speed and carry are the
 # monitor's load-bearing outputs and are always sent; anything OpenFlight may
 # have substituted is treated as an estimate rather than graded as fact.
 _NO_ENRICHMENT = {
@@ -101,16 +110,32 @@ _NO_ENRICHMENT = {
     "face_to_target": ABSENT,
 }
 
+# Tiers used when no enrichment record arrived, for a device that only
+# reports what it actually measured (the R50, and anything without a
+# fabricating profile). Absent values arrive as NULL and are handled by the
+# existing null/"--" display path, so every field it does send is trustworthy.
+_TRUSTED = {field: MEASURED for field in _NO_ENRICHMENT}
 
-def derive_tiers(enrichment: Optional[dict]) -> Dict[str, str]:
+
+def derive_tiers(enrichment: Optional[dict], device_id: Optional[str] = None) -> Dict[str, str]:
     """Map each GarageTEC shot field to MEASURED / ESTIMATED / ABSENT.
 
     `enrichment` is the inner "shot" dict of OpenFlight's Socket.IO event, or
     None when no enrichment was correlated. Every lookup is defensive so a
     renamed or removed upstream key degrades one field instead of raising.
+
+    Without an enrichment record, the right fallback depends on the device:
+    a device that fabricates values for fields it cannot measure (see
+    `DeviceProfile.fabricates_unmeasured`) gives us no way to tell a guess
+    from real data, so we fall back to the conservative `_NO_ENRICHMENT` map.
+    A device that only ever reports what it measured (the R50 is the primary
+    example, and it's the default for unknown devices) can be trusted outright
+    -- unmeasured fields simply arrive as NULL -- so it gets `_TRUSTED`.
     """
     if not enrichment:
-        return dict(_NO_ENRICHMENT)
+        if profile_for(device_id).fabricates_unmeasured:
+            return dict(_NO_ENRICHMENT)
+        return dict(_TRUSTED)
 
     e = enrichment
     tiers: Dict[str, str] = {}

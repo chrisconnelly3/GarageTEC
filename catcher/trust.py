@@ -53,6 +53,12 @@ OPENFLIGHT_PROFILE = DeviceProfile(
 )
 PERMISSIVE_PROFILE = DeviceProfile()
 
+# Keyed by the DeviceID a monitor sends on the OpenConnect wire.
+#
+# ADDING A MONITOR: if it substitutes plausible values for fields it cannot
+# measure, it MUST be registered here with fabricates_unmeasured=True. Unknown
+# devices are assumed honest (see profile_for), so an unregistered fabricating
+# monitor would have its guesses graded against tour averages as if measured.
 DEVICE_PROFILES: Dict[str, DeviceProfile] = {
     "OpenFlight": OPENFLIGHT_PROFILE,
 }

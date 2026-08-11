@@ -141,8 +141,14 @@ def test_r50_zeros_are_preserved():
     assert shot.spin_axis == 0.0
 
 
-def test_r50_club_data_still_read():
-    """Regression: the R50 sends no ContainsClubData flag; keep reading club data."""
-    shot = map_message(SHOT_MSG)
+def test_club_data_read_when_flag_absent():
+    """Regression: a device that sends no ContainsClubData key (the R50) must
+    still have its ClubData read. Guards against a truthiness check replacing
+    the `is False` test."""
+    msg = json.loads(json.dumps(SHOT_MSG))
+    del msg["ShotDataOptions"]["ContainsClubData"]
+    shot = map_message(msg)
     assert shot.club_speed == 102.1
     assert shot.attack_angle == -2.3
+    assert shot.face_to_target == -0.7
+    assert shot.club_path == 2.1

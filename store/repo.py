@@ -242,7 +242,7 @@ _SHOT_COLS = [
     "swing_id", "player_id", "session_id", "captured_at", "device_id",
     "shot_number", "ball_speed", "total_spin", "spin_axis", "hla", "vla",
     "carry", "club_speed", "attack_angle", "club_path", "face_to_target",
-    "club", "raw_json", "dedupe_key",
+    "club", "raw_json", "dedupe_key", "enrichment_json",
 ]
 
 
@@ -284,6 +284,13 @@ def save_shot(conn, shot: Shot) -> Shot:
 def link_shot_to_swing(conn, shot_id, swing_id):
     conn.execute("UPDATE shot SET swing_id=? WHERE id=?", (swing_id, shot_id))
     conn.execute("UPDATE swing SET shot_id=? WHERE id=?", (shot_id, swing_id))
+    conn.commit()
+
+
+def set_shot_enrichment(conn, shot_id, enrichment_json: str):
+    """Attach a launch-monitor enrichment record to an already-persisted shot."""
+    conn.execute("UPDATE shot SET enrichment_json=? WHERE id=?",
+                 (enrichment_json, shot_id))
     conn.commit()
 
 
@@ -477,7 +484,8 @@ def _shot_from_row(r):
                 carry=r["carry"], club_speed=r["club_speed"],
                 attack_angle=r["attack_angle"], club_path=r["club_path"],
                 face_to_target=r["face_to_target"], club=r["club"],
-                raw_json=r["raw_json"], dedupe_key=r["dedupe_key"])
+                raw_json=r["raw_json"], dedupe_key=r["dedupe_key"],
+                enrichment_json=r["enrichment_json"])
 
 
 def get_shot(conn, shot_id):

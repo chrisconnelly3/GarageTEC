@@ -35,7 +35,8 @@ CREATE TABLE IF NOT EXISTS shot (
   face_to_target REAL,
   club TEXT,
   raw_json TEXT,
-  dedupe_key TEXT
+  dedupe_key TEXT,
+  enrichment_json TEXT
 );
 
 CREATE TABLE IF NOT EXISTS pose_frame (

@@ -179,3 +179,17 @@ def test_crash_replay_no_duplicate(db):
         raw_json=json.dumps({"DeviceID": "R50", "ShotNumber": 99})))
     assert replayed.id == original.id
     assert db.execute("SELECT COUNT(*) c FROM shot").fetchone()["c"] == 1
+
+
+def test_set_shot_enrichment_roundtrip(db):
+    from store.models import Shot
+    pid = repo.get_or_create_player(db, "E", 70.0, "R").id
+    sid = repo.create_session(db, pid).id
+    shot = repo.save_shot(db, Shot(captured_at="2026-08-10T00:00:00+00:00",
+                                   player_id=pid, session_id=sid,
+                                   ball_speed=120.0))
+    assert shot.enrichment_json is None
+
+    repo.set_shot_enrichment(db, shot.id, '{"ball_speed_mph": 120.0}')
+    again = repo.get_shot(db, shot.id)
+    assert again.enrichment_json == '{"ball_speed_mph": 120.0}'

@@ -58,6 +58,7 @@ class Shot:
     club: Optional[str] = None          # set by the app (R50 doesn't report it)
     raw_json: Optional[str] = None
     dedupe_key: Optional[str] = None
+    enrichment_json: Optional[str] = None
     id: Optional[int] = None
 
 

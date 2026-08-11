@@ -77,12 +77,12 @@ describe("MetricCard estimated marker", () => {
   };
 
   it("marks an estimated value", () => {
-    render(<MetricCard {...base} estimated />);
+    render(<MetricCard {...base} monitorEstimated />);
     expect(screen.getByTitle(/estimated by the launch monitor/i)).toBeInTheDocument();
   });
 
   it("suppresses the zone dot when estimated", () => {
-    const { container } = render(<MetricCard {...base} estimated />);
+    const { container } = render(<MetricCard {...base} monitorEstimated />);
     expect(container.querySelector(".bg-garage-red")).toBeNull();
   });
 

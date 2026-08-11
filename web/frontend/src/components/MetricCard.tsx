@@ -48,7 +48,10 @@ export interface MetricCardProps {
   isEstimated?: boolean
   highlight?: boolean
   compact?: boolean       // Live: dense layout (smaller padding/value) to fit one viewport
-  estimated?: boolean     // monitor-modelled value: show a marker, never grade it
+  // The launch monitor MODELLED this value rather than measuring it: mark it
+  // and never grade it against a tour average. Distinct from isEstimated,
+  // which reports low confidence in our own pose estimate.
+  monitorEstimated?: boolean
 }
 
 function fmt(v: number, unit: string) {
@@ -60,7 +63,7 @@ function fmt(v: number, unit: string) {
 
 export function MetricCard({
   label, value, unit, target, delta, zone, state, trend,
-  phase, offPhase, isEstimated, highlight, compact, estimated,
+  phase, offPhase, isEstimated, highlight, compact, monitorEstimated,
 }: MetricCardProps) {
   // Off-phase: dimmed placeholder, grid stays stable.
   if (offPhase || value == null) {
@@ -78,7 +81,7 @@ export function MetricCard({
   }
 
   // An estimated value is never graded: no tint, no dot, no coloured delta.
-  const zoned = state === 'ok' && zone && !estimated
+  const zoned = state === 'ok' && zone && !monitorEstimated
   const zoneBorder = zoned ? ZONE_BORDER[zone] : 'border-[#242C27]'
   const zoneWash = zoned ? ZONE_WASH[zone] : ''
   const deltaColor = zoned ? ZONE_TEXT[zone] : 'text-[#8B978F]'
@@ -130,7 +133,7 @@ export function MetricCard({
           {unit === 'rpm' ? Math.round(value) : Math.round(value * 10) / 10}
         </span>
         {suffix && <span className={cn('text-[#8B978F]', compact ? 'text-sm' : 'text-sm')}>{suffix}</span>}
-        {estimated && (
+        {monitorEstimated && (
           <span
             title="Estimated by the launch monitor, not measured"
             className="ml-1 align-super text-[10px] font-semibold text-[#8B978F]"

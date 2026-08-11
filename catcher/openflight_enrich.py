@@ -38,7 +38,12 @@ def normalize_event(payload) -> Optional[dict]:
     """
     if not isinstance(payload, dict):
         return None
-    shot = payload.get("shot") if isinstance(payload.get("shot"), dict) else payload
+    # Prefer the bare-dict reading when the shot fields are already at the top
+    # level, so a future nested "shot" key can't shadow the real payload.
+    if "ball_speed_mph" not in payload and isinstance(payload.get("shot"), dict):
+        shot = payload["shot"]
+    else:
+        shot = payload
     if not isinstance(shot, dict):
         return None
     speed = shot.get("ball_speed_mph")
@@ -80,6 +85,10 @@ class OpenFlightEnrichClient:
         self._thread.start()
 
     def stop(self) -> None:
+        # If _run is mid-connect when this fires, disconnect() may no-op on a
+        # not-yet-connected client, leaving it to connect anyway; the daemon
+        # thread just lives on until process exit. Accepted for a best-effort
+        # channel — never crashes, never blocks the caller.
         self._running = False
         sio = self._sio
         if sio is not None:
@@ -124,7 +133,8 @@ class OpenFlightEnrichClient:
             try:
                 self.on_enrichment(record)
             except Exception:
-                logger.debug("[openflight] enrichment handler failed", exc_info=True)
+                logger.warning("[openflight] enrichment handler failed",
+                               exc_info=True)
 
         try:
             sio.connect(self.url, transports=["websocket", "polling"])

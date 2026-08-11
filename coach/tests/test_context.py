@@ -46,3 +46,26 @@ def test_build_session_context_lists_swings(db, seeded):
     assert ctx["swing_count"] == 3
     assert len(ctx["swings"]) == 3
     assert all("metrics" in s for s in ctx["swings"])
+
+
+def test_swing_context_marks_estimated_ball_fields(db):
+    import json
+    from store import repo
+    from store.models import Shot
+
+    pid = repo.get_or_create_player(db, "Est", 70.0, "R").id
+    sid = repo.create_session(db, pid).id
+    swing = repo.add_swing(db, sid, pid, "v.mp4")
+    shot = repo.save_shot(db, Shot(captured_at="2026-08-10T00:00:00+00:00",
+                                   player_id=pid, session_id=sid,
+                                   ball_speed=148.2, total_spin=2500.0,
+                                   enrichment_json=json.dumps({
+                                       "ball_speed_mph": 148.2,
+                                       "spin_rpm": 2500,
+                                       "spin_rpm_measured": None,
+                                   })))
+    repo.link_shot_to_swing(db, shot.id, swing.id)
+
+    ctx = context.build_swing_context(db, swing.id)
+    assert ctx["shot_trust"]["ball_speed"] == "measured"
+    assert ctx["shot_trust"]["total_spin"] == "estimated"

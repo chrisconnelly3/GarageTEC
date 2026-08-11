@@ -3,8 +3,10 @@
 Every number here comes from the store or the norms dataset; nothing is
 invented. The result is a plain JSON-serializable dict consumed by prompt.py.
 """
+import json
 import statistics
 
+from catcher import trust as trust_mod
 from store import repo
 from coach import norms as norms_mod
 
@@ -70,6 +72,10 @@ def build_swing_context(conn, swing_id, norms_data=None):
         "club": swing.club,
         "player": _player_dict(player),
         "shot": _shot_dict(shot),
+        "shot_trust": trust_mod.derive_tiers(
+            json.loads(shot.enrichment_json)
+            if shot is not None and shot.enrichment_json else None
+        ),
         "metrics": [
             _metric_context(conn, swing.player_id, m, norms_data, swing_id)
             for m in metrics

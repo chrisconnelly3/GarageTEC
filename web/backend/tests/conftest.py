@@ -35,6 +35,11 @@ class FakeListener:
         self.kwargs = kwargs
         self.alive = False
         self.hand = kwargs.get("handedness")
+        self.club = kwargs.get("club")
+        # Every club pushed mid-connection, in order. Without this method the
+        # supervisor's push would raise AttributeError into its best-effort
+        # except and the push path would silently go untested.
+        self.pushed_clubs = []
 
     def start(self):
         self.alive = True
@@ -44,6 +49,13 @@ class FakeListener:
 
     def set_handedness(self, h):
         self.hand = h
+
+    def send_player_update(self, *, club=None, handedness=None):
+        if club is not None:
+            self.club = club
+            self.pushed_clubs.append(club)
+        if handedness is not None:
+            self.hand = handedness
 
 
 @pytest.fixture

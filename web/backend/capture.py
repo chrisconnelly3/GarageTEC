@@ -322,7 +322,11 @@ class CaptureSupervisor:
         """The Live club selector sets which club is being hit; every subsequent
         shot is tagged with it (so the 'vs tour' ball comparison is per-club)."""
         self.active_club = club or None
-        if self._listener is not None:
+        # Only push a club the user actually chose. On DESELECT we deliberately
+        # leave the monitor on its last real club rather than pushing the "DR"
+        # fallback: monitors that model unmeasured fields per club (OpenFlight)
+        # would then apply driver constants to a wedge. Stale beats fabricated.
+        if self.active_club and self._listener is not None:
             try:
                 self._listener.send_player_update(club=self._club_code())
             except Exception:

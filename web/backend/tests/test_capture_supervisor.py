@@ -402,3 +402,15 @@ def test_restart_does_not_double_spawn_under_supervise_race(conn, tmp_path):
     # After flag cleared, a dead listener SHOULD be restarted normally.
     assert _wait(lambda: len(made) == 2 and made[1].alive)
     sup.stop()
+
+
+def test_deselecting_club_does_not_push_driver(supervisor):
+    """Deselect must leave the monitor on its last real club, not fabricate DR.
+
+    A monitor that models unmeasured fields per club would otherwise apply
+    driver constants to whatever gets hit next.
+    """
+    supervisor._spawn_listener()
+    supervisor.set_active_club("7 Iron")
+    supervisor.set_active_club(None)
+    assert supervisor._listener.pushed_clubs == ["I7"]

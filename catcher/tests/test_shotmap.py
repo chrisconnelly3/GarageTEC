@@ -87,3 +87,62 @@ def test_missing_shotdataoptions_is_treated_as_shot():
     msg = {"DeviceID": "R50", "ShotNumber": 2, "BallData": {"Speed": 90.0}}
     shot = map_message(msg)
     assert shot is not None and shot.ball_speed == 90.0
+
+
+OPENFLIGHT_MSG = {
+    "DeviceID": "OpenFlight",
+    "Units": "Yards",
+    "ShotNumber": 3,
+    "APIversion": "1",
+    "BallData": {
+        "Speed": 121.4, "SpinAxis": 0.0, "TotalSpin": 7000.0,
+        "BackSpin": 7000.0, "SideSpin": 0.0, "HLA": 0.0, "VLA": 16.3,
+        "CarryDistance": 171.0,
+    },
+    # OpenFlight always sends the block, padding unset numbers with 0.0.
+    "ClubData": {
+        "Speed": 0.0, "AngleOfAttack": 0.0, "FaceToTarget": 0.0, "Path": 2.1,
+    },
+    "ShotDataOptions": {
+        "ContainsBallData": True,
+        "ContainsClubData": False,
+        "LaunchMonitorIsReady": True,
+        "LaunchMonitorBallDetected": True,
+        "IsHeartBeat": False,
+    },
+}
+
+
+def test_club_data_ignored_when_flag_false():
+    shot = map_message(OPENFLIGHT_MSG)
+    assert shot.club_speed is None
+    assert shot.attack_angle is None
+    assert shot.face_to_target is None
+    assert shot.club_path is None
+
+
+def test_openflight_zeros_become_none():
+    shot = map_message(OPENFLIGHT_MSG)
+    assert shot.hla is None
+    assert shot.spin_axis is None
+    # Real measurements are untouched.
+    assert shot.ball_speed == 121.4
+    assert shot.vla == 16.3
+    assert shot.carry == 171.0
+
+
+def test_r50_zeros_are_preserved():
+    """Regression: a measured zero from a permissive device stays 0.0."""
+    msg = json.loads(json.dumps(SHOT_MSG))
+    msg["BallData"]["HLA"] = 0.0
+    msg["BallData"]["SpinAxis"] = 0.0
+    shot = map_message(msg)
+    assert shot.hla == 0.0
+    assert shot.spin_axis == 0.0
+
+
+def test_r50_club_data_still_read():
+    """Regression: the R50 sends no ContainsClubData flag; keep reading club data."""
+    shot = map_message(SHOT_MSG)
+    assert shot.club_speed == 102.1
+    assert shot.attack_angle == -2.3

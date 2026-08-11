@@ -182,9 +182,7 @@ def test_crash_replay_no_duplicate(db):
 
 
 def test_set_shot_enrichment_roundtrip(db):
-    from store.models import Shot
-    pid = repo.get_or_create_player(db, "E", 70.0, "R").id
-    sid = repo.create_session(db, pid).id
+    pid, sid = _ctx(db)
     shot = repo.save_shot(db, Shot(captured_at="2026-08-10T00:00:00+00:00",
                                    player_id=pid, session_id=sid,
                                    ball_speed=120.0))

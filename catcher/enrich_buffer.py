@@ -13,6 +13,9 @@ from typing import Callable, Optional
 
 DEFAULT_WINDOW_S = 5.0
 # Both sides round to 1dp; this only absorbs float representation noise.
+# Safe ONLY because both channels pre-round: real buckets sit 0.1 apart, so 0.06
+# can never bridge two different speeds. If either side ever ships a raw float,
+# tighten this below 0.05.
 SPEED_TOLERANCE = 0.06
 
 

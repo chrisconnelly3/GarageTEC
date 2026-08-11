@@ -39,7 +39,7 @@ export type TrustTier = "measured" | "estimated" | "absent";
 export type TrustMap = Record<string, TrustTier>;
 export interface SwingDetail { swing: Swing; metrics: Metric[]; benchmarks?: Benchmark[]; ball_benchmarks?: BallBenchmark[]; ball_raw?: BallRawField[]; moments: Moment[]; shot: Shot | null; coaching: Coaching[]; media: Media[]; trust?: TrustMap; }
 export interface SessionDetail { session: Session; swings: Swing[]; coaching: Coaching[]; }
-export interface CaptureStatus { status: CaptureState; paused: boolean; connected: boolean; shot_count: number; active_player_id: number | null; active_club: string | null; last_error: string | null; session_active: boolean; active_session_id: number | null; }
+export interface CaptureStatus { status: CaptureState; paused: boolean; connected: boolean; shot_count: number; active_player_id: number | null; active_club: string | null; last_error: string | null; session_active: boolean; active_session_id: number | null; enrichment_status: string; openflight_host: string | null; }
 export interface HistoryPoint { swing_id: number; created_at: string; value: number; }
 export interface History { player: number; metric: string; context: string; target: number | null; points: HistoryPoint[]; }
 export interface BallHistoryPoint { shot_id: number; captured_at: string; value: number; }

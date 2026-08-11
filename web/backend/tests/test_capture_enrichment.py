@@ -187,3 +187,10 @@ def test_failed_enrichment_write_does_not_drift_to_another_shot(conn, monkeypatc
                                source="192.168.1.50:54321")
     assert repo.get_shot(conn, second.id).enrichment_json is None, \
         "forfeited record drifted onto a later shot"
+
+
+def test_status_reports_enrichment_fields(conn):
+    sup = _supervisor(conn)
+    st = sup.status()
+    assert st.enrichment_status == "idle"
+    assert st.openflight_host is None

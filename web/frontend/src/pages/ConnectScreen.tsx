@@ -97,6 +97,21 @@ export function ConnectScreen({ captureStatus }: ConnectScreenProps) {
             {captureStatus.last_error}
           </p>
         )}
+        {captureStatus?.openflight_host && (
+          <div className="flex items-center gap-2 text-sm mt-4">
+            <span className={cn('w-2 h-2 rounded-full',
+              captureStatus.enrichment_status === 'connected'
+                ? 'bg-garage-green' : 'bg-garage-amber')} />
+            <span className="text-[#8B978F]">
+              OpenFlight enrichment:{' '}
+              <span className="text-[#E7EEE9]">
+                {captureStatus.enrichment_status === 'connected'
+                  ? `connected (${captureStatus.openflight_host})`
+                  : 'not connected — measured/estimated detail unavailable'}
+              </span>
+            </span>
+          </div>
+        )}
       </div>
 
       {/* 3-Step Wizard */}

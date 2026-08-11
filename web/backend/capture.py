@@ -65,6 +65,8 @@ class CaptureStatus:
     last_error: Optional[str]
     session_active: bool             # is a recording session open + gating ON
     active_session_id: Optional[int] # id of the session shots attribute to
+    enrichment_status: str = "idle"
+    openflight_host: Optional[str] = None
 
 
 class NoActivePlayerError(ValueError):
@@ -347,7 +349,9 @@ class CaptureSupervisor:
                 active_club=self.active_club,
                 last_error=self._last_error,
                 session_active=self._recording,
-                active_session_id=self._active_session_id)
+                active_session_id=self._active_session_id,
+                enrichment_status=self.enrichment_status,
+                openflight_host=self.openflight_host)
 
     # ---- session recording gate ------------------------------------------
     def start_session(self) -> CaptureStatus:

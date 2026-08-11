@@ -114,3 +114,9 @@ def test_send_player_update_survives_dead_socket():
     lst = OpenConnectListener(port=0)
     lst._conns.append(DeadSock())
     lst.send_player_update(club="DR")   # must not raise
+
+
+def test_listener_seeds_club_from_constructor():
+    """A respawned listener must carry the club already selected in the app."""
+    lst = OpenConnectListener(port=0, club="I7")
+    assert lst.club == "I7"

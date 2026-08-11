@@ -363,6 +363,13 @@ def test_active_club_tags_shots_and_status(conn, tmp_path):
     assert "active_club_changed" in [e["event"] for e in bus.drain()]
 
 
+def test_respawned_listener_carries_the_current_club(supervisor):
+    """Regression: a club selected before the monitor connects must survive a respawn."""
+    supervisor.set_active_club("7 Iron")
+    supervisor._spawn_listener()
+    assert supervisor._listener.kwargs["club"] == "I7"
+
+
 # ---- Fix 3: restart() must not double-spawn under supervise race ----------
 
 def test_restart_does_not_double_spawn_under_supervise_race(conn, tmp_path):

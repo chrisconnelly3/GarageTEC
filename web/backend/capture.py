@@ -322,10 +322,9 @@ class CaptureSupervisor:
         """The Live club selector sets which club is being hit; every subsequent
         shot is tagged with it (so the 'vs tour' ball comparison is per-club)."""
         self.active_club = club or None
-        code = _GSPRO_CLUB_CODES.get(self.active_club or "")
-        if code and self._listener is not None:
+        if self._listener is not None:
             try:
-                self._listener.send_player_update(club=code)
+                self._listener.send_player_update(club=self._club_code())
             except Exception:
                 pass  # pushing club is best-effort; never block the UI
         self.bus.publish("active_club_changed", {"club": self.active_club})
@@ -428,13 +427,17 @@ class CaptureSupervisor:
     def _spawn_listener(self):
         self._listener = self._listener_factory(
             port=self.port, on_message=self.handle_message,
-            handedness=self._handedness(), probe_ip=self.probe_ip,
-            on_status=self._on_status)
+            handedness=self._handedness(), club=self._club_code(),
+            probe_ip=self.probe_ip, on_status=self._on_status)
         self._listener.start()
 
     def _handedness(self):
         ap = self.session_mgr.active_player
         return "LH" if (ap and ap.handedness == "L") else "RH"
+
+    def _club_code(self):
+        """GSPro club code for the active club; driver when nothing is selected."""
+        return _GSPRO_CLUB_CODES.get(self.active_club or "", "DR")
 
     def _listener_alive(self):
         lst = self._listener

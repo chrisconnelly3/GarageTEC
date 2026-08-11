@@ -23,7 +23,8 @@ PORT_DEFAULT = 921  # GSPro Open Connect default port
 class OpenConnectListener:
     def __init__(self, port: int = PORT_DEFAULT,
                  on_message: Optional[Callable[[dict, str], None]] = None,
-                 *, handedness: str = "RH", probe_ip: Optional[str] = None,
+                 *, handedness: str = "RH", club: str = "DR",
+                 probe_ip: Optional[str] = None,
                  on_status: Optional[Callable[[str, str], None]] = None):
         self.port = port
         self.on_message = on_message or (lambda obj, source: None)
@@ -36,7 +37,7 @@ class OpenConnectListener:
         self._server_sock = None
         self._threads = []
         self._conns = []        # live sockets, for mid-connection Player pushes
-        self.club = "DR"        # GSPro club code most recently pushed
+        self.club = club        # GSPro club code: seeded here, updated by send_player_update
 
     # ---- lifecycle --------------------------------------------------------
     def start(self):

@@ -1,5 +1,6 @@
 // web/frontend/src/components/CalibrationCard.tsx
 import { useEffect, useState, useCallback, useRef } from "react";
+import { Printer } from "lucide-react";
 import {
   startCalibration, stopCalibration, runCalibration, getCameras,
   getActiveCalibration, getCalibrationHistory, activateCalibration,
@@ -13,6 +14,33 @@ import type {
 const DEFAULT_TARGET = 24;
 const DEFAULT_MIN = 15;
 
+/** Start/Recalibrate button that shows it is working. Opening two USB cameras
+ *  takes several seconds and produces no output of its own, so without a busy
+ *  state the button reads as broken and users tap it repeatedly. */
+function StartButton({ onClick, starting, label }: {
+  onClick: () => void; starting: boolean; label: string;
+}) {
+  return (
+    <button
+      onClick={onClick}
+      disabled={starting}
+      aria-busy={starting}
+      className="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-garage-green
+                 text-[#0A0D0B] font-medium min-h-[44px] disabled:opacity-70
+                 disabled:cursor-wait"
+    >
+      {starting && (
+        <span
+          aria-hidden="true"
+          className="w-4 h-4 rounded-full border-2 border-[#0A0D0B]/30
+                     border-t-[#0A0D0B] animate-spin"
+        />
+      )}
+      {starting ? "Starting cameras…" : label}
+    </button>
+  );
+}
+
 export function CalibrationCard() {
   const [cameras, setCameras] = useState<CameraInfo[]>([]);
   const [deviceLeft, setDeviceLeft] = useState("0");    // down-the-line camera
@@ -22,6 +50,10 @@ export function CalibrationCard() {
   const [squareIn, setSquareIn] = useState("1.0");      // inches; converted to mm
   const [mono, setMono] = useState(false);              // single-camera test mode
   const [capturing, setCapturing] = useState(false);
+  // Opening two USB cameras takes a few seconds with no output of its own, so
+  // without this the Recalibrate/Start button looks dead and users click again.
+  const [starting, setStarting] = useState(false);
+  const [startError, setStartError] = useState<string | null>(null);
   const [goodPoses, setGoodPoses] = useState(0);
   const [coverage, setCoverage] = useState<[number, number][]>([]);
   const [tiltBuckets, setTiltBuckets] = useState(0);
@@ -73,8 +105,11 @@ export function CalibrationCard() {
   });
 
   const onStart = () => {
+    if (starting) return;               // guard against double-taps while opening
     autoRan.current = false;
     setResult(null);
+    setStartError(null);
+    setStarting(true);
     startCalibration({
       device_left: parseInt(deviceLeft || "0", 10) || 0,
       device_right: mono ? null : (parseInt(deviceRight || "1", 10) || 0),
@@ -82,7 +117,12 @@ export function CalibrationCard() {
       rows: parseInt(rows || "6", 10) || 6,
       square_mm: (parseFloat(squareIn || "1") || 1) * 25.4,
       mono,
-    }).then(() => setCapturing(true)).catch(() => {});
+    })
+      .then(() => setCapturing(true))
+      .catch(() => setStartError(
+        "Could not open the cameras. Check they are plugged in and not in use " +
+        "by another app, then try again."))
+      .finally(() => setStarting(false));
   };
   const onStop = () => { stopCalibration().finally(() => setCapturing(false)); };
   const onRun = () => { runAndStop(); };
@@ -126,6 +166,12 @@ export function CalibrationCard() {
           ruler in millimeters; that number matters for accurate size.
         </p>
         <p>
+          <span className="text-[#E7EEE9]">Get the board: </span>
+          no need to hunt for one online — this opens the exact pattern this app
+          expects, already sized in real millimetres. Print it at 100% / Actual
+          Size on A4 or Letter, then measure a square to confirm.
+        </p>
+        <p>
           <span className="text-[#E7EEE9]">How to wave the board: </span>
           move it through lots of positions (center, left, right, near, far)
           and tilts (flat, tilted left/right, angled toward/away). Keep the
@@ -159,10 +205,10 @@ export function CalibrationCard() {
             is a measurement of where the cameras are, so it goes stale the
             moment they shift.
           </p>
-          <button onClick={onStart}
-            className="px-4 py-2 rounded-lg bg-garage-green text-[#0A0D0B] font-medium min-h-[44px]">
-            Recalibrate
-          </button>
+          <StartButton onClick={onStart} starting={starting} label="Recalibrate" />
+          {startError && (
+            <p className="text-xs text-garage-red">{startError}</p>
+          )}
         </div>
       )}
 
@@ -198,6 +244,23 @@ export function CalibrationCard() {
           <input className="mt-1 w-full bg-[#0A0D0B] rounded p-2 text-[#E7EEE9]"
                  value={squareIn} onChange={(e) => setSquareIn(e.target.value)} /></label>
       </div>
+
+      {/* Ship the board rather than making users find a matching one online: a
+          wrong square count or a scaled print is the most common calibration
+          failure. Generated to match the inner-corner counts above. */}
+      <a
+        href={`/api/calibration/checkerboard.svg?cols=${
+          (parseInt(cols || "9", 10) || 9) + 1}&rows=${
+          (parseInt(rows || "6", 10) || 6) + 1}&square_mm=25`}
+        target="_blank"
+        rel="noopener noreferrer"
+        className="inline-flex items-center gap-2 px-4 py-2 rounded-lg border
+                   border-[#242C27] bg-[#1A211D] text-[#E7EEE9] text-sm
+                   min-h-[44px] w-fit"
+      >
+        <Printer className="w-4 h-4 text-garage-green" />
+        Open printable checkerboard
+      </a>
 
       <label className="flex items-center gap-2 text-xs text-[#8B978F]">
         <input type="checkbox" checked={mono}
@@ -237,10 +300,12 @@ export function CalibrationCard() {
             Starts recording checkerboard poses from the cameras.
           </p>
           {!capturing
-            ? <button onClick={onStart}
-                className="px-4 py-2 rounded-lg bg-[#79BC30] text-[#0A0D0B] font-medium min-h-[44px]">Start Capture</button>
+            ? <StartButton onClick={onStart} starting={starting} label="Start Capture" />
             : <button onClick={onStop}
                 className="px-4 py-2 rounded-lg bg-[#2A332C] text-[#E7EEE9] min-h-[44px]">Stop</button>}
+          {startError && !capturing && (
+            <p className="text-xs text-garage-red">{startError}</p>
+          )}
         </div>
         <div className="space-y-1">
           <p className="text-xs font-semibold text-[#8B978F]">2. Calculate calibration</p>

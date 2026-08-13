@@ -15,7 +15,10 @@ vi.mock("../lib/api", () => ({
 import { SwingScreen } from "./SwingScreen";
 import * as api from "../lib/api";
 
-function mkDetail(id: number, opts: Partial<SwingDetail["swing"]> = {}, withVideo = true): SwingDetail {
+function mkDetail(
+  id: number, opts: Partial<SwingDetail["swing"]> = {}, withVideo = true,
+  extra: Partial<SwingDetail> = {},
+): SwingDetail {
   return {
     swing: { id, session_id: 1, player_id: 1, created_at: "2024-01-01T10:00:00Z",
       source_video_path: null, view_layout: null, fps: null, width: null, height: null,
@@ -29,6 +32,7 @@ function mkDetail(id: number, opts: Partial<SwingDetail["swing"]> = {}, withVide
     moments: [{ id: 1, swing_id: id, kind: "impact", view: null, frame_index: 30, time_s: 1.0 }],
     shot: null, coaching: [],
     media: withVideo ? [{ id: 1, swing_id: id, kind: "annotated_video", path: `${id}.mp4`, meta: null }] : [],
+    ...extra,
   };
 }
 const summaries: SwingSummary[] = [
@@ -104,5 +108,45 @@ describe("SwingScreen", () => {
     await waitFor(() => expect(api.getSwing).toHaveBeenCalledWith(99));
     const next = await screen.findByLabelText("Newer swing");
     expect(next).toBeDisabled();
+  });
+
+  it("marks a ball card *est when its trust tier is estimated (spin -> total_spin)", async () => {
+    vi.mocked(api.getLatestSwing).mockResolvedValue(mkDetail(42, {}, true, {
+      ball_benchmarks: [{ key: "spin", label: "Spin Rate", unit: "rpm", value: 2200,
+        target: 2545, delta: -345, near: false, direction: "lower", zone: "yellow" }],
+      trust: { total_spin: "estimated" },
+    }));
+    render(<SwingScreen {...props} />);
+    await screen.findByText("Spin Rate");
+    expect(await screen.findByText("*est")).toBeInTheDocument();
+  });
+
+  it("does not mark a ball card when its trust tier is measured", async () => {
+    vi.mocked(api.getLatestSwing).mockResolvedValue(mkDetail(42, {}, true, {
+      ball_benchmarks: [{ key: "spin", label: "Spin Rate", unit: "rpm", value: 2200,
+        target: 2545, delta: -345, near: false, direction: "lower", zone: "yellow" }],
+      trust: { total_spin: "measured" },
+    }));
+    render(<SwingScreen {...props} />);
+    await screen.findByText("Spin Rate");
+    expect(screen.queryByText("*est")).toBeNull();
+  });
+
+  it("renders normally with no markers when trust is absent entirely", async () => {
+    vi.mocked(api.getLatestSwing).mockResolvedValue(mkDetail(42)); // no `trust` field
+    render(<SwingScreen {...props} />);
+    await screen.findByText("Ball Speed");
+    expect(screen.queryByText("*est")).toBeNull();
+  });
+
+  it("marks smash *est when either contributor (ball_speed/club_speed) isn't measured", async () => {
+    vi.mocked(api.getLatestSwing).mockResolvedValue(mkDetail(42, {}, true, {
+      ball_benchmarks: [{ key: "smash", label: "Smash Factor", unit: "", value: 1.3,
+        target: 1.5, delta: -0.2, near: false, direction: "higher", zone: "yellow" }],
+      trust: { ball_speed: "measured", club_speed: "estimated" },
+    }));
+    render(<SwingScreen {...props} />);
+    await screen.findByText("Smash Factor");
+    expect(await screen.findByText("*est")).toBeInTheDocument();
   });
 });

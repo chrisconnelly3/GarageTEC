@@ -11,9 +11,27 @@ import { labelFor, isEstimated } from '../lib/format'
 import { BODY_CARD_ORDER, BALL_BENCHMARK_ORDER, BALL_RAW_ORDER, METRIC_UNIT } from '../lib/metricConfig'
 import { phaseAtTime, momentKindToLabel } from '../lib/phase'
 import { computeTrend } from '../lib/trend'
-import type { SwingDetail, SwingSummary, Benchmark, BallBenchmark, BallRawField } from '../lib/types'
+import type { SwingDetail, SwingSummary, Benchmark, BallBenchmark, BallRawField, TrustMap } from '../lib/types'
 
 const CAP = (s: string) => s.charAt(0).toUpperCase() + s.slice(1)
+
+// Ball-card key -> backend trust key. Only needed where they differ from the
+// card key itself; `launch`/`spin` use the launch monitor's own field names.
+const BALL_TRUST_KEY: Record<string, string> = { launch: 'vla', spin: 'total_spin' }
+
+// True when the launch monitor modelled this value rather than measuring it
+// (never true for `smash`, which trust doesn't cover directly — see below).
+function isMonitorEstimated(cardKey: string, trust: TrustMap | undefined): boolean {
+  if (!trust) return false
+  if (cardKey === 'smash') {
+    // Smash factor is ball_speed / club_speed — not a distinct shot field, so it
+    // has no trust key of its own. It's only trustworthy when BOTH inputs were
+    // actually measured.
+    return trust.ball_speed !== 'measured' || trust.club_speed !== 'measured'
+  }
+  const trustKey = BALL_TRUST_KEY[cardKey] ?? cardKey
+  return trust[trustKey] === 'estimated'
+}
 
 interface SwingScreenProps {
   playerId: number | null
@@ -162,12 +180,14 @@ export function SwingScreen({ playerId, sessionId, lastSwing, activeClub = null,
       const b = bench.get(key); if (!b) continue
       cards.push(<MetricCard key={key} label={b.label} value={b.value} unit={b.unit}
         target={b.target} delta={b.delta} zone={b.zone} state="ok" compact
+        monitorEstimated={isMonitorEstimated(key, data?.trust)}
         trend={computeTrend((ballHistories?.[key] ?? []).slice(-10), b.value, b.target, b.direction)} />)
     }
     for (const key of BALL_RAW_ORDER) {
       const r = raw.get(key); if (!r || r.value == null) continue
       cards.push(<MetricCard key={key} label={r.label} value={r.value} unit={r.unit}
         target={null} delta={null} zone={null} state="raw" compact
+        monitorEstimated={isMonitorEstimated(key, data?.trust)}
         trend={{ delta: 0, towardPro: null }} />)
     }
     return cards

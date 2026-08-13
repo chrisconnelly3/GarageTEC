@@ -35,9 +35,11 @@ export interface Benchmark {
   zone: MetricZone | null;
   state: MetricState;
 }
-export interface SwingDetail { swing: Swing; metrics: Metric[]; benchmarks?: Benchmark[]; ball_benchmarks?: BallBenchmark[]; ball_raw?: BallRawField[]; moments: Moment[]; shot: Shot | null; coaching: Coaching[]; media: Media[]; }
+export type TrustTier = "measured" | "estimated" | "absent";
+export type TrustMap = Record<string, TrustTier>;
+export interface SwingDetail { swing: Swing; metrics: Metric[]; benchmarks?: Benchmark[]; ball_benchmarks?: BallBenchmark[]; ball_raw?: BallRawField[]; moments: Moment[]; shot: Shot | null; coaching: Coaching[]; media: Media[]; trust?: TrustMap; }
 export interface SessionDetail { session: Session; swings: Swing[]; coaching: Coaching[]; }
-export interface CaptureStatus { status: CaptureState; paused: boolean; connected: boolean; shot_count: number; active_player_id: number | null; active_club: string | null; last_error: string | null; session_active: boolean; active_session_id: number | null; }
+export interface CaptureStatus { status: CaptureState; paused: boolean; connected: boolean; shot_count: number; active_player_id: number | null; active_club: string | null; last_error: string | null; session_active: boolean; active_session_id: number | null; enrichment_status: string; openflight_host: string | null; }
 export interface HistoryPoint { swing_id: number; created_at: string; value: number; }
 export interface History { player: number; metric: string; context: string; target: number | null; points: HistoryPoint[]; }
 export interface BallHistoryPoint { shot_id: number; captured_at: string; value: number; }
@@ -57,7 +59,15 @@ export interface SessionStats {
   takeaway: string | null;
 }
 export interface ActivePlayerIn { name: string; height_in: number; handedness: Handedness; }
-export interface Settings { idle_minutes: number; units: "yards" | "meters"; port: number; }
+export interface Settings {
+  idle_minutes: number; units: "yards" | "meters"; port: number;
+  has_api_key: boolean; api_key_hint: string;
+  anthropic_api_key?: string; // write-only: accepted by PUT, never returned by GET
+}
+export interface OpenFlightConnector {
+  connectors: { type: string; enabled: boolean; host: string; port: number; device_id: string }[];
+}
+export interface SetupInfo { lan_ip: string; port: number; openflight_connector: OpenFlightConnector; }
 export interface PlayerWithCounts extends Player { swing_count: number; session_count: number; }
 export interface SwingSummary {
   id: number; created_at: string; club: string | null; has_shot: boolean;

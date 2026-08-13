@@ -1,5 +1,6 @@
 // web/frontend/src/components/CalibrationCard.tsx
 import { useEffect, useState, useCallback, useRef } from "react";
+import { Printer } from "lucide-react";
 import {
   startCalibration, stopCalibration, runCalibration, getCameras,
   getActiveCalibration, getCalibrationHistory, activateCalibration,
@@ -13,15 +14,49 @@ import type {
 const DEFAULT_TARGET = 24;
 const DEFAULT_MIN = 15;
 
+/** Start/Recalibrate button that shows it is working. Opening two USB cameras
+ *  takes several seconds and produces no output of its own, so without a busy
+ *  state the button reads as broken and users tap it repeatedly. */
+function StartButton({ onClick, starting, label }: {
+  onClick: () => void; starting: boolean; label: string;
+}) {
+  return (
+    <button
+      onClick={onClick}
+      disabled={starting}
+      aria-busy={starting}
+      className="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-garage-green
+                 text-[#0A0D0B] font-medium min-h-[44px] disabled:opacity-70
+                 disabled:cursor-wait"
+    >
+      {starting && (
+        <span
+          aria-hidden="true"
+          className="w-4 h-4 rounded-full border-2 border-[#0A0D0B]/30
+                     border-t-[#0A0D0B] animate-spin"
+        />
+      )}
+      {starting ? "Starting cameras…" : label}
+    </button>
+  );
+}
+
 export function CalibrationCard() {
   const [cameras, setCameras] = useState<CameraInfo[]>([]);
   const [deviceLeft, setDeviceLeft] = useState("0");    // down-the-line camera
   const [deviceRight, setDeviceRight] = useState("1");  // face-on camera
   const [cols, setCols] = useState("9");
   const [rows, setRows] = useState("6");
-  const [squareIn, setSquareIn] = useState("1.0");      // inches; converted to mm
+  // Millimetres end-to-end: the API takes square_mm, the printable board is
+  // generated in mm, and mm is finer than inches for measuring a small square.
+  // Default matches the board this app prints, so most users never touch it.
+  const [squareMm, setSquareMm] = useState("25");
   const [mono, setMono] = useState(false);              // single-camera test mode
   const [capturing, setCapturing] = useState(false);
+  // Opening two USB cameras takes a few seconds with no output of its own, so
+  // without this the Recalibrate/Start button looks dead and users click again.
+  const [starting, setStarting] = useState(false);
+  const [startError, setStartError] = useState<string | null>(null);
   const [goodPoses, setGoodPoses] = useState(0);
   const [coverage, setCoverage] = useState<[number, number][]>([]);
   const [tiltBuckets, setTiltBuckets] = useState(0);
@@ -73,16 +108,24 @@ export function CalibrationCard() {
   });
 
   const onStart = () => {
+    if (starting) return;               // guard against double-taps while opening
     autoRan.current = false;
     setResult(null);
+    setStartError(null);
+    setStarting(true);
     startCalibration({
       device_left: parseInt(deviceLeft || "0", 10) || 0,
       device_right: mono ? null : (parseInt(deviceRight || "1", 10) || 0),
       cols: parseInt(cols || "9", 10) || 9,
       rows: parseInt(rows || "6", 10) || 6,
-      square_mm: (parseFloat(squareIn || "1") || 1) * 25.4,
+      square_mm: parseFloat(squareMm || "25") || 25,
       mono,
-    }).then(() => setCapturing(true)).catch(() => {});
+    })
+      .then(() => setCapturing(true))
+      .catch(() => setStartError(
+        "Could not open the cameras. Check they are plugged in and not in use " +
+        "by another app, then try again."))
+      .finally(() => setStarting(false));
   };
   const onStop = () => { stopCalibration().finally(() => setCapturing(false)); };
   const onRun = () => { runAndStop(); };
@@ -103,9 +146,80 @@ export function CalibrationCard() {
     <div className="rounded-2xl bg-[#1A211D] p-6 space-y-4">
       <h2 className="text-xl font-semibold text-[#E7EEE9]">Camera Calibration</h2>
       <p className="text-sm text-[#8B978F]">
-        Recalibrate the bay cameras if they've been moved. See the calibration guide
-        for the checkerboard. Square size is in inches (converted automatically).
+        Calibration teaches the app where your two bay cameras are, so it can
+        turn their footage into real 3D body angles. All sizes here are in
+        millimetres.
       </p>
+
+      <details className="rounded-xl bg-[#0A0D0B] border border-[#242C27] p-4 text-sm text-[#8B978F] space-y-2">
+        <summary className="cursor-pointer text-[#E7EEE9] font-medium select-none">
+          How calibration works
+        </summary>
+        <p>
+          <span className="text-[#E7EEE9]">What it is: </span>
+          calibration shows both cameras a known checkerboard pattern so the
+          software can work out each camera's lens fingerprint and exactly
+          how far apart and at what angle the two cameras sit.
+        </p>
+        <p>
+          <span className="text-[#E7EEE9]">What you need: </span>
+          a checkerboard (9×6 inner corners) glued flat to a rigid board
+          (foam board, clipboard, MDF). Use the button below to print the exact
+          pattern this app expects — no need to hunt for one online.
+        </p>
+        <p>
+          <span className="text-[#E7EEE9]">Printing it (this part matters): </span>
+          set orientation to <span className="text-[#E7EEE9]">Landscape</span> —
+          the board is wider than it is tall, so Portrait will shrink it to fit
+          and every measurement will be wrong. Set scale to
+          {' '}<span className="text-[#E7EEE9]">100% / Actual Size</span> and turn
+          &quot;fit to page&quot; / &quot;shrink to fit&quot; OFF. Then measure one
+          printed square with a ruler and, if it is not exactly 25&nbsp;mm, type
+          the real number into
+          {' '}<span className="text-[#E7EEE9]">Square size (mm)</span> below —
+          printers are rarely exact, and this number is what makes your 3D
+          numbers metrically correct.
+        </p>
+        <p>
+          <span className="text-[#E7EEE9]">How to wave the board: </span>
+          move it through lots of positions (center, left, right, near, far)
+          and tilts (flat, tilted left/right, angled toward/away). Keep the
+          whole board visible to both cameras and hold each pose still for
+          about a second. Aim for 20–40 good poses.
+        </p>
+        <p>
+          <span className="text-[#E7EEE9]">How to verify: </span>
+          after calibrating, take a normal swing. A tour-quality swing should
+          read roughly 89° shoulder turn and 48° hip turn at the top of the
+          backswing. Numbers wildly off (10°, or 200°) mean something's
+          wrong — recapture.
+        </p>
+        <p className="text-xs">
+          Full guide:{' '}
+          <code className="bg-[#1A211D] px-1.5 py-0.5 rounded">
+            docs/guides/bay-camera-calibration-guide.md
+          </code>
+        </p>
+      </details>
+
+      {active && !capturing && (
+        <div className="rounded-xl border border-[#242C27] bg-[#0A0D0B] p-4 space-y-2">
+          <p className="text-sm text-[#E7EEE9]">
+            Active calibration: #{active.id} · {active.n_poses} poses ·{' '}
+            {active.reprojection_error.toFixed(2)}px reprojection error ·{' '}
+            {active.created_at}
+          </p>
+          <p className="text-xs text-[#8B978F]">
+            Recalibrate any time a camera gets bumped or moved — calibration
+            is a measurement of where the cameras are, so it goes stale the
+            moment they shift.
+          </p>
+          <StartButton onClick={onStart} starting={starting} label="Recalibrate" />
+          {startError && (
+            <p className="text-xs text-garage-red">{startError}</p>
+          )}
+        </div>
+      )}
 
       {(() => {
         const opts = cameras.length ? cameras
@@ -135,10 +249,27 @@ export function CalibrationCard() {
         <label className="text-xs text-[#8B978F]">Inner rows
           <input className="mt-1 w-full bg-[#0A0D0B] rounded p-2 text-[#E7EEE9]"
                  value={rows} onChange={(e) => setRows(e.target.value)} /></label>
-        <label className="text-xs text-[#8B978F]">Square (in)
+        <label className="text-xs text-[#8B978F]">Square size (mm)
           <input className="mt-1 w-full bg-[#0A0D0B] rounded p-2 text-[#E7EEE9]"
-                 value={squareIn} onChange={(e) => setSquareIn(e.target.value)} /></label>
+                 value={squareMm} onChange={(e) => setSquareMm(e.target.value)} /></label>
       </div>
+
+      {/* Ship the board rather than making users find a matching one online: a
+          wrong square count or a scaled print is the most common calibration
+          failure. Generated to match the inner-corner counts above. */}
+      <a
+        href={`/api/calibration/checkerboard.svg?cols=${
+          (parseInt(cols || "9", 10) || 9) + 1}&rows=${
+          (parseInt(rows || "6", 10) || 6) + 1}&square_mm=25`}
+        target="_blank"
+        rel="noopener noreferrer"
+        className="inline-flex items-center gap-2 px-4 py-2 rounded-lg border
+                   border-[#242C27] bg-[#1A211D] text-[#E7EEE9] text-sm
+                   min-h-[44px] w-fit"
+      >
+        <Printer className="w-4 h-4 text-garage-green" />
+        Open printable checkerboard
+      </a>
 
       <label className="flex items-center gap-2 text-xs text-[#8B978F]">
         <input type="checkbox" checked={mono}
@@ -171,17 +302,29 @@ export function CalibrationCard() {
         </p>
       )}
 
-      <div className="flex gap-3">
-        {!capturing
-          ? <button onClick={onStart}
-              className="px-4 py-2 rounded-lg bg-[#79BC30] text-[#0A0D0B] font-medium">Start Capture</button>
-          : <button onClick={onStop}
-              className="px-4 py-2 rounded-lg bg-[#2A332C] text-[#E7EEE9]">Stop</button>}
-        <button onClick={onRun} disabled={goodPoses < minPoses}
-          className="px-4 py-2 rounded-lg bg-[#2A332C] text-[#E7EEE9] disabled:opacity-40">
-          Run Calibration</button>
-        <a href="/api/calibration/export"
-          className="px-4 py-2 rounded-lg bg-[#2A332C] text-[#E7EEE9]">Export</a>
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+        <div className="space-y-1">
+          <p className="text-xs font-semibold text-[#8B978F]">1. Capture poses</p>
+          <p className="text-[11px] text-[#8B978F]">
+            Starts recording checkerboard poses from the cameras.
+          </p>
+          {!capturing
+            ? <StartButton onClick={onStart} starting={starting} label="Start Capture" />
+            : <button onClick={onStop}
+                className="px-4 py-2 rounded-lg bg-[#2A332C] text-[#E7EEE9] min-h-[44px]">Stop</button>}
+          {startError && !capturing && (
+            <p className="text-xs text-garage-red">{startError}</p>
+          )}
+        </div>
+        <div className="space-y-1">
+          <p className="text-xs font-semibold text-[#8B978F]">2. Calculate calibration</p>
+          <p className="text-[11px] text-[#8B978F]">
+            Computes the result from the poses just captured (needs {minPoses}+ good poses).
+          </p>
+          <button onClick={onRun} disabled={goodPoses < minPoses}
+            className="px-4 py-2 rounded-lg bg-[#2A332C] text-[#E7EEE9] disabled:opacity-40 min-h-[44px]">
+            Run Calibration</button>
+        </div>
       </div>
 
       {result && (
@@ -191,12 +334,6 @@ export function CalibrationCard() {
             : `✗ ${result.error}`}
         </div>
       )}
-      {active && (
-        <div className="text-xs text-[#8B978F]">
-          Active: #{active.id} · {active.n_poses} poses · {active.reprojection_error.toFixed(2)}px · {active.created_at}
-        </div>
-      )}
-
       {/* History list */}
       <div className="space-y-2">
         <h3 className="text-sm font-medium text-[#8B978F]">History</h3>

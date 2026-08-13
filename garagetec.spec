@@ -32,6 +32,9 @@ for pkg in ('mediapipe', 'onnxruntime', 'cv2', 'webview'):
 hiddenimports += [
     'anthropic',              # coach.backend.make_backend("cloud")
     'vision.pose_rtm',        # vision.make_pose_estimator factory (lazy)
+    'socketio',                # python-socketio client (OpenFlight enrichment)
+    'engineio',
+    'engineio.async_drivers.threading',
     # pywebview Windows backend (loaded by name at runtime) + pythonnet bridge.
     'webview.platforms.winforms',
     'webview.platforms.edgechromium',

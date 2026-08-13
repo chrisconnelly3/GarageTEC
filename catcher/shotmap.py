@@ -2,13 +2,22 @@
 
 No I/O, no DB, no tkinter. Distinguishes shots from heartbeats. Stores whatever
 ball/club fields arrive plus the full original message in raw_json; no field is
-assumed mandatory (the R50 may send ball-only or include club data).
+assumed mandatory (a monitor may send ball-only or include club data).
+
+Two wire quirks are normalized here so the rest of the app never sees a fake
+number:
+  * ShotDataOptions.ContainsClubData == False -> the ClubData block is padding
+    and is ignored wholesale.
+  * Devices that pad absent numerics with 0.0 (see catcher.trust device
+    profiles) have those specific zeros mapped to None. Permissive devices such
+    as the R50 keep their zeros, because a measured angle can legitimately be 0.
 """
 import json
 from typing import Optional
 
 from store import db as dbmod
 from store.models import Shot
+from catcher import trust
 
 
 def is_heartbeat(obj: dict) -> bool:
@@ -35,8 +44,15 @@ def map_message(obj: dict) -> Optional[Shot]:
     if is_heartbeat(obj):
         return None
 
+    device_id = obj.get("DeviceID")
+    profile = trust.profile_for(device_id)
+
     ball = obj.get("BallData") or {}
+    sdo = obj.get("ShotDataOptions") or {}
+    # Absent flag means "legacy device, trust the block" (the R50 sends no flag).
     club = obj.get("ClubData") or {}
+    if sdo.get("ContainsClubData") is False:
+        club = {}
 
     shot_number = obj.get("ShotNumber")
     if shot_number is not None:
@@ -45,19 +61,25 @@ def map_message(obj: dict) -> Optional[Shot]:
         except (TypeError, ValueError):
             shot_number = None
 
+    def field(value, name):
+        """Null out a padded zero for devices known to pad that field."""
+        if value == 0.0 and name in profile.zero_means_absent:
+            return None
+        return value
+
     return Shot(
         captured_at=dbmod.now_iso(),
-        device_id=obj.get("DeviceID"),
+        device_id=device_id,
         shot_number=shot_number,
         ball_speed=_num(ball, "Speed"),
         total_spin=_num(ball, "TotalSpin"),
-        spin_axis=_num(ball, "SpinAxis"),
-        hla=_num(ball, "HLA"),
+        spin_axis=field(_num(ball, "SpinAxis"), "spin_axis"),
+        hla=field(_num(ball, "HLA"), "hla"),
         vla=_num(ball, "VLA"),
         carry=_num(ball, "CarryDistance"),
         club_speed=_num(club, "Speed"),
-        attack_angle=_num(club, "AngleOfAttack"),
+        attack_angle=field(_num(club, "AngleOfAttack"), "attack_angle"),
         club_path=_num(club, "Path"),
-        face_to_target=_num(club, "FaceToTarget"),
+        face_to_target=field(_num(club, "FaceToTarget"), "face_to_target"),
         raw_json=json.dumps(obj),
     )

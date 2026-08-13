@@ -1,3 +1,4 @@
+import socket
 from dataclasses import asdict
 
 from fastapi import APIRouter, Depends, HTTPException
@@ -101,3 +102,44 @@ def clubs():
 def active_club(body: ActiveClubIn, sup=Depends(get_supervisor)):
     sup.set_active_club(body.club)
     return _status_dict(sup)
+
+
+def _lan_ip() -> str:
+    """Best-effort LAN IP this PC is reachable at from another machine on the
+    network. No traffic is sent: connecting a UDP socket just makes the OS
+    pick the local address for that route. Falls back to loopback on error."""
+    s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+    try:
+        s.connect(("8.8.8.8", 80))
+        return s.getsockname()[0]
+    except OSError:
+        return "127.0.0.1"
+    finally:
+        s.close()
+
+
+@router.get("/setup-info")
+def setup_info(conn=Depends(get_conn)):
+    """Ready-to-paste OpenFlight connector config for this PC. OpenFlight has
+    no remote config API, so this is copy-paste text for config/sim.json on
+    the Pi rather than something GarageTEC can push."""
+    lan_ip = _lan_ip()
+    port = repo.get_settings(conn)["port"]
+    return {
+        "lan_ip": lan_ip,
+        "port": port,
+        "openflight_connector": {
+            "connectors": [
+                {
+                    "type": "gspro",
+                    "enabled": True,
+                    "host": lan_ip,
+                    "port": port,
+                    # Literal "OpenFlight" required: GarageTEC matches on this
+                    # exact device_id to apply OpenFlight-specific trust
+                    # handling for incoming shots.
+                    "device_id": "OpenFlight",
+                }
+            ]
+        },
+    }

@@ -121,3 +121,52 @@ def test_swing_detail_benchmark_shape_zone_state_direction_hla(client, conn):
     assert all("state" in r and "direction" in r for r in body["benchmarks"])
     assert all("zone" in r and "direction" in r for r in body["ball_benchmarks"])
     assert any(r["key"] == "hla" for r in body["ball_raw"])
+
+
+def test_swing_detail_includes_trust_tiers(client, conn):
+    from store import repo
+    from store.models import Shot
+    import json as _json
+
+    player = seed_player(conn, "T")
+    sid = repo.create_session(conn, player.id).id
+    swing = repo.add_swing(conn, sid, player.id, "v.mp4")
+    shot = repo.save_shot(conn, Shot(captured_at="2026-08-10T00:00:00+00:00",
+                                     player_id=player.id, session_id=sid,
+                                     ball_speed=148.2, vla=13.8,
+                                     enrichment_json=_json.dumps({
+                                         "ball_speed_mph": 148.2,
+                                         "launch_angle_vertical": 13.8,
+                                         "launch_angle_vertical_confidence": 0.2,
+                                     })))
+    repo.link_shot_to_swing(conn, shot.id, swing.id)
+
+    body = client.get(f"/api/swings/{swing.id}").json()
+    assert body["trust"]["ball_speed"] == "measured"
+    assert body["trust"]["vla"] == "estimated"      # confidence below the bar
+
+
+def test_swing_detail_trust_present_without_enrichment(client, conn):
+    p = seed_player(conn, "U")
+    swing = seed_ready_swing(conn, p)
+    body = client.get(f"/api/swings/{swing.id}").json()
+    body_trust = body["trust"]
+    assert body_trust["ball_speed"] == "measured"
+    # Not an OpenFlight shot, so the R50-like default trusts what it reports.
+    assert body_trust["attack_angle"] == "measured"
+
+
+def test_swing_detail_trust_conservative_for_openflight_without_enrichment(client, conn):
+    from store import repo
+    from store.models import Shot
+
+    p = seed_player(conn, "V")
+    sid = repo.create_session(conn, p.id).id
+    swing = repo.add_swing(conn, sid, p.id, "v.mp4")
+    shot = repo.save_shot(conn, Shot(captured_at="2026-08-10T00:00:00+00:00",
+                                     player_id=p.id, session_id=sid,
+                                     ball_speed=148.2, device_id="OpenFlight"))
+    repo.link_shot_to_swing(conn, shot.id, swing.id)
+
+    body = client.get(f"/api/swings/{swing.id}").json()
+    assert body["trust"]["total_spin"] == "estimated"

@@ -3,7 +3,7 @@ import type {
   CaptureStatus, ActivePlayerIn, Settings, PlayerWithCounts, SwingSummary,
   CalibrationStartIn, CalibrationStatus, CalibrationResult, ActiveCalibration,
   CalibrationHistoryItem, CameraInfo, BallHistory, SessionStats,
-  LiveCaptureStartIn, LiveCaptureStatus,
+  LiveCaptureStartIn, LiveCaptureStatus, SetupInfo,
 } from "./types";
 
 async function getJSON<T>(url: string): Promise<T> {
@@ -27,7 +27,12 @@ async function putJSON<T>(url: string, body: unknown): Promise<T> {
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(body),
   });
-  if (!r.ok) throw new Error(`${r.status} ${url}`);
+  if (!r.ok) {
+    // Surface the backend's validation message (e.g. "that does not look
+    // like an Anthropic API key") instead of a bare status code.
+    const detail = await r.json().catch(() => null);
+    throw new Error(detail?.detail || `${r.status} ${url}`);
+  }
   return r.json() as Promise<T>;
 }
 
@@ -74,6 +79,7 @@ export const endSession = () => postJSON<CaptureStatus>("/api/capture/end-sessio
 
 export const getSettings = () => getJSON<Settings>("/api/settings");
 export const putSettings = (s: Partial<Settings>) => putJSON<Settings>("/api/settings", s);
+export const getSetupInfo = () => getJSON<SetupInfo>("/api/capture/setup-info");
 
 export const getSwings = (player?: number, session?: number, limit = 50) => {
   const qs = new URLSearchParams();

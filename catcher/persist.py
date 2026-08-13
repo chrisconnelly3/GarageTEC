@@ -19,7 +19,7 @@ _BUFFER_FIELDS = [
     "captured_at", "player_id", "session_id", "device_id", "shot_number",
     "ball_speed", "total_spin", "spin_axis", "hla", "vla", "carry",
     "club_speed", "attack_angle", "club_path", "face_to_target", "club",
-    "raw_json",
+    "raw_json", "enrichment_json",
 ]
 
 

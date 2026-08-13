@@ -23,7 +23,8 @@ PORT_DEFAULT = 921  # GSPro Open Connect default port
 class OpenConnectListener:
     def __init__(self, port: int = PORT_DEFAULT,
                  on_message: Optional[Callable[[dict, str], None]] = None,
-                 *, handedness: str = "RH", probe_ip: Optional[str] = None,
+                 *, handedness: str = "RH", club: str = "DR",
+                 probe_ip: Optional[str] = None,
                  on_status: Optional[Callable[[str, str], None]] = None):
         self.port = port
         self.on_message = on_message or (lambda obj, source: None)
@@ -35,6 +36,8 @@ class OpenConnectListener:
         self.is_listening = False
         self._server_sock = None
         self._threads = []
+        self._conns = []        # live sockets, for mid-connection Player pushes
+        self.club = club        # GSPro club code: seeded here, updated by send_player_update
 
     # ---- lifecycle --------------------------------------------------------
     def start(self):
@@ -63,6 +66,24 @@ class OpenConnectListener:
         """Update handedness for the NEXT handshake (active-player switch)."""
         self.handedness = handedness
 
+    def send_player_update(self, *, club: Optional[str] = None,
+                           handedness: Optional[str] = None):
+        """Push a Player message to every live connection.
+
+        OpenConnect carries player state on a 201, so a club change is just
+        another 201. Monitors that estimate unmeasured fields per club (e.g.
+        OpenFlight) need this to pick the right model. Best-effort: a dead
+        socket is skipped, never raised.
+        """
+        if club is not None:
+            self.club = club
+        if handedness is not None:
+            self.handedness = handedness
+        payload = {"Code": 201, "Message": "SUCCESS",
+                   "Player": {"Handed": self.handedness, "Club": self.club}}
+        for sock in list(self._conns):
+            self._send(sock, payload)
+
     # ---- protocol ---------------------------------------------------------
     def _send(self, sock, obj):
         try:
@@ -72,8 +93,10 @@ class OpenConnectListener:
 
     def _handle_conn(self, sock, source):
         self.on_status("connected", source)
+        self._conns.append(sock)
         self._send(sock, {"Code": 201, "Message": "SUCCESS",
-                          "Player": {"Handed": self.handedness, "Club": "DR"}})
+                          "Player": {"Handed": self.handedness,
+                                     "Club": self.club}})
         buf = ""
         dec = json.JSONDecoder()
         sock.settimeout(1.0)
@@ -105,6 +128,10 @@ class OpenConnectListener:
                         pass
                     self._send(sock, {"Code": 200, "Message": "OK"})
         finally:
+            try:
+                self._conns.remove(sock)
+            except ValueError:
+                pass
             try:
                 sock.close()
             except OSError:

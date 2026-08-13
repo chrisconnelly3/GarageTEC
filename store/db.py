@@ -47,6 +47,7 @@ def init_db(path=None, conn=None):
     # lightweight migrations for columns added to pre-existing tables
     _add_column_if_missing(conn, "shot", "club", "TEXT")
     _add_column_if_missing(conn, "shot", "dedupe_key", "TEXT")
+    _add_column_if_missing(conn, "shot", "enrichment_json", "TEXT")
     conn.execute(
         "CREATE UNIQUE INDEX IF NOT EXISTS ix_shot_dedupe "
         "ON shot(dedupe_key) WHERE dedupe_key IS NOT NULL"

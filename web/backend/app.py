@@ -29,6 +29,24 @@ def _load_dotenv() -> None:
 
 _load_dotenv()
 
+
+def _load_api_key_setting() -> None:
+    """Fall back to the DB-stored Anthropic key if the environment doesn't
+    already have one (env still wins, same precedence as _load_dotenv).
+    Wrapped in try/except so a missing/locked DB can never stop the app
+    booting."""
+    if os.environ.get("ANTHROPIC_API_KEY"):
+        return
+    try:
+        from store import db as dbmod, repo
+        conn = dbmod.connect()
+        key = repo.get_settings(conn)["anthropic_api_key"]
+        if key:
+            os.environ["ANTHROPIC_API_KEY"] = key
+    except Exception:
+        pass
+
+
 from web.backend import (
     api_players, api_sessions, api_swings, api_history, api_sync, api_capture,
     api_settings, api_calibration, api_live_capture, events, media, deps,
@@ -55,6 +73,7 @@ async def lifespan(app):
 
 
 def create_app() -> FastAPI:
+    _load_api_key_setting()
     app = FastAPI(title="GarageTEC Screen", lifespan=lifespan)
 
     @app.get("/api/health")

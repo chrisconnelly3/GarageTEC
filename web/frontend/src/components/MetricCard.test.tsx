@@ -68,3 +68,27 @@ describe("MetricCard", () => {
     expect(value.className).toContain("text-3xl");
   });
 });
+
+describe("MetricCard estimated marker", () => {
+  const base = {
+    label: "Spin Rate", value: 2500, unit: "rpm",
+    target: 2686, delta: -186, zone: "red" as const, state: "ok" as const,
+    trend: { delta: 0, towardPro: null },
+  };
+
+  it("marks an estimated value", () => {
+    render(<MetricCard {...base} monitorEstimated />);
+    expect(screen.getByTitle(/estimated by the launch monitor/i)).toBeInTheDocument();
+  });
+
+  it("suppresses the zone dot when estimated", () => {
+    const { container } = render(<MetricCard {...base} monitorEstimated />);
+    expect(container.querySelector(".bg-garage-red")).toBeNull();
+  });
+
+  it("shows no marker and keeps the zone for a measured value", () => {
+    const { container } = render(<MetricCard {...base} />);
+    expect(screen.queryByTitle(/estimated by the launch monitor/i)).toBeNull();
+    expect(container.querySelector(".bg-garage-red")).not.toBeNull();
+  });
+});

@@ -3,7 +3,7 @@ import asyncio
 import json
 
 from fastapi import APIRouter, Depends, Request
-from fastapi.responses import StreamingResponse, JSONResponse
+from fastapi.responses import StreamingResponse, JSONResponse, Response
 from pydantic import BaseModel
 
 from store import repo
@@ -78,13 +78,56 @@ def activate(cal_id: int, conn=Depends(get_conn)):
     return {"ok": True}
 
 
-@router.get("/export")
-def export(conn=Depends(get_conn)):
-    c = repo.get_active_calibration(conn)
-    if c is None:
-        return JSONResponse(status_code=404, content={"error": "no active calibration"})
-    return JSONResponse(content=json.loads(c.calib_json),
-                        headers={"Content-Disposition": "attachment; filename=bay_calib.json"})
+@router.get("/checkerboard.svg")
+def checkerboard(square_mm: float = 25.0, cols: int = 10, rows: int = 7):
+    """A print-ready calibration checkerboard, sized in real millimetres.
+
+    Shipping this removes the most common calibration failure: users download an
+    arbitrary board off the internet whose square count does not match what the
+    app expects, or print it scaled so every measurement is wrong. SVG is used
+    rather than PNG because physical `mm` units print at true size.
+
+    `cols`/`rows` are SQUARE counts; OpenCV counts INNER CORNERS, which is one
+    less in each direction (10x7 squares -> 9x6 corners, the app's default).
+    """
+    square_mm = min(max(square_mm, 5.0), 60.0)
+    cols = min(max(cols, 3), 20)
+    rows = min(max(rows, 3), 20)
+
+    # A white quiet zone around the board is required for reliable corner
+    # detection; without it OpenCV can miss the outer row entirely.
+    margin = 10.0
+    board_w, board_h = cols * square_mm, rows * square_mm
+    label_h = 12.0
+    w, h = board_w + 2 * margin, board_h + 2 * margin + label_h
+
+    squares = []
+    for r in range(rows):
+        for c in range(cols):
+            if (r + c) % 2 == 0:
+                continue  # leave white
+            x = margin + c * square_mm
+            y = margin + r * square_mm
+            squares.append(
+                f'<rect x="{x:.3f}" y="{y:.3f}" width="{square_mm:.3f}" '
+                f'height="{square_mm:.3f}" fill="#000"/>')
+
+    inner = f"{cols - 1} x {rows - 1}"
+    label_y = margin + board_h + 8.0
+    svg = (
+        f'<svg xmlns="http://www.w3.org/2000/svg" width="{w:.3f}mm" '
+        f'height="{h:.3f}mm" viewBox="0 0 {w:.3f} {h:.3f}">'
+        f'<rect width="{w:.3f}" height="{h:.3f}" fill="#fff"/>'
+        + "".join(squares)
+        + f'<text x="{margin:.3f}" y="{label_y:.3f}" font-family="sans-serif" '
+          f'font-size="4" fill="#000">'
+          f'GarageTEC calibration board &#8212; {square_mm:g} mm squares, '
+          f'{inner} inner corners. Print LANDSCAPE at 100% / Actual Size (NOT '
+          f'&#8220;fit to page&#8221;), then measure one square with a ruler and '
+          f'enter that number as Square size (mm) in the app.'
+        f'</text></svg>'
+    )
+    return Response(content=svg, media_type="image/svg+xml")
 
 
 def _sse(event, data):

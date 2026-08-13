@@ -70,4 +70,23 @@ describe("CalibrationCard", () => {
     });
     expect(api.runCalibration).not.toHaveBeenCalled();
   });
+  it("has no Export control", async () => {
+    render(<CalibrationCard />);
+    expect(screen.queryByText(/Export/i)).toBeNull();
+  });
+  it("shows a Recalibrate affordance when an active calibration exists", async () => {
+    const api = await import("../lib/api");
+    vi.mocked(api.getActiveCalibration).mockResolvedValueOnce({
+      id: 3, created_at: "2025-01-01T00:00:00", n_poses: 22,
+      reprojection_error: 0.42, cols: 9, rows: 6, device_index: 0,
+    });
+    render(<CalibrationCard />);
+    await waitFor(() =>
+      expect(screen.getByRole("button", { name: /Recalibrate/i })).toBeTruthy());
+  });
+  it("does not show Recalibrate when there is no active calibration", async () => {
+    render(<CalibrationCard />);
+    await waitFor(() => expect(screen.getByText(/Camera Calibration/i)).toBeTruthy());
+    expect(screen.queryByRole("button", { name: /Recalibrate/i })).toBeNull();
+  });
 });

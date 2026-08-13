@@ -42,6 +42,36 @@ def _ensure_data_dir() -> str:
     return base
 
 
+def _load_env_file(data_dir: str) -> None:
+    """Load KEY=VALUE pairs from a .env the USER can actually reach.
+
+    web.backend.app also reads a .env, but it resolves it relative to the source
+    tree — which inside a frozen exe points into the read-only PyInstaller
+    bundle, so a packaged user has nowhere to put one. Look in the two places a
+    real user would: their data folder (survives reinstalls) and next to the exe
+    (portable). Existing environment variables always win, and we set the vars
+    before importing the app so its own loader is a no-op.
+    """
+    candidates = [Path(data_dir) / ".env"]
+    if getattr(sys, "frozen", False):
+        candidates.append(Path(sys.executable).parent / ".env")
+    else:
+        candidates.append(Path(__file__).resolve().parent / ".env")
+
+    for path in candidates:
+        if not path.is_file():
+            continue
+        for line in path.read_text(encoding="utf-8").splitlines():
+            line = line.strip()
+            if not line or line.startswith("#") or "=" not in line:
+                continue
+            key, value = line.split("=", 1)
+            key = key.strip()
+            if not os.environ.get(key):
+                os.environ[key] = value.strip()
+        print(f"  loaded settings from {path}")
+
+
 def _pick_port(preferred: int = PREFERRED_PORT) -> int:
     """Use the preferred port when free; otherwise grab any free ephemeral port.
     Prevents the old failure mode where a busy port left the app silently
@@ -86,6 +116,9 @@ def _wait_for_server(url: str, timeout: float = 40.0) -> bool:
 
 def main() -> None:
     data_dir = _ensure_data_dir()
+    # Must run BEFORE web.backend.app is imported: its own loader only fills
+    # variables that are still unset, so whatever we set here wins.
+    _load_env_file(data_dir)
 
     # Create the schema on first run (idempotent).
     from store import db as dbmod

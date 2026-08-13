@@ -96,3 +96,17 @@ already runs RTMPose; the metric pipeline still defaults to MediaPipe (`vision/c
    the reprojected 3D landmarks (the metric pipeline already triangulates) instead of raw
    per-view 2D. Until then, expect the top-of-swing arms to look imperfect on single-view
    playback — this is known and accepted, not a regression.
+6. **OpenFlight enrichment: which shot wins a same-speed record.** Ball speed is the ONLY
+   correlation key between OpenFlight's two channels (the OpenConnect wire shot and its
+   Socket.IO enrichment record), so two shots with the same rounded ball speed inside the
+   5 s window are indistinguishable to a record. Two claim paths exist and they use
+   different heuristics: the pre-INSERT claim in `handle_message` attaches a buffered record
+   to the CURRENT shot, while the late/re-poll path (`_attach_to_recent_shot`) attaches it to
+   the OLDEST un-enriched same-speed shot (FIFO). FIFO is the deliberate choice: both channels
+   emit in shot order, so a merely delayed enrichment stream still pairs correctly. The known
+   reachable case is a same-speed shot within 5 s that is still un-enriched when the next
+   shot's record lands mid-INSERT — the earlier shot takes it and the later one gets none.
+   **In the bay:** hit deliberate back-to-back shots at near-identical ball speed and confirm
+   the "est." markers and per-field provenance land on the right shots. If they do not, the
+   fix is a stronger correlation key (e.g. have OpenFlight's `ShotNumber` carried on both
+   channels) rather than tuning the window.

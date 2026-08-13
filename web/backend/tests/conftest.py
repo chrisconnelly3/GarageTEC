@@ -12,12 +12,34 @@ from web.backend import deps
 from web.backend.capture import CaptureEventBus, CaptureSupervisor
 
 
+class FakeEnrichClient:
+    """No-socket stand-in for OpenFlightEnrichClient used across web tests."""
+    def __init__(self, host, **kwargs):
+        self.host = host
+        self.kwargs = kwargs
+        self.started = False
+
+    def start(self):
+        self.started = True
+
+    def stop(self):
+        self.started = False
+
+    def is_connected(self):
+        return False
+
+
 class FakeListener:
     """No-socket stand-in for OpenConnectListener used across web tests."""
     def __init__(self, **kwargs):
         self.kwargs = kwargs
         self.alive = False
         self.hand = kwargs.get("handedness")
+        self.club = kwargs.get("club")
+        # Every club pushed mid-connection, in order. Without this method the
+        # supervisor's push would raise AttributeError into its best-effort
+        # except and the push path would silently go untested.
+        self.pushed_clubs = []
 
     def start(self):
         self.alive = True
@@ -27,6 +49,13 @@ class FakeListener:
 
     def set_handedness(self, h):
         self.hand = h
+
+    def send_player_update(self, *, club=None, handedness=None):
+        if club is not None:
+            self.club = club
+            self.pushed_clubs.append(club)
+        if handedness is not None:
+            self.hand = handedness
 
 
 @pytest.fixture
@@ -51,6 +80,9 @@ def supervisor(conn, bus, tmp_path):
     sup = CaptureSupervisor(
         conn=conn, bus=bus,
         listener_factory=lambda **kw: FakeListener(**kw),
+        # Never let a test dial a real OpenFlight host: an OpenFlight-device
+        # message would otherwise start a live, reconnecting Socket.IO client.
+        enrich_client_factory=lambda host, **kw: FakeEnrichClient(host, **kw),
         buffer_path=str(tmp_path / "pending_shots.jsonl"),
         restart_poll_s=0.02)
     yield sup

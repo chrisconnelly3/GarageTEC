@@ -5,17 +5,34 @@ publishes; the SSE request coroutine drains). CaptureSupervisor (added in the
 next task) owns the OpenConnectListener and turns parsed messages into persisted,
 synced, broadcast shots.
 """
+import json
 import threading
+import time
 from dataclasses import dataclass
 from typing import Callable, Optional
 
 from catcher import shotmap
+from catcher.enrich_buffer import EnrichBuffer, SPEED_TOLERANCE
 from catcher.openconnect import OpenConnectListener, PORT_DEFAULT
+from catcher.openflight_enrich import OpenFlightEnrichClient
 from catcher.persist import ShotPersister
 from catcher.sessionmgr import SessionManager
 from store import db as dbmod
 from store import repo
 from sync.service import SyncService
+
+
+# How long a persisted shot stays eligible for late enrichment.
+_ENRICH_WINDOW_S = 5.0
+
+
+@dataclass
+class _RecentShot:
+    """A persisted shot still eligible for late enrichment."""
+    shot_id: int
+    ball_speed: float
+    ts: float
+    enriched: bool = False
 
 
 class CaptureEventBus:
@@ -48,11 +65,21 @@ class CaptureStatus:
     last_error: Optional[str]
     session_active: bool             # is a recording session open + gating ON
     active_session_id: Optional[int] # id of the session shots attribute to
+    enrichment_status: str = "idle"
+    openflight_host: Optional[str] = None
 
 
 class NoActivePlayerError(ValueError):
     """Raised by start_session() when no player is selected. The API maps this
     to HTTP 409 (cannot start recording without someone to attribute shots to)."""
+
+
+# GarageTEC club names -> GSPro Open Connect club codes.
+_GSPRO_CLUB_CODES = {
+    "Driver": "DR", "3 Wood": "W3", "5 Wood": "W5", "Hybrid": "H3",
+    "3 Iron": "I3", "4 Iron": "I4", "5 Iron": "I5", "6 Iron": "I6",
+    "7 Iron": "I7", "8 Iron": "I8", "9 Iron": "I9", "PW": "PW",
+}
 
 
 def _default_listener_factory(**kwargs):
@@ -73,10 +100,12 @@ class CaptureSupervisor:
     def __init__(self, *, conn, bus, listener_factory: Callable = _default_listener_factory,
                  port: int = PORT_DEFAULT, idle_minutes: int = 15,
                  probe_ip: Optional[str] = None, buffer_path: Optional[str] = None,
-                 restart_poll_s: float = 1.0, live_capture=None):
+                 restart_poll_s: float = 1.0, live_capture=None,
+                 enrich_client_factory: Callable = OpenFlightEnrichClient):
         self.conn = conn
         self.bus = bus
         self._listener_factory = listener_factory
+        self._enrich_client_factory = enrich_client_factory
         # Optional LiveCaptureSupervisor: when set, a persisted shot auto-triggers
         # a buffered-clip capture that pairs back to this shot. Low-coupling: the
         # live engine just needs an on_shot(player_id, session_id, shot_id) method.
@@ -99,6 +128,14 @@ class CaptureSupervisor:
         self._status = "stopped"
         self._connected = False
         self._shot_count = 0
+        # OpenFlight enrichment: additive, discovered from the inbound connection.
+        self._enrich_buffer = EnrichBuffer()
+        self._enrich_client = None
+        self._enrich_lock = threading.Lock()
+        # Recently persisted shots still eligible for late enrichment.
+        self._recent_shots: list = []
+        self.openflight_host = None
+        self.enrichment_status = "idle"
         self.active_club = None          # set via the Live club selector
         self._last_error = None
         self._listener = None
@@ -106,11 +143,106 @@ class CaptureSupervisor:
         self._restarting = False         # guard against double-spawn in restart()
         self._supervisor_thread = None
 
+    def on_enrichment(self, record: dict):
+        """Callback for the OpenFlight enrichment client.
+
+        Correlation is bidirectional because the channels race: OpenFlight emits
+        its Socket.IO event and sends the OpenConnect payload from the same
+        handler, so either can arrive first.
+          * enrichment first -> buffer it for handle_message() to claim
+          * shot first       -> attach it to the row we just persisted
+        """
+        if self._attach_to_recent_shot(record.get("ball_speed_mph"), record):
+            return
+        self._enrich_buffer.add_enrichment(record)
+
+    def _attach_to_recent_shot(self, ball_speed, record) -> bool:
+        """Attach `record` to a recent, not-yet-enriched shot. Returns whether
+        the record was CLAIMED (matched to a shot slot) — not whether the DB
+        write succeeded. A failed write still forfeits the record (the slot
+        stays marked enriched, no retry): if we returned False here instead,
+        on_enrichment() would re-buffer the record and it would drift onto a
+        later, unrelated shot."""
+        try:
+            target = float(ball_speed)
+        except (TypeError, ValueError):
+            return False
+        cutoff = time.monotonic() - _ENRICH_WINDOW_S
+        # Both channels emit in shot order, so the oldest eligible slot is the
+        # right pairing (FIFO) — matches EnrichBuffer.take_for. Scanning
+        # newest-first (reversed) would pair a late enrichment to the wrong
+        # shot whenever two same-speed shots are pending at once.
+        with self._enrich_lock:
+            for entry in self._recent_shots:
+                if entry.enriched or entry.ts < cutoff:
+                    continue
+                if abs(entry.ball_speed - target) <= SPEED_TOLERANCE:
+                    entry.enriched = True
+                    shot_id = entry.shot_id
+                    break
+            else:
+                return False
+        try:
+            # Writes through the supervisor's own connection from the
+            # Socket.IO client thread; safe because deps.py opens it with
+            # check_same_thread=False, but it departs from the "fresh
+            # connection per thread" convention documented in live_capture.py.
+            repo.set_shot_enrichment(self.conn, shot_id, json.dumps(record))
+        except Exception:
+            pass  # enrichment must never break ingest; slot stays claimed
+        return True
+
+    def _note_recent_shot(self, shot):
+        """Make a persisted shot eligible for late enrichment."""
+        if shot.ball_speed is None:
+            return
+        now = time.monotonic()
+        with self._enrich_lock:
+            self._recent_shots = [e for e in self._recent_shots
+                                  if e.ts >= now - _ENRICH_WINDOW_S]
+            self._recent_shots.append(
+                _RecentShot(shot.id, float(shot.ball_speed), now))
+
+    def note_source(self, device_id, source: str):
+        """Learn the OpenFlight host from the connection it opened to us, and
+        start the enrichment client the first time we see that device.
+
+        `source` is "ip:port" for inbound connections or "PROBE->ip:port" for the
+        outbound probe path.
+        """
+        if device_id != "OpenFlight" or not source:
+            return
+        addr = source.split("->")[-1]
+        host = addr.rsplit(":", 1)[0].strip()
+        if not host:
+            return
+        # Check-and-set under the lock: the listener is thread-per-connection,
+        # so two threads could otherwise both see openflight_host is None and
+        # each start a client, orphaning one.
+        with self._enrich_lock:
+            if host == self.openflight_host:
+                return
+            self.openflight_host = host
+        self._start_enrichment(host)
+
+    def _start_enrichment(self, host: str):
+        if self._enrich_client is not None:
+            self._enrich_client.stop()
+
+        def _status(state, detail):
+            self.enrichment_status = state
+            self.bus.publish("enrichment_status", {"state": state, "detail": detail})
+
+        self._enrich_client = self._enrich_client_factory(
+            host, on_enrichment=self.on_enrichment, on_status=_status)
+        self._enrich_client.start()
+
     # ---- core (directly tested, no socket) -------------------------------
     def handle_message(self, obj: dict, source: str = ""):
         shot = shotmap.map_message(obj)
         if shot is None:
             return None  # heartbeat
+        self.note_source(shot.device_id, source)
         if not self._recording or self._active_session_id is None:
             # No active recording session: the listener stays connected but the
             # shot is dropped (not persisted, not buffered). Recording is gated
@@ -136,9 +268,20 @@ class CaptureSupervisor:
         if not shot.captured_at:
             shot.captured_at = dbmod.now_iso()
         shot.club = self.active_club     # tag with the currently-selected club
+        enrichment = self._enrich_buffer.take_for(shot.ball_speed)
+        if enrichment is not None:
+            shot.enrichment_json = json.dumps(enrichment)
         saved = self.persister.save(self.conn, shot)
         if saved is None:
             return None  # buffered on DB failure; nothing to sync/emit yet
+        if saved.enrichment_json is None:
+            self._note_recent_shot(saved)
+            # Close the take_for/_note_recent_shot window: an enrichment that
+            # landed during the INSERT is buffered but was claimable by neither
+            # path. Re-poll AFTER registering, or the gap just moves.
+            late = self._enrich_buffer.take_for(saved.ball_speed)
+            if late is not None:
+                self._attach_to_recent_shot(saved.ball_speed, late)
         with self._lock:
             self._shot_count += 1
         try:
@@ -181,6 +324,15 @@ class CaptureSupervisor:
         """The Live club selector sets which club is being hit; every subsequent
         shot is tagged with it (so the 'vs tour' ball comparison is per-club)."""
         self.active_club = club or None
+        # Only push a club the user actually chose. On DESELECT we deliberately
+        # leave the monitor on its last real club rather than pushing the "DR"
+        # fallback: monitors that model unmeasured fields per club (OpenFlight)
+        # would then apply driver constants to a wedge. Stale beats fabricated.
+        if self.active_club and self._listener is not None:
+            try:
+                self._listener.send_player_update(club=self._club_code())
+            except Exception:
+                pass  # pushing club is best-effort; never block the UI
         self.bus.publish("active_club_changed", {"club": self.active_club})
         return self.active_club
 
@@ -197,7 +349,9 @@ class CaptureSupervisor:
                 active_club=self.active_club,
                 last_error=self._last_error,
                 session_active=self._recording,
-                active_session_id=self._active_session_id)
+                active_session_id=self._active_session_id,
+                enrichment_status=self.enrichment_status,
+                openflight_host=self.openflight_host)
 
     # ---- session recording gate ------------------------------------------
     def start_session(self) -> CaptureStatus:
@@ -262,6 +416,10 @@ class CaptureSupervisor:
         self._listener = None
         self._status = "stopped"
         self._connected = False
+        if self._enrich_client is not None:
+            self._enrich_client.stop()
+            self._enrich_client = None
+        self.openflight_host = None
 
     def restart(self):
         with self._lock:
@@ -277,13 +435,17 @@ class CaptureSupervisor:
     def _spawn_listener(self):
         self._listener = self._listener_factory(
             port=self.port, on_message=self.handle_message,
-            handedness=self._handedness(), probe_ip=self.probe_ip,
-            on_status=self._on_status)
+            handedness=self._handedness(), club=self._club_code(),
+            probe_ip=self.probe_ip, on_status=self._on_status)
         self._listener.start()
 
     def _handedness(self):
         ap = self.session_mgr.active_player
         return "LH" if (ap and ap.handedness == "L") else "RH"
+
+    def _club_code(self):
+        """GSPro club code for the active club; driver when nothing is selected."""
+        return _GSPRO_CLUB_CODES.get(self.active_club or "", "DR")
 
     def _listener_alive(self):
         lst = self._listener

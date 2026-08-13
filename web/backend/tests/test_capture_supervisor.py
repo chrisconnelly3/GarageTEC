@@ -363,6 +363,13 @@ def test_active_club_tags_shots_and_status(conn, tmp_path):
     assert "active_club_changed" in [e["event"] for e in bus.drain()]
 
 
+def test_respawned_listener_carries_the_current_club(supervisor):
+    """Regression: a club selected before the monitor connects must survive a respawn."""
+    supervisor.set_active_club("7 Iron")
+    supervisor._spawn_listener()
+    assert supervisor._listener.kwargs["club"] == "I7"
+
+
 # ---- Fix 3: restart() must not double-spawn under supervise race ----------
 
 def test_restart_does_not_double_spawn_under_supervise_race(conn, tmp_path):
@@ -395,3 +402,15 @@ def test_restart_does_not_double_spawn_under_supervise_race(conn, tmp_path):
     # After flag cleared, a dead listener SHOULD be restarted normally.
     assert _wait(lambda: len(made) == 2 and made[1].alive)
     sup.stop()
+
+
+def test_deselecting_club_does_not_push_driver(supervisor):
+    """Deselect must leave the monitor on its last real club, not fabricate DR.
+
+    A monitor that models unmeasured fields per club would otherwise apply
+    driver constants to whatever gets hit next.
+    """
+    supervisor._spawn_listener()
+    supervisor.set_active_club("7 Iron")
+    supervisor.set_active_club(None)
+    assert supervisor._listener.pushed_clubs == ["I7"]

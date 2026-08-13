@@ -109,7 +109,8 @@ export function ConnectScreen({ captureStatus }: ConnectScreenProps) {
             <>
               <div className="absolute inset-0 rounded-full border-4 border-garage-amber animate-ping opacity-20" />
               <Wifi className="w-12 h-12 text-garage-amber mb-2 animate-pulse" />
-              <span className="text-garage-amber font-medium text-sm">
+              {/* px-6 + balance keeps the longest label inside the circle. */}
+              <span className="text-garage-amber font-medium text-sm text-center px-6 text-balance leading-tight">
                 {captureStatus?.status === 'paused'
                   ? 'Launch monitor paused'
                   : 'Waiting for a launch monitor…'}

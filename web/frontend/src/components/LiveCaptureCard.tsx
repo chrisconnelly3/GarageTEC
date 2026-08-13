@@ -6,7 +6,7 @@ import { useLiveCaptureSse } from "../lib/useLiveCaptureSse";
 import type { CameraInfo, LiveCaptureStatus, LiveSwingCaptured } from "../lib/types";
 
 /** Live swing capture — keeps a rolling buffer of the bay cameras and, on each
- *  R50 shot, flushes the surrounding window to a clip and runs it through the
+ *  launch-monitor shot, flushes the surrounding window to a clip and runs it through the
  *  normal swing pipeline (auto-pairing the swing to that shot). Hardware-free:
  *  with no camera connected it stays idle and reports source "none". */
 export function LiveCaptureCard() {
@@ -69,8 +69,9 @@ export function LiveCaptureCard() {
         </span>
       </div>
       <p className="text-sm text-[#8B978F]">
-        Records each swing automatically when the R50 reports a shot — no manual
-        trigger. Needs the bay cameras mounted; with none connected it stays idle.
+        Records each swing automatically when the launch monitor reports a shot —
+        no manual trigger. Needs the bay cameras mounted; with none connected it
+        stays idle.
       </p>
 
       <div className="grid grid-cols-2 gap-3">

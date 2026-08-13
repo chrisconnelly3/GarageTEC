@@ -47,7 +47,10 @@ export function CalibrationCard() {
   const [deviceRight, setDeviceRight] = useState("1");  // face-on camera
   const [cols, setCols] = useState("9");
   const [rows, setRows] = useState("6");
-  const [squareIn, setSquareIn] = useState("1.0");      // inches; converted to mm
+  // Millimetres end-to-end: the API takes square_mm, the printable board is
+  // generated in mm, and mm is finer than inches for measuring a small square.
+  // Default matches the board this app prints, so most users never touch it.
+  const [squareMm, setSquareMm] = useState("25");
   const [mono, setMono] = useState(false);              // single-camera test mode
   const [capturing, setCapturing] = useState(false);
   // Opening two USB cameras takes a few seconds with no output of its own, so
@@ -115,7 +118,7 @@ export function CalibrationCard() {
       device_right: mono ? null : (parseInt(deviceRight || "1", 10) || 0),
       cols: parseInt(cols || "9", 10) || 9,
       rows: parseInt(rows || "6", 10) || 6,
-      square_mm: (parseFloat(squareIn || "1") || 1) * 25.4,
+      square_mm: parseFloat(squareMm || "25") || 25,
       mono,
     })
       .then(() => setCapturing(true))
@@ -144,8 +147,8 @@ export function CalibrationCard() {
       <h2 className="text-xl font-semibold text-[#E7EEE9]">Camera Calibration</h2>
       <p className="text-sm text-[#8B978F]">
         Calibration teaches the app where your two bay cameras are, so it can
-        turn their footage into real 3D body angles. Square size is in inches
-        (converted automatically).
+        turn their footage into real 3D body angles. All sizes here are in
+        millimetres.
       </p>
 
       <details className="rounded-xl bg-[#0A0D0B] border border-[#242C27] p-4 text-sm text-[#8B978F] space-y-2">
@@ -160,16 +163,22 @@ export function CalibrationCard() {
         </p>
         <p>
           <span className="text-[#E7EEE9]">What you need: </span>
-          a checkerboard (9×6 inner corners) printed at 100% scale — with
-          &quot;fit to page&quot; turned off — glued flat to a rigid board
-          (foam board, clipboard, MDF). Measure one printed square with a
-          ruler in millimeters; that number matters for accurate size.
+          a checkerboard (9×6 inner corners) glued flat to a rigid board
+          (foam board, clipboard, MDF). Use the button below to print the exact
+          pattern this app expects — no need to hunt for one online.
         </p>
         <p>
-          <span className="text-[#E7EEE9]">Get the board: </span>
-          no need to hunt for one online — this opens the exact pattern this app
-          expects, already sized in real millimetres. Print it at 100% / Actual
-          Size on A4 or Letter, then measure a square to confirm.
+          <span className="text-[#E7EEE9]">Printing it (this part matters): </span>
+          set orientation to <span className="text-[#E7EEE9]">Landscape</span> —
+          the board is wider than it is tall, so Portrait will shrink it to fit
+          and every measurement will be wrong. Set scale to
+          {' '}<span className="text-[#E7EEE9]">100% / Actual Size</span> and turn
+          &quot;fit to page&quot; / &quot;shrink to fit&quot; OFF. Then measure one
+          printed square with a ruler and, if it is not exactly 25&nbsp;mm, type
+          the real number into
+          {' '}<span className="text-[#E7EEE9]">Square size (mm)</span> below —
+          printers are rarely exact, and this number is what makes your 3D
+          numbers metrically correct.
         </p>
         <p>
           <span className="text-[#E7EEE9]">How to wave the board: </span>
@@ -240,9 +249,9 @@ export function CalibrationCard() {
         <label className="text-xs text-[#8B978F]">Inner rows
           <input className="mt-1 w-full bg-[#0A0D0B] rounded p-2 text-[#E7EEE9]"
                  value={rows} onChange={(e) => setRows(e.target.value)} /></label>
-        <label className="text-xs text-[#8B978F]">Square (in)
+        <label className="text-xs text-[#8B978F]">Square size (mm)
           <input className="mt-1 w-full bg-[#0A0D0B] rounded p-2 text-[#E7EEE9]"
-                 value={squareIn} onChange={(e) => setSquareIn(e.target.value)} /></label>
+                 value={squareMm} onChange={(e) => setSquareMm(e.target.value)} /></label>
       </div>
 
       {/* Ship the board rather than making users find a matching one online: a

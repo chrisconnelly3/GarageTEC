@@ -122,9 +122,9 @@ def checkerboard(square_mm: float = 25.0, cols: int = 10, rows: int = 7):
         + f'<text x="{margin:.3f}" y="{label_y:.3f}" font-family="sans-serif" '
           f'font-size="4" fill="#000">'
           f'GarageTEC calibration board &#8212; {square_mm:g} mm squares, '
-          f'{inner} inner corners. Print at 100% / Actual Size (NOT &#8220;fit to '
-          f'page&#8221;), then measure one square with a ruler and enter the real '
-          f'value in the app.'
+          f'{inner} inner corners. Print LANDSCAPE at 100% / Actual Size (NOT '
+          f'&#8220;fit to page&#8221;), then measure one square with a ruler and '
+          f'enter that number as Square size (mm) in the app.'
         f'</text></svg>'
     )
     return Response(content=svg, media_type="image/svg+xml")

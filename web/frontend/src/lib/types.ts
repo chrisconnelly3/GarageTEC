@@ -59,7 +59,15 @@ export interface SessionStats {
   takeaway: string | null;
 }
 export interface ActivePlayerIn { name: string; height_in: number; handedness: Handedness; }
-export interface Settings { idle_minutes: number; units: "yards" | "meters"; port: number; }
+export interface Settings {
+  idle_minutes: number; units: "yards" | "meters"; port: number;
+  has_api_key: boolean; api_key_hint: string;
+  anthropic_api_key?: string; // write-only: accepted by PUT, never returned by GET
+}
+export interface OpenFlightConnector {
+  connectors: { type: string; enabled: boolean; host: string; port: number; device_id: string }[];
+}
+export interface SetupInfo { lan_ip: string; port: number; openflight_connector: OpenFlightConnector; }
 export interface PlayerWithCounts extends Player { swing_count: number; session_count: number; }
 export interface SwingSummary {
   id: number; created_at: string; club: string | null; has_shot: boolean;

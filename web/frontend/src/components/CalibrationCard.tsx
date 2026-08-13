@@ -103,9 +103,68 @@ export function CalibrationCard() {
     <div className="rounded-2xl bg-[#1A211D] p-6 space-y-4">
       <h2 className="text-xl font-semibold text-[#E7EEE9]">Camera Calibration</h2>
       <p className="text-sm text-[#8B978F]">
-        Recalibrate the bay cameras if they've been moved. See the calibration guide
-        for the checkerboard. Square size is in inches (converted automatically).
+        Calibration teaches the app where your two bay cameras are, so it can
+        turn their footage into real 3D body angles. Square size is in inches
+        (converted automatically).
       </p>
+
+      <details className="rounded-xl bg-[#0A0D0B] border border-[#242C27] p-4 text-sm text-[#8B978F] space-y-2">
+        <summary className="cursor-pointer text-[#E7EEE9] font-medium select-none">
+          How calibration works
+        </summary>
+        <p>
+          <span className="text-[#E7EEE9]">What it is: </span>
+          calibration shows both cameras a known checkerboard pattern so the
+          software can work out each camera's lens fingerprint and exactly
+          how far apart and at what angle the two cameras sit.
+        </p>
+        <p>
+          <span className="text-[#E7EEE9]">What you need: </span>
+          a checkerboard (9×6 inner corners) printed at 100% scale — with
+          &quot;fit to page&quot; turned off — glued flat to a rigid board
+          (foam board, clipboard, MDF). Measure one printed square with a
+          ruler in millimeters; that number matters for accurate size.
+        </p>
+        <p>
+          <span className="text-[#E7EEE9]">How to wave the board: </span>
+          move it through lots of positions (center, left, right, near, far)
+          and tilts (flat, tilted left/right, angled toward/away). Keep the
+          whole board visible to both cameras and hold each pose still for
+          about a second. Aim for 20–40 good poses.
+        </p>
+        <p>
+          <span className="text-[#E7EEE9]">How to verify: </span>
+          after calibrating, take a normal swing. A tour-quality swing should
+          read roughly 89° shoulder turn and 48° hip turn at the top of the
+          backswing. Numbers wildly off (10°, or 200°) mean something's
+          wrong — recapture.
+        </p>
+        <p className="text-xs">
+          Full guide:{' '}
+          <code className="bg-[#1A211D] px-1.5 py-0.5 rounded">
+            docs/guides/bay-camera-calibration-guide.md
+          </code>
+        </p>
+      </details>
+
+      {active && !capturing && (
+        <div className="rounded-xl border border-[#242C27] bg-[#0A0D0B] p-4 space-y-2">
+          <p className="text-sm text-[#E7EEE9]">
+            Active calibration: #{active.id} · {active.n_poses} poses ·{' '}
+            {active.reprojection_error.toFixed(2)}px reprojection error ·{' '}
+            {active.created_at}
+          </p>
+          <p className="text-xs text-[#8B978F]">
+            Recalibrate any time a camera gets bumped or moved — calibration
+            is a measurement of where the cameras are, so it goes stale the
+            moment they shift.
+          </p>
+          <button onClick={onStart}
+            className="px-4 py-2 rounded-lg bg-garage-green text-[#0A0D0B] font-medium min-h-[44px]">
+            Recalibrate
+          </button>
+        </div>
+      )}
 
       {(() => {
         const opts = cameras.length ? cameras
@@ -171,17 +230,27 @@ export function CalibrationCard() {
         </p>
       )}
 
-      <div className="flex gap-3">
-        {!capturing
-          ? <button onClick={onStart}
-              className="px-4 py-2 rounded-lg bg-[#79BC30] text-[#0A0D0B] font-medium">Start Capture</button>
-          : <button onClick={onStop}
-              className="px-4 py-2 rounded-lg bg-[#2A332C] text-[#E7EEE9]">Stop</button>}
-        <button onClick={onRun} disabled={goodPoses < minPoses}
-          className="px-4 py-2 rounded-lg bg-[#2A332C] text-[#E7EEE9] disabled:opacity-40">
-          Run Calibration</button>
-        <a href="/api/calibration/export"
-          className="px-4 py-2 rounded-lg bg-[#2A332C] text-[#E7EEE9]">Export</a>
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+        <div className="space-y-1">
+          <p className="text-xs font-semibold text-[#8B978F]">1. Capture poses</p>
+          <p className="text-[11px] text-[#8B978F]">
+            Starts recording checkerboard poses from the cameras.
+          </p>
+          {!capturing
+            ? <button onClick={onStart}
+                className="px-4 py-2 rounded-lg bg-[#79BC30] text-[#0A0D0B] font-medium min-h-[44px]">Start Capture</button>
+            : <button onClick={onStop}
+                className="px-4 py-2 rounded-lg bg-[#2A332C] text-[#E7EEE9] min-h-[44px]">Stop</button>}
+        </div>
+        <div className="space-y-1">
+          <p className="text-xs font-semibold text-[#8B978F]">2. Calculate calibration</p>
+          <p className="text-[11px] text-[#8B978F]">
+            Computes the result from the poses just captured (needs {minPoses}+ good poses).
+          </p>
+          <button onClick={onRun} disabled={goodPoses < minPoses}
+            className="px-4 py-2 rounded-lg bg-[#2A332C] text-[#E7EEE9] disabled:opacity-40 min-h-[44px]">
+            Run Calibration</button>
+        </div>
       </div>
 
       {result && (
@@ -191,12 +260,6 @@ export function CalibrationCard() {
             : `✗ ${result.error}`}
         </div>
       )}
-      {active && (
-        <div className="text-xs text-[#8B978F]">
-          Active: #{active.id} · {active.n_poses} poses · {active.reprojection_error.toFixed(2)}px · {active.created_at}
-        </div>
-      )}
-
       {/* History list */}
       <div className="space-y-2">
         <h3 className="text-sm font-medium text-[#8B978F]">History</h3>

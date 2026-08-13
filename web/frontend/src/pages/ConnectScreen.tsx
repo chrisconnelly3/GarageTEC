@@ -1,11 +1,12 @@
 import { useEffect, useState } from 'react'
-import { Wifi, Smartphone, Settings, CheckCircle2 } from 'lucide-react'
+import { Wifi, Settings, CheckCircle2, Eye, EyeOff } from 'lucide-react'
 import { cn } from '../lib/utils'
 import { useApi } from '../lib/useApi'
-import { getSettings, putSettings, restartCapture } from '../lib/api'
+import { getSettings, putSettings, restartCapture, getSetupInfo } from '../lib/api'
 import type { CaptureStatus } from '../lib/types'
 import { CalibrationCard } from '../components/CalibrationCard'
 import { LiveCaptureCard } from '../components/LiveCaptureCard'
+import { MonitorSetupCards } from '../components/MonitorSetupCards'
 
 interface ConnectScreenProps {
   captureStatus: CaptureStatus | null
@@ -16,11 +17,18 @@ export function ConnectScreen({ captureStatus }: ConnectScreenProps) {
     ? 'connected'
     : 'waiting'
 
-  const { data: settings } = useApi(getSettings, [])
+  const { data: settings, reload: reloadSettings } = useApi(getSettings, [])
+  const { data: setupInfo } = useApi(getSetupInfo, [])
   const [idleTimeout, setIdleTimeout] = useState('15')
   const [units, setUnits] = useState<'Yards' | 'Meters'>('Yards')
   const [port, setPort] = useState('921')
   const [saved, setSaved] = useState(false)
+
+  // AI coach API key
+  const [apiKeyInput, setApiKeyInput] = useState('')
+  const [showKey, setShowKey] = useState(false)
+  const [keyStatus, setKeyStatus] = useState<'idle' | 'saving' | 'saved' | 'error'>('idle')
+  const [keyError, setKeyError] = useState('')
 
   useEffect(() => {
     if (settings) {
@@ -48,14 +56,42 @@ export function ConnectScreen({ captureStatus }: ConnectScreenProps) {
       .catch(() => {})
   }
 
+  const onSaveKey = () => {
+    if (!apiKeyInput) return
+    setKeyStatus('saving')
+    putSettings({ anthropic_api_key: apiKeyInput })
+      .then(() => {
+        setApiKeyInput('')
+        setKeyStatus('saved')
+        reloadSettings()
+        setTimeout(() => setKeyStatus('idle'), 2500)
+      })
+      .catch((e) => {
+        setKeyStatus('error')
+        setKeyError(String(e?.message || e))
+      })
+  }
+
+  const onRemoveKey = () => {
+    putSettings({ anthropic_api_key: '' })
+      .then(() => { reloadSettings(); setKeyStatus('idle') })
+      .catch(() => {})
+  }
+
+  const connectedLabel = captureStatus?.openflight_host
+    ? 'OpenFlight connected'
+    : 'Launch monitor connected'
+
   return (
     <div className="h-full flex flex-col p-6 space-y-8 overflow-y-auto max-w-5xl mx-auto w-full">
       <div className="text-center space-y-2 mt-4">
         <h1 className="text-3xl font-semibold text-[#E7EEE9]">
-          Connect your R50
+          Connect your launch monitor
         </h1>
         <p className="text-[#8B978F]">
-          Follow these steps to link your Garmin launch monitor.
+          GarageTEC works with either a Garmin R50 or an OpenFlight radar —
+          it detects automatically which one is connected. Follow the setup
+          card below for the monitor you own.
         </p>
       </div>
 
@@ -75,8 +111,8 @@ export function ConnectScreen({ captureStatus }: ConnectScreenProps) {
               <Wifi className="w-12 h-12 text-garage-amber mb-2 animate-pulse" />
               <span className="text-garage-amber font-medium text-sm">
                 {captureStatus?.status === 'paused'
-                  ? 'R50 Paused'
-                  : 'Waiting for R50...'}
+                  ? 'Launch monitor paused'
+                  : 'Waiting for a launch monitor…'}
               </span>
             </>
           )}
@@ -84,7 +120,7 @@ export function ConnectScreen({ captureStatus }: ConnectScreenProps) {
             <>
               <CheckCircle2 className="w-12 h-12 text-garage-green mb-2" />
               <span className="text-garage-green font-bold text-lg">
-                Connected
+                {connectedLabel}
               </span>
               <span className="text-garage-green/80 text-xs font-mono mt-1">
                 {captureStatus?.shot_count ?? 0} shots
@@ -114,50 +150,90 @@ export function ConnectScreen({ captureStatus }: ConnectScreenProps) {
         )}
       </div>
 
-      {/* 3-Step Wizard */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-        {[
-          {
-            step: 1,
-            icon: Smartphone,
-            title: 'On the R50',
-            desc: "Tap 'Connect', then select 'GSPro' mode.",
-          },
-          {
-            step: 2,
-            icon: Wifi,
-            title: 'Join Wi-Fi',
-            desc: "Connect this PC to the R50's Wi-Fi network.",
-          },
-          {
-            step: 3,
-            icon: CheckCircle2,
-            title: 'Take a Swing',
-            desc: 'Shots will appear automatically once linked.',
-          },
-        ].map((s) => (
-          <div
-            key={s.step}
-            className="bg-[#121714] border border-[#242C27] rounded-[24px] p-6 relative overflow-hidden"
-          >
-            <div className="text-[100px] font-bold text-[#1A211D] absolute -top-6 -right-4 leading-none select-none pointer-events-none">
-              {s.step}
-            </div>
-            <div className="relative z-10">
-              <div className="w-12 h-12 bg-[#1A211D] rounded-full flex items-center justify-center mb-4 border border-[#242C27]">
-                <s.icon className="w-6 h-6 text-garage-green" />
+      {/* Per-monitor setup cards */}
+      <MonitorSetupCards setupInfo={setupInfo} />
+
+      {/* AI Coach */}
+      <div className="bg-[#121714] border border-[#242C27] rounded-[24px] p-6 space-y-4">
+        <h3 className="text-lg font-semibold text-[#E7EEE9]">AI Coach</h3>
+        <p className="text-sm text-[#8B978F]">
+          The AI coach is optional — capture, metrics, tour benchmarks, and
+          trends all work without it. Turning it on needs your own personal
+          Anthropic API key, and usage is billed to whoever owns that key.
+        </p>
+
+        {settings?.has_api_key ? (
+          <div className="space-y-3">
+            <p className="text-sm text-[#E7EEE9]">
+              Key saved:{' '}
+              <span className="font-mono text-[#8B978F]">{settings.api_key_hint}</span>
+            </p>
+            <button
+              onClick={onRemoveKey}
+              className="px-4 py-2 rounded-xl bg-[#1A211D] border border-[#242C27] text-[#E7EEE9] min-h-[44px] hover:brightness-110 transition"
+            >
+              Remove
+            </button>
+          </div>
+        ) : (
+          <div className="space-y-3">
+            <label className="text-xs uppercase tracking-wider text-[#8B978F] font-semibold">
+              Anthropic API key
+            </label>
+            <div className="flex flex-col sm:flex-row gap-3">
+              <div className="relative flex-1">
+                <input
+                  type={showKey ? 'text' : 'password'}
+                  value={apiKeyInput}
+                  onChange={(e) => setApiKeyInput(e.target.value)}
+                  placeholder="sk-ant-…"
+                  className="w-full bg-[#1A211D] border border-[#242C27] rounded-xl pl-4 pr-12 py-3 text-[#E7EEE9] focus:border-garage-green outline-none min-h-[44px] font-mono"
+                />
+                <button
+                  onClick={() => setShowKey((s) => !s)}
+                  aria-label={showKey ? 'Hide key' : 'Show key'}
+                  className="absolute right-2 top-1/2 -translate-y-1/2 p-2 text-[#8B978F] hover:text-[#E7EEE9] min-h-[36px] min-w-[36px]"
+                >
+                  {showKey ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                </button>
               </div>
-              <h3 className="text-lg font-semibold text-[#E7EEE9] mb-2">
-                Step {s.step}: {s.title}
-              </h3>
-              <p className="text-[#8B978F] text-sm leading-relaxed">{s.desc}</p>
+              <button
+                onClick={onSaveKey}
+                disabled={!apiKeyInput || keyStatus === 'saving'}
+                className="bg-garage-green text-[#0A0D0B] font-semibold rounded-xl px-6 py-3 min-h-[44px] hover:brightness-110 transition disabled:opacity-40"
+              >
+                {keyStatus === 'saving' ? 'Saving…' : 'Save'}
+              </button>
             </div>
           </div>
-        ))}
+        )}
+
+        {keyStatus === 'saved' && (
+          <p className="text-sm text-garage-green">AI coach enabled</p>
+        )}
+        {keyStatus === 'error' && (
+          <p className="text-sm text-garage-red">{keyError}</p>
+        )}
+
+        <div className="text-xs text-[#8B978F] space-y-1 pt-2 border-t border-[#242C27]">
+          <p className="font-semibold text-[#8B978F]">How to get a key</p>
+          <ol className="list-decimal list-inside space-y-0.5">
+            <li>
+              Go to{' '}
+              <span className="font-mono text-[#E7EEE9] select-all">
+                console.anthropic.com
+              </span>
+            </li>
+            <li>Sign in</li>
+            <li>Open &apos;API keys&apos;</li>
+            <li>Click &apos;Create key&apos;</li>
+            <li>Copy it, then paste it above</li>
+          </ol>
+        </div>
       </div>
 
       {/* Settings Card */}
-      <div className="bg-[#121714] border border-[#242C27] rounded-[24px] p-6 mt-auto">
+      <div className="bg-[#121714] border border-[#242C27] rounded-[24px] p-6">
         <div className="flex items-center space-x-2 mb-6">
           <Settings className="w-5 h-5 text-[#8B978F]" />
           <h3 className="text-lg font-semibold text-[#E7EEE9]">

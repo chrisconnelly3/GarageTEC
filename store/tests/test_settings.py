@@ -3,7 +3,8 @@ from store import repo
 
 def test_get_settings_returns_defaults_when_empty(db):
     s = repo.get_settings(db)
-    assert s == {"idle_minutes": 15, "units": "yards", "port": 921}
+    assert s == {"idle_minutes": 15, "units": "yards", "port": 921,
+                 "anthropic_api_key": ""}
 
 
 def test_save_settings_upserts_and_merges(db):
@@ -14,7 +15,8 @@ def test_save_settings_upserts_and_merges(db):
     # partial update overwrites only provided keys
     repo.save_settings(db, {"units": "meters"})
     s2 = repo.get_settings(db)
-    assert s2 == {"idle_minutes": 30, "units": "meters", "port": 922}
+    assert s2 == {"idle_minutes": 30, "units": "meters", "port": 922,
+                  "anthropic_api_key": ""}
 
 
 def test_get_settings_coerces_types(db):

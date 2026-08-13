@@ -1,7 +1,8 @@
 def test_get_settings_defaults(client):
     r = client.get("/api/settings")
     assert r.status_code == 200
-    assert r.json() == {"idle_minutes": 15, "units": "yards", "port": 921}
+    assert r.json() == {"idle_minutes": 15, "units": "yards", "port": 921,
+                        "has_api_key": False, "api_key_hint": ""}
 
 
 def test_put_settings_merges_and_returns_full(client):

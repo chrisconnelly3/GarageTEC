@@ -38,12 +38,15 @@ def get_player(conn, player_id):
                   handedness=row["handedness"], created_at=row["created_at"])
 
 
-SETTINGS_DEFAULTS = {"idle_minutes": 15, "units": "yards", "port": 921}
+SETTINGS_DEFAULTS = {"idle_minutes": 15, "units": "yards", "port": 921,
+                     "anthropic_api_key": ""}
 
 
 def get_settings(conn):
     """Single global settings dict. Missing keys fall back to defaults;
-    idle_minutes/port are coerced to int."""
+    idle_minutes/port are coerced to int. anthropic_api_key stays a plain
+    string (the raw key) — callers that expose this over the API must mask
+    it themselves; internal callers (e.g. app startup) need the real value."""
     rows = conn.execute("SELECT key, value FROM settings").fetchall()
     stored = {r["key"]: r["value"] for r in rows}
     out = dict(SETTINGS_DEFAULTS)
@@ -55,6 +58,8 @@ def get_settings(conn):
                 pass
     if "units" in stored and stored["units"]:
         out["units"] = stored["units"]
+    if "anthropic_api_key" in stored and stored["anthropic_api_key"] is not None:
+        out["anthropic_api_key"] = stored["anthropic_api_key"]
     return out
 
 
